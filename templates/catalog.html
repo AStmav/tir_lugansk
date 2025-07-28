@@ -20,8 +20,7 @@
                     <div class="navbar__content">
                         <div class="navbar__block">
                             <div class="navbar__block-brand">
-                                <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="TIR-LUGANSK" /></a>
-                                <p>Запчасти для грузовиков <span>в Ростове-на-Дону</span></p>
+                                <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="Tir Lugansk"></a>
                             </div>
                         </div>
                         <div class="navbar__block">
@@ -197,9 +196,9 @@
                                         {% empty %}
                                         <div class="catalog__empty">
                                             <p>Товары не найдены</p>
-                                        </div>
+                                            </div>
                                         {% endfor %}
-                                    </div>
+                                            </div>
                                     
                                     {% if is_paginated %}
                                     <div class="catalog__pagination">
@@ -215,7 +214,7 @@
                                                 <a href="?page={{ num }}">{{ num }}</a>
                                                 {% endif %}
                                             {% endfor %}
-                                        </div>
+                                            </div>
                                         
                                         {% if page_obj.has_next %}
                                         <a href="?page={{ page_obj.next_page_number }}" class="pagination__next">→</a>
@@ -237,7 +236,6 @@
                             <a href="{% url 'pages:home' %}">
                                 <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
                             </a>
-                            <p>Запчасти для грузовиков<br>в Ростове-на-Дону</p>
                         </div>
                     </div>
                     <div class="footer__block">
@@ -459,11 +457,11 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        closeModal('callModal');
-                        openModal('successModal');
-                        
-                        // Сброс формы
-                        callForm.reset();
+                    closeModal('callModal');
+                    openModal('successModal');
+                    
+                    // Сброс формы
+                    callForm.reset();
                     } else {
                         alert(data.message || 'Произошла ошибка при отправке заявки');
                     }

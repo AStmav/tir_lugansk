@@ -21,7 +21,6 @@
                     <div class="navbar__block">
                         <div class="navbar__block-brand">
                             <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="Tir Lugansk"></a>
-                            <p>Запчасти для грузовиков <span>в Ростове-на-Дону</span></p>
                         </div>
                     </div>
                     <div class="navbar__block">
@@ -146,10 +145,10 @@
                                     </div>
                                     {% empty %}
                                     <div class="swiper-slide">
-                                        <div class="product-card">
-                                            <div class="product-badge">-24%</div>
+                                        <a href="#" class="product-card">
+                                            <div class="product-badge">Хит 2024</div>
                                             <div class="product-image">
-                                                <img src="{% static 'img/product_1.png' %}" alt="1">
+                                                <img src="{% static 'img/product_1.png' %}" alt="Пневмоцилиндр горного тормоза">
                                             </div>
                                             <div class="product-content">
                                                 <h3 class="product-title">Пневмоцилиндр горного тормоза / AUGER</h3>
@@ -168,7 +167,7 @@
                                                     </div>
                                                     <div class="product-detail">
                                                         <span class="detail-label">Применяемость:</span>
-                                                        <span class="detail-value">Текст</span>
+                                                        <span class="detail-value">Грузовые автомобили</span>
                                                     </div>
                                                 </div>
                                                 <div class="product-footer">
@@ -178,20 +177,20 @@
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </a>
                                     </div>
                                     {% endfor %}
-                                </div>
+                                            </div>
                                 <div class="swiper-pagination"></div>
                                 <div class="swiper-button-next"></div>
                                 <div class="swiper-button-prev"></div>
-                            </div>
-                        </div>
-                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                     <div class="products__news">
                         <div class="products__often-title">
                             <h2>Новые товары в нашем магазине</h2>
-                        </div>
+                                    </div>
                         <div class="products__often-list">
                             <div class="swiper products-slider">
                                 <div class="swiper-wrapper">
@@ -237,39 +236,39 @@
                                     </div>
                                     {% empty %}
                                     <div class="swiper-slide">
-                                        <div class="product-card">
-                                            <div class="product-badge">Хит 2022</div>
+                                        <a href="#" class="product-card">
+                                            <div class="product-badge">Новый</div>
                                             <div class="product-image">
-                                                <img src="{% static 'img/product_1.png' %}" alt="1">
+                                                <img src="{% static 'img/product_1.png' %}" alt="Тормозные колодки">
                                             </div>
                                             <div class="product-content">
-                                                <h3 class="product-title">Пневмоцилиндр горного тормоза / AUGER</h3>
+                                                <h3 class="product-title">Тормозные колодки / SACHS</h3>
                                                 <div class="product-details">
                                                     <div class="product-detail">
                                                         <span class="detail-label">Код:</span>
-                                                        <span class="detail-value">6234262</span>
+                                                        <span class="detail-value">09680103961</span>
                                                     </div>
                                                     <div class="product-detail">
                                                         <span class="detail-label">Каталожный номер:</span>
-                                                        <span class="detail-value">6234262</span>
+                                                        <span class="detail-value">09680103961</span>
                                                     </div>
                                                     <div class="product-detail">
                                                         <span class="detail-label">Производитель:</span>
-                                                        <span class="detail-value">AUGER</span>
+                                                        <span class="detail-value">SACHS</span>
                                                     </div>
                                                     <div class="product-detail">
                                                         <span class="detail-label">Применяемость:</span>
-                                                        <span class="detail-value">Текст</span>
+                                                        <span class="detail-value">Грузовые автомобили</span>
                                                     </div>
                                                 </div>
                                                 <div class="product-footer">
-                                                    <div class="product-price">18 890 ₽</div>
+                                                    <div class="product-price">4 850 ₽</div>
                                                     <button class="product-btn">
                                                         <img src="{% static 'img/ico/back.svg' %}" alt="cart">
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </a>
                                     </div>
                                     {% endfor %}
                                 </div>
@@ -329,7 +328,6 @@
                         <a href="{% url 'pages:home' %}">
                             <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
                         </a>
-                        <p>Запчасти для грузовиков<br>в Ростове-на-Дону</p>
                     </div>
                 </div>
                 <div class="footer__block">
@@ -590,11 +588,11 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        closeModal('callModal');
-                        openModal('successModal');
-                        
-                        // Сброс формы
-                        callForm.reset();
+                    closeModal('callModal');
+                    openModal('successModal');
+                    
+                    // Сброс формы
+                    callForm.reset();
                     } else {
                         alert(data.message || 'Произошла ошибка при отправке заявки');
                     }
