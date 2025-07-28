@@ -1,0 +1,509 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Ассортимент запчастей - Tir Lugansk</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+        <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    
+        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon_io/apple-touch-icon.png' %}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
+        <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+    </head>
+    <body>
+        <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
+            <div class="navbar">
+                <div class="container">
+                    <div class="navbar__content">
+                        <div class="navbar__block">
+                            <div class="navbar__block-brand">
+                                <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="TIR-LUGANSK" /></a>
+                                <p>Запчасти для грузовиков <span>в Ростове-на-Дону</span></p>
+                            </div>
+                        </div>
+                        <div class="navbar__block">
+                            <div class="navbar__block-contact">
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    </a>
+                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                </div>
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    </a>
+                                    <a href="#" class="call-modal-trigger">Заказать звонок</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="menu__content">
+                        <div class="menu__links">
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li class="menu__links-active"><a href="{% url 'shop:catalog' %}">Ассортимент запчастей</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main>
+            <section class="catalog">
+                <div class="container">
+                    <div class="catalog__content">
+                        <div class="catalog__header">
+                            <h1>Ассортимент запчастей</h1>
+                        </div>
+                        
+                        <div class="catalog__layout">
+                            <aside class="catalog__sidebar">
+                                <form method="get" id="filterForm" class="catalog__filters">
+                                    <h3>ФИЛЬТРЫ</h3>
+                                    
+                                    <div class="filter-group">
+                                        <h4>КАТЕГОРИИ</h4>
+                                        <div class="filter-options">
+                                            {% for category in categories %}
+                                            <label class="filter-option">
+                                                <input type="checkbox" name="category" value="{{ category.slug }}" 
+                                                       {% if category.slug in selected_categories %}checked{% endif %}>
+                                                <span>{{ category.name }}</span>
+                                            </label>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-group">
+                                        <h4>БРЕНДЫ</h4>
+                                        <div class="filter-options">
+                                            {% for brand in brands %}
+                                            <label class="filter-option">
+                                                <input type="checkbox" name="brand" value="{{ brand.slug }}"
+                                                       {% if brand.slug in selected_brands %}checked{% endif %}>
+                                                <span>{{ brand.name }}</span>
+                                            </label>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-group">
+                                        <h4>ЦЕНА</h4>
+                                        <div class="price-range">
+                                            <div class="price-inputs">
+                                                <input type="number" name="min_price" placeholder="От" class="price-input" 
+                                                       value="{{ request.GET.min_price|default:'' }}">
+                                                <input type="number" name="max_price" placeholder="До" class="price-input"
+                                                       value="{{ request.GET.max_price|default:'' }}">
+                                            </div>
+                                            <button type="submit" class="price-apply">Применить</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-group">
+                                        <h4>СОРТИРОВКА</h4>
+                                        <div class="filter-options">
+                                            <label class="filter-option">
+                                                <input type="radio" name="sort" value="newest" 
+                                                       {% if request.GET.sort == 'newest' or not request.GET.sort %}checked{% endif %}>
+                                                <span>Сначала новые</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="radio" name="sort" value="price_asc"
+                                                       {% if request.GET.sort == 'price_asc' %}checked{% endif %}>
+                                                <span>По цене (возрастанию)</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="radio" name="sort" value="price_desc"
+                                                       {% if request.GET.sort == 'price_desc' %}checked{% endif %}>
+                                                <span>По цене (убыванию)</span>
+                                            </label>
+                                            <label class="filter-option">
+                                                <input type="radio" name="sort" value="name"
+                                                       {% if request.GET.sort == 'name' %}checked{% endif %}>
+                                                <span>По названию</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" class="filters-reset" onclick="resetFilters()">СБРОСИТЬ ФИЛЬТРЫ</button>
+                                </form>
+                            </aside>
+                            
+                            <div class="catalog__main">
+                                <div class="catalog__toolbar">
+                                    <div class="catalog__count">Показано 1-12 из 256 товаров</div>
+                                    <div class="catalog__sort">
+                                        <label>По популярности</label>
+                                        <select>
+                                            <option>По популярности</option>
+                                            <option>По цене (возрастанию)</option>
+                                            <option>По цене (убыванию)</option>
+                                            <option>По названию</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="catalog__products">
+                                    <div class="catalog__grid">
+                                        {% for product in products %}
+                                        <a href="{{ product.get_absolute_url }}" class="product-card">
+                                            {% if product.old_price and product.old_price > product.price %}
+                                            <div class="product-badge">-{{ product.discount_percent }}%</div>
+                                            {% endif %}
+                                            <div class="product-image">
+                                                {% if product.images.first %}
+                                                <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
+                                                {% else %}
+                                                <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                                {% endif %}
+                                            </div>
+                                            <div class="product-content">
+                                                <h3 class="product-title">{{ product.name }}</h3>
+                                                <div class="product-details">
+                                                    <div class="product-detail">
+                                                        <span class="detail-label">Код:</span>
+                                                        <span class="detail-value">{{ product.code }}</span>
+                                                    </div>
+                                                    <div class="product-detail">
+                                                        <span class="detail-label">Каталожный номер:</span>
+                                                        <span class="detail-value">{{ product.catalog_number }}</span>
+                                                    </div>
+                                                    <div class="product-detail">
+                                                        <span class="detail-label">Производитель:</span>
+                                                        <span class="detail-value">{{ product.brand.name }}</span>
+                                                    </div>
+                                                    <div class="product-detail">
+                                                        <span class="detail-label">Применяемость:</span>
+                                                        <span class="detail-value">{{ product.applicability|default:"Уточняйте" }}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="product-footer">
+                                                    <div class="product-price">{{ product.price }} ₽</div>
+                                                    <button class="product-btn">
+                                                        <img src="{% static 'img/ico/back.svg' %}" alt="cart">
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </a>
+                                        {% empty %}
+                                        <div class="catalog__empty">
+                                            <p>Товары не найдены</p>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    {% if is_paginated %}
+                                    <div class="catalog__pagination">
+                                        {% if page_obj.has_previous %}
+                                        <a href="?page={{ page_obj.previous_page_number }}" class="pagination__prev">←</a>
+                                        {% endif %}
+                                        
+                                        <div class="pagination__pages">
+                                            {% for num in page_obj.paginator.page_range %}
+                                                {% if page_obj.number == num %}
+                                                <span class="pagination__current">{{ num }}</span>
+                                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                                <a href="?page={{ num }}">{{ num }}</a>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        
+                                        {% if page_obj.has_next %}
+                                        <a href="?page={{ page_obj.next_page_number }}" class="pagination__next">→</a>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <footer class="footer">
+            <div class="container">
+                <div class="footer__content">
+                    <div class="footer__block">
+                        <div class="footer__block-brand">
+                            <a href="{% url 'pages:home' %}">
+                                <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
+                            </a>
+                            <p>Запчасти для грузовиков<br>в Ростове-на-Дону</p>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__links">
+                            <h3>Ссылки</h3>
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__contacts">
+                            <h3>Контакты</h3>
+                            <div class="footer__contacts-item">
+                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                            </div>
+                            <div class="footer__contacts-item">
+                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__social">
+                            <a href="#"><img src="{% static 'img/ico/telegram.svg' %}" alt="telegram"></a>
+                            <a href="#"><img src="{% static 'img/ico/whatsapp.svg' %}" alt="whatsapp"></a>
+                            <a href="#"><img src="{% static 'img/ico/viber.svg' %}" alt="viber"></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer__copy">
+                    <p>© 2025 tir-lugansk.ru</p>
+                </div>
+            </div>
+        </footer>
+    
+    <div class="modal" id="callModal">
+        <div class="modal__overlay">
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3 class="modal__title">Заказать звонок</h3>
+                    <button class="modal__close" type="button">&times;</button>
+                </div>
+                <div class="modal__body">
+                    <form class="modal__form" id="callForm">
+                        <div class="modal__field">
+                            <label class="modal__label" for="userName">Ваше имя</label>
+                            <input class="modal__input" type="text" id="userName" name="userName" placeholder="Введите ваше имя" required>
+                        </div>
+                        <div class="modal__field">
+                            <label class="modal__label" for="userPhone">Номер телефона</label>
+                            <input class="modal__input" type="tel" id="userPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                        </div>
+                        <button class="modal__button" type="submit">Заказать звонок</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="successModal">
+        <div class="modal__overlay">
+            <div class="modal__content">
+                <div class="modal__header">
+                    <h3 class="modal__title">Заявка отправлена</h3>
+                    <button class="modal__close" type="button">&times;</button>
+                </div>
+                <div class="modal__body">
+                    <div class="modal__success-icon">✓</div>
+                    <div class="modal__success-text">
+                        <h3>Спасибо за заявку!</h3>
+                        <p>Мы свяжемся с вами в ближайшее время для уточнения деталей.</p>
+                    </div>
+                    <button class="modal__button" type="button" onclick="closeModal('successModal')">Понятно</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Модальные окна
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('modal--active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('modal--active');
+            document.body.style.overflow = '';
+        }
+
+        // Открытие модального окна заказа звонка
+        document.addEventListener('DOMContentLoaded', function() {
+            const callTriggers = document.querySelectorAll('.call-modal-trigger');
+            
+            callTriggers.forEach(trigger => {
+                trigger.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openModal('callModal');
+                });
+            });
+
+            // Закрытие модального окна по клику на overlay или кнопку закрытия
+            document.querySelectorAll('.modal').forEach(modal => {
+                const overlay = modal.querySelector('.modal__overlay');
+                const closeBtn = modal.querySelector('.modal__close');
+                
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) {
+                        closeModal(modal.id);
+                    }
+                });
+                
+                closeBtn.addEventListener('click', function() {
+                    closeModal(modal.id);
+                });
+            });
+
+            // Закрытие по ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal--active').forEach(modal => {
+                        closeModal(modal.id);
+                    });
+                }
+            });
+        });
+
+        // Маска для телефона
+        function setPhoneMask() {
+            const phoneInput = document.getElementById('userPhone');
+            
+            phoneInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value.length === 0) {
+                    e.target.value = '';
+                    return;
+                }
+                
+                if (value[0] === '8') {
+                    value = '7' + value.slice(1);
+                }
+                
+                if (value[0] !== '7') {
+                    value = '7' + value;
+                }
+                
+                let formattedValue = '+7';
+                
+                if (value.length > 1) {
+                    formattedValue += ' (' + value.slice(1, 4);
+                }
+                if (value.length >= 5) {
+                    formattedValue += ') ' + value.slice(4, 7);
+                }
+                if (value.length >= 8) {
+                    formattedValue += '-' + value.slice(7, 9);
+                }
+                if (value.length >= 10) {
+                    formattedValue += '-' + value.slice(9, 11);
+                }
+                
+                e.target.value = formattedValue;
+            });
+
+            phoneInput.addEventListener('keydown', function(e) {
+                // Разрешаем только цифры, Backspace, Delete, Tab, Escape, Enter
+                if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' || 
+                    e.key === 'Escape' || e.key === 'Enter' || 
+                    (e.key >= '0' && e.key <= '9')) {
+                    return;
+                }
+                e.preventDefault();
+            });
+        }
+
+        // Обработка формы
+        document.addEventListener('DOMContentLoaded', function() {
+            setPhoneMask();
+            
+            const callForm = document.getElementById('callForm');
+            
+            callForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(callForm);
+                const name = formData.get('userName');
+                const phone = formData.get('userPhone');
+                
+                // Проверка заполненности полей
+                if (!name.trim() || !phone.trim()) {
+                    alert('Пожалуйста, заполните все поля');
+                    return;
+                }
+                
+                // Проверка корректности номера телефона
+                const phoneDigits = phone.replace(/\D/g, '');
+                if (phoneDigits.length !== 11) {
+                    alert('Пожалуйста, введите корректный номер телефона');
+                    return;
+                }
+                
+                // Отправка данных на сервер
+                const submitBtn = callForm.querySelector('.modal__button');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Отправляем...';
+                
+                fetch('{% url "pages:call_request" %}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeModal('callModal');
+                        openModal('successModal');
+                        
+                        // Сброс формы
+                        callForm.reset();
+                    } else {
+                        alert(data.message || 'Произошла ошибка при отправке заявки');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Произошла ошибка при отправке заявки');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Заказать звонок';
+                });
+            });
+        });
+
+        // Автоматическая отправка формы при изменении фильтров
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterForm = document.getElementById('filterForm');
+            const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
+            const radioButtons = filterForm.querySelectorAll('input[type="radio"]');
+            
+            // Отправка формы при изменении чекбоксов
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            });
+            
+            // Отправка формы при изменении радиокнопок
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            });
+        });
+        
+        // Сброс фильтров
+        function resetFilters() {
+            window.location.href = '{% url "shop:catalog" %}';
+        }
+    </script>
+</body>
+</html> 

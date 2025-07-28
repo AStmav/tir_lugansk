@@ -1,0 +1,430 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ product.name }} - Tir Lugansk</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+        <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    
+        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon_io/apple-touch-icon.png' %}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
+        <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+    </head>
+    <body>
+        <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
+            <div class="navbar">
+                <div class="container">
+                    <div class="navbar__content">
+                        <div class="navbar__block">
+                            <div class="navbar__block-brand">
+                                <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="TIR-LUGANSK" /></a>
+                                <p>Запчасти для грузовиков <span>в Ростове-на-Дону</span></p>
+                            </div>
+                        </div>
+                        <div class="navbar__block">
+                            <div class="navbar__block-contact">
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    </a>
+                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                </div>
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    </a>
+                                    <a href="#" class="call-modal-trigger">Заказать звонок</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="menu__content">
+                        <div class="menu__links">
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент запчастей</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main>
+            <section class="product">
+                <div class="container">
+                    <div class="product__breadcrumbs">
+                        <a href="{% url 'pages:home' %}">Главная</a>
+                        <span>/</span>
+                        <a href="{% url 'shop:catalog' %}">Каталог</a>
+                        <span>/</span>
+                        <a href="{% url 'shop:catalog' %}?category={{ product.category.slug }}">{{ product.category.name }}</a>
+                        <span>/</span>
+                        <span>{{ product.name }}</span>
+                    </div>
+                    
+                    <div class="product__content">
+                        <div class="product__gallery">
+                            <div class="product__image-main">
+                                {% if product.images.first %}
+                                <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
+                                {% else %}
+                                <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                {% endif %}
+                            </div>
+                            <div class="product__thumbnails">
+                                {% for image in product.images.all %}
+                                <div class="product__thumbnail {% if forloop.first %}product__thumbnail--active{% endif %}">
+                                    <img src="{{ image.image.url }}" alt="{{ product.name }}">
+                                </div>
+                                {% empty %}
+                                <div class="product__thumbnail product__thumbnail--active">
+                                    <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="product__info">
+                            {% if product.old_price and product.old_price > product.price %}
+                            <div class="product__badge">{{ product.discount_percent }}% АКЦИЯ</div>
+                            {% endif %}
+                            <div class="product__code">{{ product.code }}</div>
+                            <h1 class="product__title">{{ product.name }}</h1>
+                            <div class="product__status">
+                                {% if product.in_stock %}
+                                <span class="product__availability">Есть в наличии</span>
+                                {% else %}
+                                <span class="product__availability product__availability--out">Нет в наличии</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="product__pricing">
+                                {% if product.old_price and product.old_price > product.price %}
+                                <span class="product__price-old">{{ product.old_price }} ₽</span>
+                                {% endif %}
+                                <span class="product__price">{{ product.price }} ₽</span>
+                            </div>
+                            
+                            <div class="product__specs">
+                                <div class="product__spec">
+                                    <span class="spec-label">Бренд</span>
+                                    <span class="spec-value">{{ product.brand.name }}</span>
+                                    <span class="spec-code">{{ product.code }}</span>
+                                </div>
+                                <div class="product__spec">
+                                    <span class="spec-label">Категория</span>
+                                    <span class="spec-value">{{ product.category.name }}</span>
+                                </div>
+                                <div class="product__spec">
+                                    <span class="spec-label">Каталожный номер</span>
+                                    <span class="spec-value">{{ product.catalog_number }}</span>
+                                </div>
+                                {% if product.applicability %}
+                                <div class="product__spec">
+                                    <span class="spec-label">Применяемость</span>
+                                    <span class="spec-value">{{ product.applicability }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <button class="product__add-to-cart" onclick="addToCart('{{ product.id }}', '{{ product.name }}', {{ product.price }})">Добавить в корзину</button>
+                        </div>
+                    </div>
+                    
+                    <div class="product__description">
+                        <h2>ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</h2>
+                        {% if product.description %}
+                        {{ product.description|linebreaks }}
+                        {% else %}
+                        <p>Подробное описание товара будет добавлено позже.</p>
+                        {% endif %}
+                        
+                        <h3>ТЕХНИЧЕСКИЕ ДАННЫЕ</h3>
+                        <div class="product__tech-specs">
+                            <div class="tech-spec">
+                                <span class="tech-label">Код товара:</span>
+                                <span class="tech-value">{{ product.code }}</span>
+                            </div>
+                            <div class="tech-spec">
+                                <span class="tech-label">Каталожный номер:</span>
+                                <span class="tech-value">{{ product.catalog_number }}</span>
+                            </div>
+                            <div class="tech-spec">
+                                <span class="tech-label">Бренд:</span>
+                                <span class="tech-value">{{ product.brand.name }}</span>
+                            </div>
+                            <div class="tech-spec">
+                                <span class="tech-label">Категория:</span>
+                                <span class="tech-value">{{ product.category.name }}</span>
+                            </div>
+                            {% if product.applicability %}
+                            <div class="tech-spec">
+                                <span class="tech-label">Применяемость:</span>
+                                <span class="tech-value">{{ product.applicability }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="product__related">
+                        <h2>ПОХОЖИЕ ТОВАРЫ</h2>
+                        <div class="swiper products-slider-related">
+                            <div class="swiper-wrapper">
+                                {% for related_product in related_products %}
+                                <div class="swiper-slide">
+                                    <a href="{{ related_product.get_absolute_url }}" class="product-card">
+                                        {% if related_product.old_price and related_product.old_price > related_product.price %}
+                                        <div class="product-badge">-{{ related_product.discount_percent }}%</div>
+                                        {% endif %}
+                                        {% if related_product.is_new %}
+                                        <div class="product-badge">НОВИНКА</div>
+                                        {% endif %}
+                                        <div class="product-image">
+                                            {% if related_product.images.first %}
+                                            <img src="{{ related_product.images.first.image.url }}" alt="{{ related_product.name }}">
+                                            {% else %}
+                                            <img src="{% static 'img/product_1.png' %}" alt="{{ related_product.name }}">
+                                            {% endif %}
+                                        </div>
+                                        <div class="product-content">
+                                            <h3 class="product-title">{{ related_product.name }}</h3>
+                                            <div class="product-details">
+                                                <div class="product-detail">
+                                                    <span class="detail-label">Код:</span>
+                                                    <span class="detail-value">{{ related_product.code }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="product-footer">
+                                                <div class="product-price">{{ related_product.price }} ₽</div>
+                                                <button class="product-btn">
+                                                    <img src="{% static 'img/ico/back.svg' %}" alt="cart">
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                {% empty %}
+                                <div class="swiper-slide">
+                                    <p>Похожих товаров пока нет</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <footer class="footer">
+            <div class="container">
+                <div class="footer__content">
+                    <div class="footer__block">
+                        <div class="footer__block-brand">
+                            <a href="{% url 'pages:home' %}">
+                                <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
+                            </a>
+                            <p>Запчасти для грузовиков<br>в Ростове-на-Дону</p>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__links">
+                            <h3>Ссылки</h3>
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__contacts">
+                            <h3>Контакты</h3>
+                            <div class="footer__contacts-item">
+                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                            </div>
+                            <div class="footer__contacts-item">
+                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__social">
+                            <a href="#"><img src="{% static 'img/ico/telegram.svg' %}" alt="telegram"></a>
+                            <a href="#"><img src="{% static 'img/ico/whatsapp.svg' %}" alt="whatsapp"></a>
+                            <a href="#"><img src="{% static 'img/ico/viber.svg' %}" alt="viber"></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer__copy">
+                    <p>© 2025 tir-lugansk.ru</p>
+                </div>
+            </div>
+        </footer>
+        
+        <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+        <script>
+            // Галерея изображений
+            document.addEventListener('DOMContentLoaded', function() {
+                const mainImage = document.querySelector('.product__image-main img');
+                const thumbnails = document.querySelectorAll('.product__thumbnail');
+                
+                thumbnails.forEach(thumbnail => {
+                    thumbnail.addEventListener('click', function() {
+                        // Убираем активный класс у всех миниатюр
+                        thumbnails.forEach(t => t.classList.remove('product__thumbnail--active'));
+                        // Добавляем активный класс к текущей миниатюре
+                        this.classList.add('product__thumbnail--active');
+                        // Меняем главное изображение
+                        const thumbnailImg = this.querySelector('img');
+                        mainImage.src = thumbnailImg.src;
+                        mainImage.alt = thumbnailImg.alt;
+                    });
+                });
+            });
+            
+            // Корзина
+            function addToCart(productId, productName, productPrice) {
+                let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                
+                // Проверяем, есть ли уже такой товар в корзине
+                const existingItem = cart.find(item => item.id === productId);
+                
+                if (existingItem) {
+                    existingItem.quantity += 1;
+                } else {
+                    cart.push({
+                        id: productId,
+                        name: productName,
+                        price: productPrice,
+                        quantity: 1
+                    });
+                }
+                
+                localStorage.setItem('cart', JSON.stringify(cart));
+                
+                // Показываем уведомление
+                showNotification('Товар добавлен в корзину!');
+            }
+            
+            function showNotification(message) {
+                // Создаем уведомление
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #4CAF50;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 5px;
+                    z-index: 1000;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                `;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                // Удаляем уведомление через 3 секунды
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+            
+            // Слайдер похожих товаров
+            const relatedSwiper = new Swiper('.products-slider-related', {
+                slidesPerView: 4,
+                spaceBetween: 20,
+                loop: true,
+                navigation: {
+                    nextEl: '.swiper-button-next',
+                    prevEl: '.swiper-button-prev',
+                },
+                breakpoints: {
+                    640: {
+                        slidesPerView: 1,
+                        spaceBetween: 15,
+                    },
+                    768: {
+                        slidesPerView: 2,
+                        spaceBetween: 15,
+                    },
+                    1024: {
+                        slidesPerView: 3,
+                        spaceBetween: 20,
+                    },
+                    1200: {
+                        slidesPerView: 4,
+                        spaceBetween: 20,
+                    },
+                },
+            });
+
+            // Обработка формы
+            document.addEventListener('DOMContentLoaded', function() {
+                setPhoneMask();
+                
+                const callForm = document.getElementById('callForm');
+                
+                callForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(callForm);
+                    const name = formData.get('userName');
+                    const phone = formData.get('userPhone');
+                    
+                    // Проверка заполненности полей
+                    if (!name.trim() || !phone.trim()) {
+                        alert('Пожалуйста, заполните все поля');
+                        return;
+                    }
+                    
+                    // Проверка корректности номера телефона
+                    const phoneDigits = phone.replace(/\D/g, '');
+                    if (phoneDigits.length !== 11) {
+                        alert('Пожалуйста, введите корректный номер телефона');
+                        return;
+                    }
+                    
+                    // Отправка данных на сервер
+                    const submitBtn = callForm.querySelector('.modal__button');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Отправляем...';
+                    
+                    fetch('{% url "pages:call_request" %}', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            closeModal('callModal');
+                            openModal('successModal');
+                            
+                            // Сброс формы
+                            callForm.reset();
+                        } else {
+                            alert(data.message || 'Произошла ошибка при отправке заявки');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Произошла ошибка при отправке заявки');
+                    })
+                    .finally(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Заказать звонок';
+                    });
+                });
+            });
+        </script>
+    </body>
+</html> 

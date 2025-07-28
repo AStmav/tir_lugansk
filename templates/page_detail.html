@@ -1,0 +1,325 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ page.meta_title|default:page.title }} - Tir Lugansk</title>
+        {% if page.meta_description %}
+        <meta name="description" content="{{ page.meta_description }}">
+        {% endif %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+        <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    
+        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon_io/apple-touch-icon.png' %}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
+        <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+    </head>
+    <body>
+        <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
+            <div class="navbar">
+                <div class="container">
+                    <div class="navbar__content">
+                        <div class="navbar__block">
+                            <div class="navbar__block-brand">
+                                <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="TIR-LUGANSK" /></a>
+                                <p>Запчасти для грузовиков <span>в Ростове-на-Дону</span></p>
+                            </div>
+                        </div>
+                        <div class="navbar__block">
+                            <div class="navbar__block-contact">
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    </a>
+                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                </div>
+                                <div class="navbar__block-contact-item">
+                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    </a>
+                                    <a href="#" class="call-modal-trigger">Заказать звонок</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="menu__content">
+                        <div class="menu__links">
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент запчастей</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <main>
+            <section class="page-content">
+                <div class="container">
+                    <div class="page-content__wrapper">
+                        <h1>{{ page.title }}</h1>
+                        <div class="page-content__body">
+                            {{ page.content|safe }}
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <footer class="footer">
+            <div class="container">
+                <div class="footer__content">
+                    <div class="footer__block">
+                        <div class="footer__block-brand">
+                            <a href="{% url 'pages:home' %}">
+                                <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
+                            </a>
+                            <p>Запчасти для грузовиков<br>в Ростове-на-Дону</p>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__links">
+                            <h3>Ссылки</h3>
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__contacts">
+                            <h3>Контакты</h3>
+                            <div class="footer__contacts-item">
+                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                            </div>
+                            <div class="footer__contacts-item">
+                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="footer__block">
+                        <div class="footer__social">
+                            <a href="#"><img src="{% static 'img/ico/telegram.svg' %}" alt="telegram"></a>
+                            <a href="#"><img src="{% static 'img/ico/whatsapp.svg' %}" alt="whatsapp"></a>
+                            <a href="#"><img src="{% static 'img/ico/viber.svg' %}" alt="viber"></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer__copy">
+                    <p>© 2025 tir-lugansk.ru</p>
+                </div>
+            </div>
+        </footer>
+        
+        <div class="modal" id="callModal">
+            <div class="modal__overlay">
+                <div class="modal__content">
+                    <div class="modal__header">
+                        <h3 class="modal__title">Заказать звонок</h3>
+                        <button class="modal__close" type="button">&times;</button>
+                    </div>
+                    <div class="modal__body">
+                        <form class="modal__form" id="callForm">
+                            <div class="modal__field">
+                                <label class="modal__label" for="userName">Ваше имя</label>
+                                <input class="modal__input" type="text" id="userName" name="userName" placeholder="Введите ваше имя" required>
+                            </div>
+                            <div class="modal__field">
+                                <label class="modal__label" for="userPhone">Номер телефона</label>
+                                <input class="modal__input" type="tel" id="userPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                            </div>
+                            <button class="modal__button" type="submit">Заказать звонок</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal" id="successModal">
+            <div class="modal__overlay">
+                <div class="modal__content">
+                    <div class="modal__header">
+                        <h3 class="modal__title">Заявка отправлена</h3>
+                        <button class="modal__close" type="button">&times;</button>
+                    </div>
+                    <div class="modal__body">
+                        <div class="modal__success-icon">✓</div>
+                        <div class="modal__success-text">
+                            <h3>Спасибо за заявку!</h3>
+                            <p>Мы свяжемся с вами в ближайшее время для уточнения деталей.</p>
+                        </div>
+                        <button class="modal__button" type="button" onclick="closeModal('successModal')">Понятно</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Модальные окна
+            function openModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.add('modal--active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.remove('modal--active');
+                document.body.style.overflow = '';
+            }
+
+            // Открытие модального окна заказа звонка
+            document.addEventListener('DOMContentLoaded', function() {
+                const callTriggers = document.querySelectorAll('.call-modal-trigger');
+                
+                callTriggers.forEach(trigger => {
+                    trigger.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        openModal('callModal');
+                    });
+                });
+
+                // Закрытие модального окна по клику на overlay или кнопку закрытия
+                document.querySelectorAll('.modal').forEach(modal => {
+                    const overlay = modal.querySelector('.modal__overlay');
+                    const closeBtn = modal.querySelector('.modal__close');
+                    
+                    overlay.addEventListener('click', function(e) {
+                        if (e.target === overlay) {
+                            closeModal(modal.id);
+                        }
+                    });
+                    
+                    closeBtn.addEventListener('click', function() {
+                        closeModal(modal.id);
+                    });
+                });
+
+                // Закрытие по ESC
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        document.querySelectorAll('.modal--active').forEach(modal => {
+                            closeModal(modal.id);
+                        });
+                    }
+                });
+            });
+
+            // Маска для телефона
+            function setPhoneMask() {
+                const phoneInput = document.getElementById('userPhone');
+                
+                phoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    
+                    if (value.length === 0) {
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    if (value[0] === '8') {
+                        value = '7' + value.slice(1);
+                    }
+                    
+                    if (value[0] !== '7') {
+                        value = '7' + value;
+                    }
+                    
+                    let formattedValue = '+7';
+                    
+                    if (value.length > 1) {
+                        formattedValue += ' (' + value.slice(1, 4);
+                    }
+                    if (value.length >= 5) {
+                        formattedValue += ') ' + value.slice(4, 7);
+                    }
+                    if (value.length >= 8) {
+                        formattedValue += '-' + value.slice(7, 9);
+                    }
+                    if (value.length >= 10) {
+                        formattedValue += '-' + value.slice(9, 11);
+                    }
+                    
+                    e.target.value = formattedValue;
+                });
+
+                phoneInput.addEventListener('keydown', function(e) {
+                    // Разрешаем только цифры, Backspace, Delete, Tab, Escape, Enter
+                    if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' || 
+                        e.key === 'Escape' || e.key === 'Enter' || 
+                        (e.key >= '0' && e.key <= '9')) {
+                        return;
+                    }
+                    e.preventDefault();
+                });
+            }
+
+            // Обработка формы
+            document.addEventListener('DOMContentLoaded', function() {
+                setPhoneMask();
+                
+                const callForm = document.getElementById('callForm');
+                
+                callForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(callForm);
+                    const name = formData.get('userName');
+                    const phone = formData.get('userPhone');
+                    
+                    // Проверка заполненности полей
+                    if (!name.trim() || !phone.trim()) {
+                        alert('Пожалуйста, заполните все поля');
+                        return;
+                    }
+                    
+                    // Проверка корректности номера телефона
+                    const phoneDigits = phone.replace(/\D/g, '');
+                    if (phoneDigits.length !== 11) {
+                        alert('Пожалуйста, введите корректный номер телефона');
+                        return;
+                    }
+                    
+                    // Отправка данных на сервер
+                    const submitBtn = callForm.querySelector('.modal__button');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Отправляем...';
+                    
+                    fetch('{% url "pages:call_request" %}', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            closeModal('callModal');
+                            openModal('successModal');
+                            
+                            // Сброс формы
+                            callForm.reset();
+                        } else {
+                            alert(data.message || 'Произошла ошибка при отправке заявки');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Произошла ошибка при отправке заявки');
+                    })
+                    .finally(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Заказать звонок';
+                    });
+                });
+            });
+        </script>
+    </body>
+</html> 
