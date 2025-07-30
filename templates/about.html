@@ -12,6 +12,23 @@
         <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
         <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
         <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+        
+        <style>
+            .product-contact-btn {
+                max-width: 220px;
+                background: #3CC14E;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 15px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                -webkit-transition: background 0.3s ease;
+                transition: background 0.3s ease;
+                margin: 20px auto;
+            }
+        </style>
     </head>
     <body>
         <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
@@ -89,7 +106,9 @@
                                 </p>
                             </div>
                             {% endif %}
-                            <a href="{% url 'shop:catalog' %}" class="welcome__button">Перейти в магазин</a>
+                            <button class="product-contact-btn">
+                                <a href="{% url 'shop:catalog' %}">Перейти в магазин</a>
+                            </button>
                         </div>
                     </div>
                 </div>
