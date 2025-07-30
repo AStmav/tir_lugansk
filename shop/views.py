@@ -35,34 +35,40 @@ class CatalogView(ListView):
         # Поиск
         search = self.request.GET.get('search')
         if search:
-            # Основной поиск по товарам
-            main_search = Q(name__icontains=search) | \
-                         Q(code__icontains=search) | \
-                         Q(catalog_number__icontains=search) | \
-                         Q(brand__name__icontains=search)
+            # Поиск по началу номера в каталожном номере, коде, кросс-коде и артикульном номере
+            search_query = Q(catalog_number__istartswith=search) | \
+                          Q(code__istartswith=search) | \
+                          Q(cross_number__istartswith=search) | \
+                          Q(artikyl_number__istartswith=search)
             
-            # Поиск товаров, которые являются аналогами найденных товаров
-            analog_products = ProductAnalog.objects.filter(
-                Q(product__name__icontains=search) |
-                Q(product__code__icontains=search) |
-                Q(product__catalog_number__icontains=search) |
-                Q(product__brand__name__icontains=search)
-            ).values_list('analog_product_id', flat=True)
+            # Находим товары, соответствующие поиску
+            found_products = Product.objects.filter(search_query)
             
-            # Поиск товаров, для которых есть аналоги, найденные по поиску
-            products_with_analogs = ProductAnalog.objects.filter(
-                Q(analog_product__name__icontains=search) |
-                Q(analog_product__code__icontains=search) |
-                Q(analog_product__catalog_number__icontains=search) |
-                Q(analog_product__brand__name__icontains=search)
-            ).values_list('product_id', flat=True)
+            # Собираем все возможные номера для поиска аналогов
+            analog_numbers = set()
+            for product in found_products:
+                if product.cross_number:
+                    analog_numbers.add(product.cross_number)
+                if product.artikyl_number:
+                    analog_numbers.add(product.artikyl_number)
+                if product.catalog_number:
+                    analog_numbers.add(product.catalog_number)
+                if product.code:
+                    analog_numbers.add(product.code)
             
-            # Объединяем все результаты поиска
-            queryset = queryset.filter(
-                main_search |
-                Q(id__in=analog_products) |
-                Q(id__in=products_with_analogs)
-            ).distinct()
+            # Создаем запрос для поиска аналогов
+            analog_query = Q()
+            for number in analog_numbers:
+                analog_query |= Q(cross_number__exact=number) | \
+                               Q(artikyl_number__exact=number) | \
+                               Q(catalog_number__exact=number) | \
+                               Q(code__exact=number)
+            
+            # Объединяем основной поиск и аналоги
+            if analog_query:
+                queryset = queryset.filter(search_query | analog_query).distinct()
+            else:
+                queryset = queryset.filter(search_query)
         
         # Сортировка
         sort = self.request.GET.get('sort', 'newest')

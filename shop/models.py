@@ -90,6 +90,8 @@ class Product(models.Model):
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name='Бренд')
     code = models.CharField(max_length=50, verbose_name='Код товара')
     catalog_number = models.CharField(max_length=50, verbose_name='Каталожный номер')
+    cross_number = models.CharField(max_length=100, blank=True, verbose_name='Кросс-код товара')
+    artikyl_number = models.CharField(max_length=100, blank=True, verbose_name='Дополнительный номер товара')
     description = models.TextField(blank=True, verbose_name='Описание')
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена')
     old_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, verbose_name='Старая цена')
