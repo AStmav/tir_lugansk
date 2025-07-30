@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Page, Contact, ContentBlock
+from .models import Page, ContentBlock, PriceInquiry
 
 
 class ContentBlockInline(admin.TabularInline):
@@ -80,20 +80,38 @@ class ContentBlockAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at']
 
 
-@admin.register(Contact)
-class ContactAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'email', 'is_processed', 'created_at', 'short_message']
-    list_filter = ['is_processed', 'created_at']
-    search_fields = ['name', 'phone', 'email', 'message']
+@admin.register(PriceInquiry)
+class PriceInquiryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'phone', 'email', 'request_type', 'product_name_short', 'is_processed', 'created_at']
+    list_filter = [
+        ('is_processed', admin.BooleanFieldListFilter),
+        ('request_type', admin.ChoicesFieldListFilter),
+    ]
+    search_fields = ['name', 'phone', 'email', 'product_name', 'product_code']
     readonly_fields = ['created_at']
     list_editable = ['is_processed']
     
+    def get_list_filter(self, request):
+        """Переопределяем фильтры для простого отображения"""
+        return [
+            ('is_processed', admin.BooleanFieldListFilter),
+            ('request_type', admin.ChoicesFieldListFilter),
+        ]
+    
+    def product_name_short(self, obj):
+        if obj.product_name:
+            return obj.product_name[:50] + '...' if len(obj.product_name) > 50 else obj.product_name
+        return '-'
+    product_name_short.short_description = 'Товар'
+    
     fieldsets = (
         ('Контактная информация', {
-            'fields': ('name', 'phone', 'email')
+            'fields': ('name', 'phone', 'email', 'request_type')
         }),
-        ('Сообщение', {
-            'fields': ('message',)
+        ('Информация о товаре', {
+            'fields': ('product_name', 'product_code', 'product_id'),
+            'classes': ('collapse',),
+            'description': 'Заполняется автоматически для запросов цены товара'
         }),
         ('Статус', {
             'fields': ('is_processed',)
@@ -103,12 +121,6 @@ class ContactAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
-    def short_message(self, obj):
-        if obj.message:
-            return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
-        return '-'
-    short_message.short_description = 'Сообщение'
     
     actions = ['mark_as_processed', 'mark_as_unprocessed']
     

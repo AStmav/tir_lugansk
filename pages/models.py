@@ -77,3 +77,33 @@ class Contact(models.Model):
     
     def __str__(self):
         return f"{self.name} - {self.phone}"
+
+
+class PriceInquiry(models.Model):
+    REQUEST_TYPES = [
+        ('call', 'Заявка на звонок'),
+        ('price', 'Запрос цены товара'),
+    ]
+    
+    name = models.CharField(max_length=100, verbose_name='Имя')
+    phone = models.CharField(max_length=20, verbose_name='Телефон')
+    email = models.EmailField(blank=True, verbose_name='Email')
+    request_type = models.CharField(max_length=10, choices=REQUEST_TYPES, default='call', verbose_name='Тип заявки')
+    
+    # Поля для запроса цены товара (необязательные)
+    product_id = models.CharField(max_length=50, blank=True, verbose_name='ID товара')
+    product_name = models.CharField(max_length=255, blank=True, verbose_name='Название товара')
+    product_code = models.CharField(max_length=100, blank=True, verbose_name='Код товара')
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    is_processed = models.BooleanField(default=False, verbose_name='Обработано')
+    
+    class Meta:
+        verbose_name = 'Заявка на звонок'
+        verbose_name_plural = 'Заявки на звонок'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        if self.request_type == 'price' and self.product_name:
+            return f"{self.name} - {self.product_name}"
+        return f"{self.name} - {self.get_request_type_display()}"

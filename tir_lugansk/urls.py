@@ -18,9 +18,19 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
+import os
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('pages.urls')),
     path('shop/', include('shop.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Добавляем обслуживание изображений из папки images
+if settings.DEBUG:
+    urlpatterns += [
+        path('images/<path:path>', serve, {
+            'document_root': os.path.join(settings.BASE_DIR, 'images'),
+        }),
+    ]

@@ -2,14 +2,14 @@ from django.shortcuts import render, get_object_or_404
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q
 from django.db import models
-from .models import Product, Category, Brand
+from .models import Product, Category, Brand, ProductAnalog
 
 
 class CatalogView(ListView):
     model = Product
     template_name = 'catalog.html'
     context_object_name = 'products'
-    paginate_by = 12
+    paginate_by = 100
     
     def get_queryset(self):
         queryset = Product.objects.filter(in_stock=True)
@@ -35,12 +35,34 @@ class CatalogView(ListView):
         # Поиск
         search = self.request.GET.get('search')
         if search:
+            # Основной поиск по товарам
+            main_search = Q(name__icontains=search) | \
+                         Q(code__icontains=search) | \
+                         Q(catalog_number__icontains=search) | \
+                         Q(brand__name__icontains=search)
+            
+            # Поиск товаров, которые являются аналогами найденных товаров
+            analog_products = ProductAnalog.objects.filter(
+                Q(product__name__icontains=search) |
+                Q(product__code__icontains=search) |
+                Q(product__catalog_number__icontains=search) |
+                Q(product__brand__name__icontains=search)
+            ).values_list('analog_product_id', flat=True)
+            
+            # Поиск товаров, для которых есть аналоги, найденные по поиску
+            products_with_analogs = ProductAnalog.objects.filter(
+                Q(analog_product__name__icontains=search) |
+                Q(analog_product__code__icontains=search) |
+                Q(analog_product__catalog_number__icontains=search) |
+                Q(analog_product__brand__name__icontains=search)
+            ).values_list('product_id', flat=True)
+            
+            # Объединяем все результаты поиска
             queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(code__icontains=search) |
-                Q(catalog_number__icontains=search) |
-                Q(brand__name__icontains=search)
-            )
+                main_search |
+                Q(id__in=analog_products) |
+                Q(id__in=products_with_analogs)
+            ).distinct()
         
         # Сортировка
         sort = self.request.GET.get('sort', 'newest')
@@ -57,12 +79,20 @@ class CatalogView(ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['categories'] = Category.objects.all()
+        
+        # Основные категории (без родителя)
+        context['main_categories'] = Category.objects.filter(parent=None, is_active=True).order_by('order', 'name')
+        
+        # Все категории для фильтра
+        context['categories'] = Category.objects.filter(is_active=True).order_by('order', 'name')
         context['brands'] = Brand.objects.all()
         
         # Выбранные фильтры для template
         context['selected_categories'] = self.request.GET.getlist('category')
         context['selected_brands'] = self.request.GET.getlist('brand')
+        
+        # Поисковый запрос
+        context['search_query'] = self.request.GET.get('search', '')
         
         # Минимальная и максимальная цена для фильтра
         if context['products']:

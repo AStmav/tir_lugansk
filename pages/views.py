@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
 from shop.models import Product
-from .models import Contact, Page
+from .models import Page, PriceInquiry
 
 
 class HomeView(TemplateView):
@@ -17,13 +17,13 @@ class HomeView(TemplateView):
         context['featured_products'] = Product.objects.filter(
             is_featured=True, 
             in_stock=True
-        )[:5]
+        )[:15]
         
         # New products (with is_new flag)
         context['new_products'] = Product.objects.filter(
             is_new=True, 
             in_stock=True
-        )[:5]
+        )[:15]
         
         return context
 
@@ -74,20 +74,31 @@ class PageDetailView(DetailView):
 class CallRequestView(View):
     def post(self, request):
         try:
+            print("=== CallRequestView DEBUG ===")
+            print(f"POST data: {request.POST}")
+            
             name = request.POST.get('userName')
             phone = request.POST.get('userPhone')
+            email = request.POST.get('userEmail', '')
+            
+            print(f"Parsed data: name={name}, phone={phone}, email={email}")
             
             if not name or not phone:
+                print("ERROR: Missing required fields")
                 return JsonResponse({
                     'success': False,
-                    'message': 'Пожалуйста, заполните все поля'
+                    'message': 'Пожалуйста, заполните обязательные поля (Имя и Телефон)'
                 })
             
-            # Создаем новую заявку на звонок
-            contact = Contact.objects.create(
+            # Создаем новую заявку на звонок в PriceInquiry
+            call_request = PriceInquiry.objects.create(
                 name=name,
-                phone=phone
+                phone=phone,
+                email=email,
+                request_type='call'
             )
+            
+            print(f"SUCCESS: Created call request with ID {call_request.id}")
             
             return JsonResponse({
                 'success': True,
@@ -95,7 +106,65 @@ class CallRequestView(View):
             })
             
         except Exception as e:
+            print(f"ERROR in CallRequestView: {e}")
             return JsonResponse({
                 'success': False,
                 'message': 'Произошла ошибка при отправке заявки'
+            })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PriceInquiryView(View):
+    def post(self, request):
+        try:
+            print("=== PriceInquiryView DEBUG ===")
+            print(f"POST data: {request.POST}")
+            
+            name = request.POST.get('userName')
+            phone = request.POST.get('userPhone')
+            email = request.POST.get('userEmail', '')
+            product_id = request.POST.get('product_id')
+            product_name = request.POST.get('product_name')
+            product_code = request.POST.get('product_code')
+            
+            print(f"Parsed data: name={name}, phone={phone}, email={email}")
+            print(f"Product data: id={product_id}, name={product_name}, code={product_code}")
+            
+            if not name or not phone:
+                print("ERROR: Missing required fields")
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Пожалуйста, заполните обязательные поля (Имя и Телефон)'
+                })
+            
+            if not product_id or not product_name:
+                print("ERROR: Missing product info")
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Информация о товаре не найдена'
+                })
+            
+            # Создаем новый запрос цены
+            price_inquiry = PriceInquiry.objects.create(
+                name=name,
+                phone=phone,
+                email=email,
+                request_type='price',
+                product_id=product_id,
+                product_name=product_name,
+                product_code=product_code or ''
+            )
+            
+            print(f"SUCCESS: Created PriceInquiry with ID {price_inquiry.id}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Запрос успешно отправлен! Мы свяжемся с вами в ближайшее время.'
+            })
+            
+        except Exception as e:
+            print(f"ERROR in PriceInquiryView: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Произошла ошибка при отправке запроса'
             })

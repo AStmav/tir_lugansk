@@ -12,6 +12,214 @@
         <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
         <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
         <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+        
+        <style>
+            .catalog__search {
+                background: #f8f9fa;
+                border-radius: 12px;
+                padding: 25px;
+                margin-bottom: 30px;
+            }
+            .catalog__search .search-form {
+                margin-bottom: 0;
+            }
+            .catalog__search .search-input-wrapper {
+                position: relative;
+                display: flex;
+                align-items: center;
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 8px;
+                transition: border-color 0.3s ease;
+            }
+            .catalog__search .search-input-wrapper:focus-within {
+                border-color: #007bff;
+                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            }
+            .catalog__search .search-input {
+                flex: 1;
+                padding: 15px 20px;
+                border: none;
+                border-radius: 6px 0 0 6px;
+                font-size: 16px;
+                background: transparent;
+            }
+            .catalog__search .search-input:focus {
+                outline: none;
+            }
+            .catalog__search .search-input::placeholder {
+                color: #6c757d;
+            }
+            .catalog__search .search-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 15px 20px;
+                background: #3CC14E;
+                color: white;
+                border: none;
+                border-radius: 0 6px 6px 0;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+            .catalog__search .search-button:hover {
+                background: #0056b3;
+            }
+            .catalog__search .search-button svg {
+                width: 20px;
+                height: 20px;
+            }
+            .catalog__search .search-clear {
+                position: absolute;
+                right: 60px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                background: #f8f9fa;
+                border-radius: 50%;
+                color: #6c757d;
+                text-decoration: none;
+                transition: all 0.3s ease;
+            }
+            .catalog__search .search-clear:hover {
+                background: #e9ecef;
+                color: #495057;
+            }
+            .catalog__search .search-clear svg {
+                width: 16px;
+                height: 16px;
+            }
+            .catalog__search .search-info {
+                margin-top: 15px;
+                padding-top: 15px;
+                border-top: 1px solid #dee2e6;
+            }
+            .catalog__search .search-info p {
+                margin: 5px 0;
+                color: #495057;
+            }
+            .catalog__search .search-info p:first-child {
+                font-size: 16px;
+            }
+            .catalog__search .search-info p small {
+                color: #6c757d;
+                font-size: 14px;
+            }
+            .catalog__search .search-info strong {
+                color: #007bff;
+            }
+            
+            /* Стили для древовидной структуры категорий */
+            .category-group {
+                margin-bottom: 8px;
+            }
+            
+            .category-parent {
+                font-weight: 500;
+                margin-bottom: 5px;
+            }
+            
+            .subcategory-list {
+                padding-left: 20px;
+                margin-bottom: 5px;
+            }
+            
+            .subcategory-option {
+                margin-bottom: 5px;
+                font-size: 13px;
+                color: #666;
+                padding-left: 0;
+            }
+            
+            .subcategory-option:before {
+                content: '├─';
+                margin-right: 5px;
+                color: #ccc;
+                font-family: monospace;
+            }
+            
+            .subcategory-option:last-child:before {
+                content: '└─';
+            }
+            
+            /* Стили для пагинации */
+            .pagination__dots {
+                padding: 8px 12px;
+                color: #999;
+                font-weight: bold;
+            }
+            
+            /* Стили для "Показать еще" */
+            .category-hidden, .brand-hidden {
+                display: none;
+            }
+            
+            .show-more-btn {
+                width: 100%;
+                padding: 8px;
+                margin-top: 10px;
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 6px;
+                color: #495057;
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.3s ease;
+            }
+            
+            .show-more-btn:hover {
+                background: #e9ecef;
+                color: #007bff;
+            }
+            
+            /* Стили для сортировки */
+            .catalog__sort select {
+                padding: 8px 12px;
+                border: 1px solid #e9ecef;
+                border-radius: 6px;
+                background: white;
+                color: #495057;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            
+            .catalog__sort select:hover,
+            .catalog__sort select:focus {
+                border-color: #007bff;
+                outline: none;
+                box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+            }
+            
+            .catalog__sort label {
+                margin-right: 10px;
+                font-weight: 500;
+                color: #495057;
+            }
+            
+            .product-contact-btn {
+                width: 100%;
+                background: #3CC14E;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 15px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                -webkit-transition: background 0.3s ease;
+                transition: background 0.3s ease;
+            }
+
+            .detail-value {
+                font-size: 14px;
+            }
+            .detail-label {
+                font-size: 14px;
+            }
+        </style>
     </head>
     <body>
         <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
@@ -26,14 +234,14 @@
                         <div class="navbar__block">
                             <div class="navbar__block-contact">
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
-                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    <a class="navbar__block-contact-item-link" href="mailto:sales@tir-lugansk.ru">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />sales@tir-lugansk.ru
                                     </a>
-                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                    <a href="mailto:sales@tir-lugansk.ru">Написать на почту</a>
                                 </div>
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
-                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    <a class="navbar__block-contact-item-link" href="tel:+79591373713">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7(959) 137-37-13
                                     </a>
                                     <a href="#" class="call-modal-trigger">Заказать звонок</a>
                                 </div>
@@ -63,34 +271,118 @@
                             <h1>Ассортимент запчастей</h1>
                         </div>
                         
+                        <!-- Поиск -->
+                        <div class="catalog__search">
+                            <form method="get" class="search-form">
+                                <!-- Сохраняем текущие фильтры -->
+                                {% for category in selected_categories %}
+                                <input type="hidden" name="category" value="{{ category }}">
+                                {% endfor %}
+                                {% for brand in selected_brands %}
+                                <input type="hidden" name="brand" value="{{ brand }}">
+                                {% endfor %}
+                                {% if request.GET.min_price %}
+                                <input type="hidden" name="min_price" value="{{ request.GET.min_price }}">
+                                {% endif %}
+                                {% if request.GET.max_price %}
+                                <input type="hidden" name="max_price" value="{{ request.GET.max_price }}">
+                                {% endif %}
+                                {% if request.GET.sort %}
+                                <input type="hidden" name="sort" value="{{ request.GET.sort }}">
+                                {% endif %}
+                                
+                                <div class="search-input-wrapper">
+                                    <input type="text" 
+                                           name="search" 
+                                           placeholder="Поиск по названию, коду, каталожному номеру, бренду..." 
+                                           value="{{ search_query }}"
+                                           class="search-input">
+                                    <button type="submit" class="search-button">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 21L16.514 16.506L21 21ZM19 10.5C19 15.194 15.194 19 10.5 19C5.806 19 2 15.194 2 10.5C2 5.806 5.806 2 10.5 2C15.194 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    {% if search_query %}
+                                    <a href="{% url 'shop:catalog' %}" class="search-clear" title="Очистить поиск">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </form>
+                            {% if search_query %}
+                            <div class="search-info">
+                                <p>Результаты поиска по запросу: <strong>"{{ search_query }}"</strong></p>
+                                <p><small>Включены аналоги товаров</small></p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
                         <div class="catalog__layout">
                             <aside class="catalog__sidebar">
                                 <form method="get" id="filterForm" class="catalog__filters">
+                                    <!-- Скрытое поле для сохранения поискового запроса -->
+                                    {% if search_query %}
+                                    <input type="hidden" name="search" value="{{ search_query }}">
+                                    {% endif %}
+                                    
                                     <h3>ФИЛЬТРЫ</h3>
                                     
                                     <div class="filter-group">
                                         <h4>КАТЕГОРИИ</h4>
                                         <div class="filter-options">
-                                            {% for category in categories %}
-                                            <label class="filter-option">
-                                                <input type="checkbox" name="category" value="{{ category.slug }}" 
-                                                       {% if category.slug in selected_categories %}checked{% endif %}>
-                                                <span>{{ category.name }}</span>
-                                            </label>
+                                            {% for category in main_categories %}
+                                            <div class="category-group{% if forloop.counter > 20 %} category-hidden{% endif %}">
+                                                <!-- Основная категория -->
+                                                <label class="filter-option category-parent">
+                                                    <input type="checkbox" name="category" value="{{ category.slug }}" 
+                                                           {% if category.slug in selected_categories %}checked{% endif %}>
+                                                    <span>{{ category.name }}</span>
+                                                </label>
+                                                
+                                                <!-- Подкатегории (дочерние категории) -->
+                                                {% if category.children.exists %}
+                                                <div class="subcategory-list">
+                                                    {% for subcategory in category.children.all %}
+                                                    {% if subcategory.is_active %}
+                                                    <label class="filter-option subcategory-option">
+                                                        <input type="checkbox" name="category" value="{{ subcategory.slug }}"
+                                                               {% if subcategory.slug in selected_categories %}checked{% endif %}>
+                                                        <span>{{ subcategory.name }}</span>
+                                                    </label>
+                                                    {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
                                             {% endfor %}
                                         </div>
+                                        
+                                        {% if categories.count > 20 %}
+                                        <button type="button" class="show-more-btn" onclick="toggleCategories()">
+                                            <span class="show-text">Показать еще</span>
+                                            <span class="hide-text" style="display: none;">Скрыть</span>
+                                        </button>
+                                        {% endif %}
                                     </div>
                                     
                                     <div class="filter-group">
                                         <h4>БРЕНДЫ</h4>
                                         <div class="filter-options">
                                             {% for brand in brands %}
-                                            <label class="filter-option">
+                                            <label class="filter-option{% if forloop.counter > 30 %} brand-hidden{% endif %}">
                                                 <input type="checkbox" name="brand" value="{{ brand.slug }}"
                                                        {% if brand.slug in selected_brands %}checked{% endif %}>
                                                 <span>{{ brand.name }}</span>
                                             </label>
                                             {% endfor %}
+                                            {% if brands|length > 30 %}
+                                            <button type="button" class="show-more-btn" onclick="toggleBrands()">
+                                                <span class="show-text">Показать еще ({{ brands|length|add:'-30' }})</span>
+                                                <span class="hide-text" style="display: none;">Скрыть</span>
+                                            </button>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     
@@ -139,14 +431,20 @@
                             
                             <div class="catalog__main">
                                 <div class="catalog__toolbar">
-                                    <div class="catalog__count">Показано 1-12 из 256 товаров</div>
+                                    <div class="catalog__count">
+                                        {% if is_paginated %}
+                                        Показано {{ page_obj.start_index }}-{{ page_obj.end_index }} из {{ paginator.count }} товаров
+                                        {% else %}
+                                        Показано {{ products|length }} из {{ products|length }} товаров
+                                        {% endif %}
+                                    </div>
                                     <div class="catalog__sort">
-                                        <label>По популярности</label>
-                                        <select>
-                                            <option>По популярности</option>
-                                            <option>По цене (возрастанию)</option>
-                                            <option>По цене (убыванию)</option>
-                                            <option>По названию</option>
+                                        <label>Сортировка:</label>
+                                        <select onchange="changeSorting(this.value)">
+                                            <option value="newest" {% if request.GET.sort == 'newest' or not request.GET.sort %}selected{% endif %}>Сначала новые</option>
+                                            <option value="price_asc" {% if request.GET.sort == 'price_asc' %}selected{% endif %}>По цене (возрастанию)</option>
+                                            <option value="price_desc" {% if request.GET.sort == 'price_desc' %}selected{% endif %}>По цене (убыванию)</option>
+                                            <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>По названию</option>
                                         </select>
                                     </div>
                                 </div>
@@ -159,10 +457,12 @@
                                             <div class="product-badge">-{{ product.discount_percent }}%</div>
                                             {% endif %}
                                             <div class="product-image">
-                                                {% if product.images.first %}
+                                                {% if product.has_main_image %}
+                                                <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
+                                                {% elif product.images.first %}
                                                 <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
                                                 {% else %}
-                                                <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
                                                 {% endif %}
                                             </div>
                                             <div class="product-content">
@@ -186,9 +486,8 @@
                                                     </div>
                                                 </div>
                                                 <div class="product-footer">
-                                                    <div class="product-price">{{ product.price }} ₽</div>
-                                                    <button class="product-btn">
-                                                        <img src="{% static 'img/ico/back.svg' %}" alt="cart">
+                                                    <button class="product-contact-btn">
+                                                        Обратная связь
                                                     </button>
                                                 </div>
                                             </div>
@@ -203,21 +502,42 @@
                                     {% if is_paginated %}
                                     <div class="catalog__pagination">
                                         {% if page_obj.has_previous %}
-                                        <a href="?page={{ page_obj.previous_page_number }}" class="pagination__prev">←</a>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="pagination__prev">←</a>
                                         {% endif %}
                                         
                                         <div class="pagination__pages">
+                                            <!-- Первая страница -->
+                                            {% if page_obj.number > 3 %}
+                                            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">1</a>
+                                            {% if page_obj.number > 4 %}
+                                            <span class="pagination__dots">...</span>
+                                            {% endif %}
+                                            {% endif %}
+                                            
+                                            <!-- Страницы вокруг текущей -->
                                             {% for num in page_obj.paginator.page_range %}
+                                                {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
                                                 {% if page_obj.number == num %}
                                                 <span class="pagination__current">{{ num }}</span>
-                                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                                <a href="?page={{ num }}">{{ num }}</a>
+                                                    {% else %}
+                                                    <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                                                    {% endif %}
                                                 {% endif %}
                                             {% endfor %}
+                                            
+                                            <!-- Последняя страница -->
+                                            {% with total_pages=page_obj.paginator.num_pages %}
+                                            {% if page_obj.number < total_pages|add:'-2' %}
+                                            {% if page_obj.number < total_pages|add:'-3' %}
+                                            <span class="pagination__dots">...</span>
+                                            {% endif %}
+                                            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ total_pages }}">{{ total_pages }}</a>
+                                            {% endif %}
+                                            {% endwith %}
                                             </div>
                                         
                                         {% if page_obj.has_next %}
-                                        <a href="?page={{ page_obj.next_page_number }}" class="pagination__next">→</a>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="pagination__next">→</a>
                                         {% endif %}
                                     </div>
                                     {% endif %}
@@ -255,10 +575,14 @@
                         <div class="footer__contacts">
                             <h3>Контакты</h3>
                             <div class="footer__contacts-item">
-                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                                <p><strong>Адрес:</strong> г. Луганск, 7-й Лутугинский проезд, 17</p>
+                                <p>(в здании бильярдного клуба "СВОЯК")</p>
+                                <p><a href="#" style="color: #007bff;">на карте</a></p>
                             </div>
                             <div class="footer__contacts-item">
-                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                                <p><strong>тел.:</strong> +7(959) 137-37-13</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 191-55-57</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 107-66-01</p>
                             </div>
                         </div>
                     </div>
@@ -286,12 +610,16 @@
                 <div class="modal__body">
                     <form class="modal__form" id="callForm">
                         <div class="modal__field">
-                            <label class="modal__label" for="userName">Ваше имя</label>
+                            <label class="modal__label" for="userName">Ваше имя *</label>
                             <input class="modal__input" type="text" id="userName" name="userName" placeholder="Введите ваше имя" required>
                         </div>
                         <div class="modal__field">
-                            <label class="modal__label" for="userPhone">Номер телефона</label>
+                            <label class="modal__label" for="userPhone">Номер телефона *</label>
                             <input class="modal__input" type="tel" id="userPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                        </div>
+                        <div class="modal__field">
+                            <label class="modal__label" for="userEmail">Email</label>
+                            <input class="modal__input" type="email" id="userEmail" name="userEmail" placeholder="your@email.com">
                         </div>
                         <button class="modal__button" type="submit">Заказать звонок</button>
                     </form>
@@ -477,31 +805,123 @@
             });
         });
 
-        // Автоматическая отправка формы при изменении фильтров
+        // Сброс фильтров
+        function resetFilters() {
+            window.location.href = '{% url "shop:catalog" %}';
+        }
+        
+        // Изменение сортировки
+        function changeSorting(sortValue) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort', sortValue);
+            url.searchParams.delete('page'); // Сбрасываем страницу при изменении сортировки
+            window.location.href = url.toString();
+        }
+        
+        // Показать/скрыть категории
+        function toggleCategories() {
+            const hiddenCategories = document.querySelectorAll('.category-hidden');
+            const btn = document.querySelector('.filter-group:first-of-type .show-more-btn');
+            const showText = btn.querySelector('.show-text');
+            const hideText = btn.querySelector('.hide-text');
+            
+            hiddenCategories.forEach(category => {
+                if (category.style.display === 'none' || !category.style.display) {
+                    category.style.display = 'block';
+                } else {
+                    category.style.display = 'none';
+                }
+            });
+            
+            if (showText.style.display === 'none') {
+                showText.style.display = 'inline';
+                hideText.style.display = 'none';
+            } else {
+                showText.style.display = 'none';
+                hideText.style.display = 'inline';
+            }
+        }
+        
+        // Показать/скрыть бренды
+        function toggleBrands() {
+            const hiddenBrands = document.querySelectorAll('.brand-hidden');
+            const btn = document.querySelector('.filter-group:nth-of-type(2) .show-more-btn');
+            const showText = btn.querySelector('.show-text');
+            const hideText = btn.querySelector('.hide-text');
+            
+            hiddenBrands.forEach(brand => {
+                if (brand.style.display === 'none' || !brand.style.display) {
+                    brand.style.display = 'block';
+                } else {
+                    brand.style.display = 'none';
+                }
+            });
+            
+            if (showText.style.display === 'none') {
+                showText.style.display = 'inline';
+                hideText.style.display = 'none';
+            } else {
+                showText.style.display = 'none';
+                hideText.style.display = 'inline';
+            }
+        }
+
+        // Сохранение и восстановление позиции скролла при изменении фильтров
         document.addEventListener('DOMContentLoaded', function() {
+            // Восстанавливаем позицию скролла после загрузки страницы
+            const savedScrollPosition = sessionStorage.getItem('catalogScrollPosition');
+            if (savedScrollPosition) {
+                // Небольшая задержка для полной загрузки контента
+                setTimeout(() => {
+                    window.scrollTo({
+                        top: parseInt(savedScrollPosition),
+                        behavior: 'smooth'
+                    });
+                    sessionStorage.removeItem('catalogScrollPosition');
+                }, 100);
+            }
+            
             const filterForm = document.getElementById('filterForm');
             const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
             const radioButtons = filterForm.querySelectorAll('input[type="radio"]');
             
+            // Функция для сохранения позиции и отправки формы
+            function savePositionAndSubmit() {
+                // Сохраняем текущую позицию скролла
+                sessionStorage.setItem('catalogScrollPosition', window.scrollY.toString());
+                filterForm.submit();
+            }
+            
             // Отправка формы при изменении чекбоксов
             checkboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
-                    filterForm.submit();
+                    savePositionAndSubmit();
                 });
             });
             
             // Отправка формы при изменении радиокнопок
             radioButtons.forEach(radio => {
                 radio.addEventListener('change', function() {
-                    filterForm.submit();
+                    savePositionAndSubmit();
                 });
             });
-        });
-        
-        // Сброс фильтров
-        function resetFilters() {
-            window.location.href = '{% url "shop:catalog" %}';
+            
+            // Сохранение позиции для кнопки применения фильтра цены
+            const priceApplyBtn = filterForm.querySelector('.price-apply');
+            if (priceApplyBtn) {
+                priceApplyBtn.addEventListener('click', function() {
+                    savePositionAndSubmit();
+                });
+            }
+            
+            // Сохранение позиции для формы поиска
+            const searchForm = document.querySelector('.search-form');
+            if (searchForm) {
+                searchForm.addEventListener('submit', function() {
+                    sessionStorage.setItem('catalogScrollPosition', window.scrollY.toString());
+                });
         }
+        });
     </script>
 </body>
 </html> 

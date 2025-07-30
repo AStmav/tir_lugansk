@@ -9,4 +9,5 @@ urlpatterns = [
     path('contacts/', views.ContactsView.as_view(), name='contacts'),
     path('page/<slug:slug>/', views.PageDetailView.as_view(), name='page_detail'),
     path('call-request/', views.CallRequestView.as_view(), name='call_request'),
+    path('price-inquiry/', views.PriceInquiryView.as_view(), name='price_inquiry'),
 ] 

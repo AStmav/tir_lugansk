@@ -29,14 +29,14 @@
                         <div class="navbar__block">
                             <div class="navbar__block-contact">
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
-                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    <a class="navbar__block-contact-item-link" href="mailto:sales@tir-lugansk.ru">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />sales@tir-lugansk.ru
                                     </a>
-                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                    <a href="mailto:sales@tir-lugansk.ru">Написать на почту</a>
                                 </div>
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
-                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    <a class="navbar__block-contact-item-link" href="tel:+79591373713">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7(959) 137-37-13
                                     </a>
                                     <a href="#" class="call-modal-trigger">Заказать звонок</a>
                                 </div>
@@ -97,10 +97,14 @@
                         <div class="footer__contacts">
                             <h3>Контакты</h3>
                             <div class="footer__contacts-item">
-                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                                <p><strong>Адрес:</strong> г. Луганск, 7-й Лутугинский проезд, 17</p>
+                                <p>(в здании бильярдного клуба "СВОЯК")</p>
+                                <p><a href="#" style="color: #007bff;">на карте</a></p>
                             </div>
                             <div class="footer__contacts-item">
-                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                                <p><strong>тел.:</strong> +7(959) 137-37-13</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 191-55-57</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 107-66-01</p>
                             </div>
                         </div>
                     </div>
@@ -128,12 +132,16 @@
                     <div class="modal__body">
                         <form class="modal__form" id="callForm">
                             <div class="modal__field">
-                                <label class="modal__label" for="userName">Ваше имя</label>
+                                <label class="modal__label" for="userName">Ваше имя *</label>
                                 <input class="modal__input" type="text" id="userName" name="userName" placeholder="Введите ваше имя" required>
                             </div>
                             <div class="modal__field">
-                                <label class="modal__label" for="userPhone">Номер телефона</label>
+                                <label class="modal__label" for="userPhone">Номер телефона *</label>
                                 <input class="modal__input" type="tel" id="userPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                            </div>
+                            <div class="modal__field">
+                                <label class="modal__label" for="userEmail">Email</label>
+                                <input class="modal__input" type="email" id="userEmail" name="userEmail" placeholder="your@email.com">
                             </div>
                             <button class="modal__button" type="submit">Заказать звонок</button>
                         </form>

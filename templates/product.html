@@ -26,14 +26,14 @@
                         <div class="navbar__block">
                             <div class="navbar__block-contact">
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="mailto:info@domain.example">
-                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />info@domain.example
+                                    <a class="navbar__block-contact-item-link" href="mailto:sales@tir-lugansk.ru">
+                                        <img src="{% static 'img/ico/email.svg' %}" alt="Email" />sales@tir-lugansk.ru
                                     </a>
-                                    <a href="mailto:info@domain.example">Написать на почту</a>
+                                    <a href="mailto:sales@tir-lugansk.ru">Написать на почту</a>
                                 </div>
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="tel:+79999999999">
-                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (999) 999-99-99
+                                    <a class="navbar__block-contact-item-link" href="tel:+79591373713">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7(959) 137-37-13
                                     </a>
                                     <a href="#" class="call-modal-trigger">Заказать звонок</a>
                                 </div>
@@ -71,10 +71,12 @@
                     <div class="product__content">
                         <div class="product__gallery">
                             <div class="product__image-main">
-                                {% if product.images.first %}
+                                {% if product.has_main_image %}
+                                <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
+                                {% elif product.images.first %}
                                 <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
                                 {% else %}
-                                <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
                                 {% endif %}
                             </div>
                             <div class="product__thumbnails">
@@ -84,7 +86,7 @@
                                 </div>
                                 {% empty %}
                                 <div class="product__thumbnail product__thumbnail--active">
-                                    <img src="{% static 'img/product_1.png' %}" alt="{{ product.name }}">
+                                    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
                                 </div>
                                 {% endfor %}
                             </div>
@@ -102,13 +104,6 @@
                                 {% else %}
                                 <span class="product__availability product__availability--out">Нет в наличии</span>
                                 {% endif %}
-                            </div>
-                            
-                            <div class="product__pricing">
-                                {% if product.old_price and product.old_price > product.price %}
-                                <span class="product__price-old">{{ product.old_price }} ₽</span>
-                                {% endif %}
-                                <span class="product__price">{{ product.price }} ₽</span>
                             </div>
                             
                             <div class="product__specs">
@@ -133,7 +128,7 @@
                                 {% endif %}
                             </div>
                             
-                            <button class="product__add-to-cart" onclick="addToCart('{{ product.id }}', '{{ product.name }}', {{ product.price }})">Добавить в корзину</button>
+                            <button class="product__price-inquiry" onclick="openModal('priceInquiryModal')">Узнать цену и наличие</button>
                         </div>
                     </div>
                     
@@ -186,10 +181,12 @@
                                         <div class="product-badge">НОВИНКА</div>
                                         {% endif %}
                                         <div class="product-image">
-                                            {% if related_product.images.first %}
+                                            {% if related_product.has_main_image %}
+                                            <img src="{{ related_product.main_image_url }}" alt="{{ related_product.name }}">
+                                            {% elif related_product.images.first %}
                                             <img src="{{ related_product.images.first.image.url }}" alt="{{ related_product.name }}">
                                             {% else %}
-                                            <img src="{% static 'img/product_1.png' %}" alt="{{ related_product.name }}">
+                                            <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ related_product.name }}">
                                             {% endif %}
                                         </div>
                                         <div class="product-content">
@@ -201,9 +198,8 @@
                                                 </div>
                                             </div>
                                             <div class="product-footer">
-                                                <div class="product-price">{{ related_product.price }} ₽</div>
-                                                <button class="product-btn">
-                                                    <img src="{% static 'img/ico/back.svg' %}" alt="cart">
+                                                <button class="product-contact-btn">
+                                                    Обратная связь
                                                 </button>
                                             </div>
                                         </div>
@@ -247,10 +243,14 @@
                         <div class="footer__contacts">
                             <h3>Контакты</h3>
                             <div class="footer__contacts-item">
-                                <p><strong>Контактный номер:</strong> +7 (988) 539 69-46</p>
+                                <p><strong>Адрес:</strong> г. Луганск, 7-й Лутугинский проезд, 17</p>
+                                <p>(в здании бильярдного клуба "СВОЯК")</p>
+                                <p><a href="#" style="color: #007bff;">на карте</a></p>
                             </div>
                             <div class="footer__contacts-item">
-                                <p><strong>Адрес:</strong> Россия, Ростов-на-Дону - Родионово-Несветайская - Новошахтинск, 2-й километр</p>
+                                <p><strong>тел.:</strong> +7(959) 137-37-13</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 191-55-57</p>
+                                <p><strong>тел. / telegram:</strong> +7(959) 107-66-01</p>
                             </div>
                         </div>
                     </div>
@@ -267,6 +267,65 @@
                 </div>
             </div>
         </footer>
+        
+        <!-- Модальное окно для узнать цену и наличие -->
+        <div class="modal" id="priceInquiryModal">
+            <div class="modal__overlay">
+                <div class="modal__content">
+                    <div class="modal__header">
+                        <h3 class="modal__title">Узнать цену и наличие</h3>
+                        <button class="modal__close" type="button">&times;</button>
+                    </div>
+                    <div class="modal__body">
+                        <form class="modal__form" id="priceInquiryForm">
+                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                            <input type="hidden" name="product_name" value="{{ product.name }}">
+                            <input type="hidden" name="product_code" value="{{ product.code }}">
+                            
+                            <div class="modal__field">
+                                <label class="modal__label" for="inquiryUserName">Ваше имя *</label>
+                                <input class="modal__input" type="text" id="inquiryUserName" name="userName" placeholder="Введите ваше имя" required>
+                            </div>
+                            <div class="modal__field">
+                                <label class="modal__label" for="inquiryUserPhone">Номер телефона *</label>
+                                <input class="modal__input" type="tel" id="inquiryUserPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                            </div>
+                            <div class="modal__field">
+                                <label class="modal__label" for="inquiryUserEmail">Email</label>
+                                <input class="modal__input" type="email" id="inquiryUserEmail" name="userEmail" placeholder="your@email.com">
+                            </div>
+                            <div class="modal__field">
+                                <label class="modal__label">Товар:</label>
+                                <div class="modal__product-info">
+                                    <strong>{{ product.name }}</strong><br>
+                                    <small>Код: {{ product.code }}</small>
+                                </div>
+                            </div>
+                            <button class="modal__button" type="submit">Узнать цену и наличие</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal" id="priceInquirySuccessModal">
+            <div class="modal__overlay">
+                <div class="modal__content">
+                    <div class="modal__header">
+                        <h3 class="modal__title">Запрос отправлен</h3>
+                        <button class="modal__close" type="button">&times;</button>
+                    </div>
+                    <div class="modal__body">
+                        <div class="modal__success-icon">✓</div>
+                        <div class="modal__success-text">
+                            <h3>Спасибо за запрос!</h3>
+                            <p>Мы свяжемся с вами в ближайшее время и сообщим актуальную цену и наличие товара.</p>
+                        </div>
+                        <button class="modal__button" type="button" onclick="closeModal('priceInquirySuccessModal')">Понятно</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
         <script>
@@ -423,6 +482,153 @@
                     });
                 });
             });
+            
+            // Функции модальных окон
+            function openModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.add('modal--active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeModal(modalId) {
+                const modal = document.getElementById(modalId);
+                modal.classList.remove('modal--active');
+                document.body.style.overflow = '';
+            }
+
+            // Закрытие модального окна по клику на overlay или кнопку закрытия
+            document.querySelectorAll('.modal').forEach(modal => {
+                const overlay = modal.querySelector('.modal__overlay');
+                const closeBtn = modal.querySelector('.modal__close');
+                
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) {
+                        closeModal(modal.id);
+                    }
+                });
+                
+                closeBtn.addEventListener('click', function() {
+                    closeModal(modal.id);
+                });
+            });
+
+            // Закрытие по ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal--active').forEach(modal => {
+                        closeModal(modal.id);
+                    });
+                }
+            });
+            
+            // Обработка формы запроса цены
+            const priceInquiryForm = document.getElementById('priceInquiryForm');
+            if (priceInquiryForm) {
+                // Применяем маску телефона к полю inquiryUserPhone
+                const priceInquiryPhoneInput = document.getElementById('inquiryUserPhone');
+                if (priceInquiryPhoneInput) {
+                    setPhoneMaskForInput(priceInquiryPhoneInput);
+                }
+                
+                priceInquiryForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(priceInquiryForm);
+                    const name = formData.get('userName');
+                    const phone = formData.get('userPhone');
+                    
+                    // Проверка заполненности обязательных полей
+                    if (!name.trim() || !phone.trim()) {
+                        alert('Пожалуйста, заполните обязательные поля (Имя и Телефон)');
+                        return;
+                    }
+                    
+                    // Проверка корректности номера телефона
+                    const phoneDigits = phone.replace(/\D/g, '');
+                    if (phoneDigits.length !== 11) {
+                        alert('Пожалуйста, введите корректный номер телефона');
+                        return;
+                    }
+                    
+                    // Отправка данных на сервер
+                    const submitBtn = priceInquiryForm.querySelector('.modal__button');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Отправляем...';
+                    
+                    // Реальная отправка на сервер
+                    fetch('{% url "pages:price_inquiry" %}', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            closeModal('priceInquiryModal');
+                            openModal('priceInquirySuccessModal');
+                            
+                            // Сброс формы
+                            priceInquiryForm.reset();
+                        } else {
+                            alert(data.message || 'Произошла ошибка при отправке запроса');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Произошла ошибка при отправке запроса');
+                    })
+                    .finally(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Узнать цену и наличие';
+                    });
+                });
+            }
+            
+            // Функция для применения маски телефона к определенному input
+            function setPhoneMaskForInput(phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    
+                    if (value.length === 0) {
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    if (value[0] === '8') {
+                        value = '7' + value.slice(1);
+                    }
+                    
+                    if (value[0] !== '7') {
+                        value = '7' + value;
+                    }
+                    
+                    let formattedValue = '+7';
+                    
+                    if (value.length > 1) {
+                        formattedValue += ' (' + value.slice(1, 4);
+                    }
+                    if (value.length >= 5) {
+                        formattedValue += ') ' + value.slice(4, 7);
+                    }
+                    if (value.length >= 8) {
+                        formattedValue += '-' + value.slice(7, 9);
+                    }
+                    if (value.length >= 10) {
+                        formattedValue += '-' + value.slice(9, 11);
+                    }
+                    
+                    e.target.value = formattedValue;
+                });
+
+                phoneInput.addEventListener('keydown', function(e) {
+                    // Разрешаем только цифры, Backspace, Delete, Tab, Escape, Enter
+                    if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' || 
+                        e.key === 'Escape' || e.key === 'Enter' || 
+                        (e.key >= '0' && e.key <= '9')) {
+                        return;
+                    }
+                    e.preventDefault();
+                });
+            }
         </script>
     </body>
 </html> 
