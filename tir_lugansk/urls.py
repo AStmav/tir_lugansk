@@ -27,8 +27,18 @@ urlpatterns = [
     path('shop/', include('shop.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
+# Добавляем обслуживание статических файлов для продакшн
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
 # Добавляем обслуживание изображений из папки images
 if settings.DEBUG:
+    urlpatterns += [
+        path('images/<path:path>', serve, {
+            'document_root': os.path.join(settings.BASE_DIR, 'images'),
+        }),
+    ]
+else:
+    # В продакшн режиме тоже добавляем раздачу изображений
     urlpatterns += [
         path('images/<path:path>', serve, {
             'document_root': os.path.join(settings.BASE_DIR, 'images'),
