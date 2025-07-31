@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'y=6tsudu$$qt$qq23acu)-%v2&rurnd1c5rcm27sng71dt572m'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['45.130.42.65', 'new.tir-lugansk.ru', 'tir-lugansk.ru', 'localhost', '127.0.0.1']
 
@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Добавляем whitenoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -131,6 +132,9 @@ STATICFILES_DIRS = [
     BASE_DIR / 'templates' / 'assets',  # Папка assets для фронтенда
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Whitenoise settings
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
