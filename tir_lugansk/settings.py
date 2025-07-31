@@ -119,7 +119,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    BASE_DIR / 'templates' / 'assets',
+    BASE_DIR / 'static',  # Основная папка static для админских файлов
+    BASE_DIR / 'templates' / 'assets',  # Папка assets для фронтенда
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 

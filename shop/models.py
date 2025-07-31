@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+import re
 
 
 class Category(models.Model):
@@ -181,3 +182,108 @@ class ProductAnalog(models.Model):
     
     def __str__(self):
         return f"{self.product.name} -> {self.analog_product.name}"
+
+
+class OeKod(models.Model):
+    """Модель для хранения аналогов товаров (номера OE)"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='oe_analogs', verbose_name='Товар')
+    oe_kod = models.CharField(max_length=100, verbose_name='Номер аналога OE', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    
+    class Meta:
+        verbose_name = 'Аналог OE'
+        verbose_name_plural = 'Аналоги OE'
+        unique_together = ('product', 'oe_kod')
+        indexes = [
+            models.Index(fields=['oe_kod']),
+        ]
+    
+    def __str__(self):
+        return f"{self.product.name} -> {self.oe_kod}"
+    
+    @classmethod
+    def is_number_search(cls, search_term):
+        """Определяет является ли поисковый запрос номером детали"""
+        # Удаляем пробелы
+        term = search_term.strip()
+        # Считаем номером если содержит цифры и не более 20% букв от общей длины
+        if len(term) < 3:
+            return False
+        
+        digit_count = sum(1 for c in term if c.isdigit())
+        alpha_count = sum(1 for c in term if c.isalpha())
+        special_count = sum(1 for c in term if c in '-._/')
+        
+        # Если есть цифры и общая длина не слишком большая
+        if digit_count > 0 and len(term) <= 50:
+            # Если много букв относительно цифр, скорее всего это название
+            if alpha_count > digit_count * 2:
+                return False
+            return True
+        return False
+
+
+class ImportFile(models.Model):
+    """Модель для загрузки CSV файлов импорта"""
+    file = models.FileField(upload_to='imports/', verbose_name='CSV файл')
+    original_filename = models.CharField(max_length=255, verbose_name='Исходное имя файла')
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата загрузки')
+    processed = models.BooleanField(default=False, verbose_name='Обработан')
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата обработки')
+    
+    # Прогресс импорта
+    status = models.CharField(max_length=50, default='pending', verbose_name='Статус',
+                             choices=[
+                                 ('pending', 'Ожидает'),
+                                 ('processing', 'Обрабатывается'),
+                                 ('completed', 'Завершен'),
+                                 ('failed', 'Ошибка'),
+                                 ('cancelled', 'Отменен'),
+                             ])
+    current_row = models.IntegerField(default=0, verbose_name='Текущая строка')
+    total_rows = models.IntegerField(default=0, verbose_name='Всего строк')
+    processed_rows = models.IntegerField(default=0, verbose_name='Обработано строк')
+    created_products = models.IntegerField(default=0, verbose_name='Создано товаров')
+    updated_products = models.IntegerField(default=0, verbose_name='Обновлено товаров')
+    error_count = models.IntegerField(default=0, verbose_name='Количество ошибок')
+    error_log = models.TextField(blank=True, verbose_name='Лог ошибок')
+    
+    # Поле для отмены импорта
+    cancelled = models.BooleanField(default=False, verbose_name='Отменен')
+    cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата отмены')
+    
+    # Прогресс в процентах
+    @property
+    def progress_percent(self):
+        if self.total_rows == 0:
+            return 0
+        return min(100, int((self.current_row / self.total_rows) * 100))
+    
+    # Скорость обработки
+    @property
+    def processing_speed(self):
+        if not self.processed_at or self.status != 'processing':
+            return 0
+        from django.utils import timezone
+        elapsed = (timezone.now() - self.uploaded_at).total_seconds()
+        if elapsed > 0:
+            return int(self.current_row / elapsed)
+        return 0
+    
+    # Можно ли отменить импорт
+    @property
+    def can_cancel(self):
+        return self.status in ['pending', 'processing'] and not self.cancelled
+    
+    # Можно ли запустить импорт
+    @property
+    def can_start(self):
+        return self.status == 'pending' and not self.processed and not self.cancelled
+    
+    class Meta:
+        verbose_name = 'Импорт файл'
+        verbose_name_plural = 'Импорт файлы'
+        ordering = ['-uploaded_at']
+    
+    def __str__(self):
+        return f"{self.original_filename} ({self.uploaded_at})"

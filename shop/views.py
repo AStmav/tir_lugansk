@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q
 from django.db import models
-from .models import Product, Category, Brand, ProductAnalog
+from .models import Product, Category, Brand, OeKod
 
 
 class CatalogView(ListView):
@@ -32,43 +32,72 @@ class CatalogView(ListView):
         if max_price:
             queryset = queryset.filter(price__lte=max_price)
         
-        # Поиск
+        # Поиск согласно ТЗ
         search = self.request.GET.get('search')
         if search:
-            # Поиск по началу номера в каталожном номере, коде, кросс-коде и артикульном номере
-            search_query = Q(catalog_number__istartswith=search) | \
-                          Q(code__istartswith=search) | \
-                          Q(cross_number__istartswith=search) | \
-                          Q(artikyl_number__istartswith=search)
+            search = search.strip()
             
-            # Находим товары, соответствующие поиску
-            found_products = Product.objects.filter(search_query)
-            
-            # Собираем все возможные номера для поиска аналогов
-            analog_numbers = set()
-            for product in found_products:
-                if product.cross_number:
-                    analog_numbers.add(product.cross_number)
-                if product.artikyl_number:
-                    analog_numbers.add(product.artikyl_number)
-                if product.catalog_number:
-                    analog_numbers.add(product.catalog_number)
-                if product.code:
-                    analog_numbers.add(product.code)
-            
-            # Создаем запрос для поиска аналогов
-            analog_query = Q()
-            for number in analog_numbers:
-                analog_query |= Q(cross_number__exact=number) | \
-                               Q(artikyl_number__exact=number) | \
-                               Q(catalog_number__exact=number) | \
-                               Q(code__exact=number)
-            
-            # Объединяем основной поиск и аналоги
-            if analog_query:
-                queryset = queryset.filter(search_query | analog_query).distinct()
+            # Определяем является ли запрос поиском по номеру
+            if OeKod.is_number_search(search):
+                # ПОИСК ПО НОМЕРУ
+                # Этап 1: Поиск по началу номера в основных полях и аналогах
+                number_search_query = (
+                    Q(catalog_number__istartswith=search) |  # PROPERTY_TMC_NUMBER
+                    Q(artikyl_number__istartswith=search)    # PROPERTY_ARTIKYL_NUMBER
+                )
+                
+                # Поиск в таблице аналогов OE
+                oe_products = Product.objects.filter(
+                    oe_analogs__oe_kod__istartswith=search
+                ).distinct()
+                
+                # Находим товары, соответствующие поиску по номеру
+                found_products = Product.objects.filter(number_search_query).distinct()
+                
+                # Объединяем результаты
+                if oe_products.exists():
+                    found_products = found_products.union(oe_products).distinct()
+                
+                if found_products.exists():
+                    # Этап 2: Собираем все номера найденных товаров для поиска связанных
+                    related_numbers = set()
+                    
+                    for product in found_products:
+                        # Добавляем номера товара
+                        if product.catalog_number:  # PROPERTY_TMC_NUMBER
+                            related_numbers.add(product.catalog_number)
+                        if product.artikyl_number:  # PROPERTY_ARTIKYL_NUMBER
+                            related_numbers.add(product.artikyl_number)
+                        if product.cross_number:    # PROPERTY_CROSS_NUMBER
+                            related_numbers.add(product.cross_number)
+                    
+                    # Этап 3: Находим все товары с точным совпадением этих номеров
+                    if related_numbers:
+                        analog_query = Q()
+                        for number in related_numbers:
+                            analog_query |= (
+                                Q(catalog_number__exact=number) |  # PROPERTY_TMC_NUMBER
+                                Q(artikyl_number__exact=number) |  # PROPERTY_ARTIKYL_NUMBER  
+                                Q(cross_number__exact=number)      # PROPERTY_CROSS_NUMBER
+                            )
+                        
+                        # Финальный результат: объединяем найденные товары и их аналоги
+                        queryset = queryset.filter(analog_query).distinct()
+                    else:
+                        queryset = queryset.filter(pk__in=[p.pk for p in found_products])
+                else:
+                    # Если по номеру ничего не найдено, возвращаем пустой результат
+                    queryset = queryset.none()
             else:
-                queryset = queryset.filter(search_query)
+                # ПОИСК ПО НАЗВАНИЮ И БРЕНДУ
+                # Обычный текстовый поиск по названию, бренду, описанию
+                text_search_query = (
+                    Q(name__icontains=search) |
+                    Q(brand__name__icontains=search) |
+                    Q(description__icontains=search) |
+                    Q(applicability__icontains=search)
+                )
+                queryset = queryset.filter(text_search_query)
         
         # Сортировка
         sort = self.request.GET.get('sort', 'newest')

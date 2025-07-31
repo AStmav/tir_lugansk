@@ -12,6 +12,26 @@
         <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
         <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
         <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+
+        <style>
+            @media (max-width: 768px) {
+                .product__content {
+                    flex-direction: column !important;
+                }
+                .product__info {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                }
+                .product__gallery {
+                    width: 100%;
+                }
+            }
+            @media screen and (max-width: 480px) {
+                header {
+                    min-height: unset;  
+                }
+            }
+        </style>
     </head>
     <body>
         <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
@@ -32,8 +52,8 @@
                                     <a href="mailto:sales@tir-lugansk.ru">Написать на почту</a>
                                 </div>
                                 <div class="navbar__block-contact-item">
-                                    <a class="navbar__block-contact-item-link" href="tel:+79591373713">
-                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7(959) 137-37-13
+                                    <a class="navbar__block-contact-item-link" href="tel:+79590029073">
+                                        <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (959) 002 90 73
                                     </a>
                                     <a href="#" class="call-modal-trigger">Заказать звонок</a>
                                 </div>
@@ -248,9 +268,9 @@
                                 <p><a href="#" style="color: #007bff;">на карте</a></p>
                             </div>
                             <div class="footer__contacts-item">
-                                <p><strong>тел.:</strong> +7(959) 137-37-13</p>
-                                <p><strong>тел. / telegram:</strong> +7(959) 191-55-57</p>
-                                <p><strong>тел. / telegram:</strong> +7(959) 107-66-01</p>
+                                <p><strong>тел.:</strong> +7 (959) 002 90 73</p>
+                                <p><strong>тел. / telegram:</strong> +7 (959) 002 90 73</p>
+                                <p><strong>тел. / telegram:</strong> +7 (959) 002 90 73</p>
                             </div>
                         </div>
                     </div>
@@ -398,18 +418,14 @@
             
             // Слайдер похожих товаров
             const relatedSwiper = new Swiper('.products-slider-related', {
-                slidesPerView: 4,
-                spaceBetween: 20,
+                slidesPerView: 1,
+                spaceBetween: 15,
                 loop: true,
                 navigation: {
                     nextEl: '.swiper-button-next',
                     prevEl: '.swiper-button-prev',
                 },
                 breakpoints: {
-                    640: {
-                        slidesPerView: 1,
-                        spaceBetween: 15,
-                    },
                     768: {
                         slidesPerView: 2,
                         spaceBetween: 15,
@@ -580,6 +596,14 @@
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Узнать цену и наличие';
                     });
+                });
+            }
+            
+            // Функция для применения маски телефона ко всем полям телефона
+            function setPhoneMask() {
+                const phoneInputs = document.querySelectorAll('input[type="tel"]');
+                phoneInputs.forEach(input => {
+                    setPhoneMaskForInput(input);
                 });
             }
             

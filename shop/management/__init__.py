@@ -1,1 +1,1 @@
-# Management commands for shop app 
+# Django management package 

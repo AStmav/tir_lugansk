@@ -1571,7 +1571,9 @@
         background-size: cover;
         padding: 0 10px;
     }
-    
+    .product__content {
+        flex-direction: column !important;
+    }
     .navbar {
         padding: 10px 0;
         
@@ -1734,6 +1736,9 @@
     }
     
     .product {
+        &__content {
+            flex-direction: column !important;
+        }
         &-card {
             width: 100%;
             max-width: 300px;
