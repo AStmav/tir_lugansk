@@ -18,8 +18,15 @@
     
     <div style="background: #e7f3ff; border: 1px solid #b8daff; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
         <h3 style="margin-top: 0; color: #0056b3;">Инструкция по импорту</h3>
-        <p><strong>Формат файла:</strong> CSV с разделителем точка с запятой (;)</p>
-        <p><strong>Кодировка:</strong> UTF-8</p>
+        <p><strong>Процесс импорта:</strong></p>
+        <ol>
+            <li><strong>Загрузка файла</strong> - CSV файл копируется на сервер</li>
+            <li><strong>Анализ файла</strong> - автоматическое определение кодировки и подсчет строк</li>
+            <li><strong>Запуск импорта</strong> - после загрузки можно запустить парсинг</li>
+        </ol>
+        
+        <p><strong>Формат файла:</strong> CSV с разделителем решетка (#)</p>
+        <p><strong>Кодировка:</strong> Автоопределение (UTF-8, CP1251, Windows-1251)</p>
         <p><strong>Обязательные колонки:</strong></p>
         <ul>
             <li><code>TMP_ID</code> - Идентификатор в 1С</li>
@@ -33,7 +40,14 @@
             <li><code>PROPERTY_ARTIKYL_NUMBER</code> - Дополнительный номер товара</li>
             <li><code>PROPERTY_CROSS_NUMBER</code> - Кросс-код товара</li>
             <li><code>PROPERTY_MODEL_AVTO</code> - Применяемость товара</li>
-            <li><code>PRICE</code> - Цена товара</li>
+        </ul>
+        <p><strong>Особенности:</strong></p>
+        <ul>
+            <li>Автоматическое создание категорий и брендов</li>
+            <li>Уникальные slug для каждого товара</li>
+            <li>Оптимизировано для больших файлов (до 200k+ строк)</li>
+            <li>Фоновый импорт с возможностью отмены</li>
+            <li>Быстрая загрузка файла на сервер</li>
         </ul>
     </div>
     

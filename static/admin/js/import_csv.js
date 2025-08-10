@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const uploadButton = document.createElement('a');
         uploadButton.href = 'upload/';
         uploadButton.className = 'addlink';
-        uploadButton.innerHTML = 'Загрузить CSV файл';
+        uploadButton.innerHTML = '📁 Загрузить CSV файл';
         uploadButton.style.marginLeft = '10px';
         changelist.appendChild(uploadButton);
     }
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const fileId = e.target.getAttribute('data-id');
             const button = e.target;
             
-            if (confirm('Запустить импорт данных из этого файла?')) {
+            if (confirm('Запустить импорт данных из этого файла? Файл уже загружен на сервер и готов к обработке.')) {
                 button.disabled = true;
                 button.innerHTML = '⏳ Запускаю...';
                 button.style.background = '#999';

@@ -84,6 +84,7 @@ class Brand(models.Model):
 
 
 class Product(models.Model):
+    tmp_id = models.CharField(max_length=100, blank=True, verbose_name='ID в 1С', db_index=True)
     name = models.CharField(max_length=200, verbose_name='Название')
     slug = models.SlugField(unique=True, verbose_name='URL')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория')
@@ -123,15 +124,15 @@ class Product(models.Model):
     @property
     def main_image_path(self):
         """Возвращает путь к главному изображению по структуре section_id/tmp_id"""
-        if self.category and self.code:
+        if self.category and self.tmp_id:
             # Получаем SECTION_ID из родительской категории или самой категории
             root_category = self.category
             while root_category.parent:
                 root_category = root_category.parent
             
-            # Извлекаем SECTION_ID из slug основной категории
-            section_id = root_category.slug.replace('category-', '')
-            return f'{section_id}/{self.code}.jpg'
+            # SECTION_ID теперь хранится прямо в slug без префикса
+            section_id = root_category.slug
+            return f'{section_id}/{self.tmp_id}.jpg'
         return None
     
     @property  
@@ -257,18 +258,25 @@ class ImportFile(models.Model):
     def progress_percent(self):
         if self.total_rows == 0:
             return 0
-        return min(100, int((self.current_row / self.total_rows) * 100))
+        try:
+            progress = int((self.current_row / self.total_rows) * 100)
+            return min(100, max(0, progress))  # Ограничиваем от 0 до 100
+        except (ValueError, TypeError, ZeroDivisionError):
+            return 0
     
     # Скорость обработки
     @property
     def processing_speed(self):
         if not self.processed_at or self.status != 'processing':
             return 0
-        from django.utils import timezone
-        elapsed = (timezone.now() - self.uploaded_at).total_seconds()
-        if elapsed > 0:
-            return int(self.current_row / elapsed)
-        return 0
+        try:
+            from django.utils import timezone
+            elapsed = (timezone.now() - self.uploaded_at).total_seconds()
+            if elapsed > 0:
+                return int(self.current_row / elapsed)
+            return 0
+        except (ValueError, TypeError, ZeroDivisionError):
+            return 0
     
     # Можно ли отменить импорт
     @property

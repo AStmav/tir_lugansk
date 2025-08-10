@@ -1,0 +1,141 @@
+/* Стили для админки импорта CSV */
+
+/* Информация о файле */
+.file-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.file-info h4 {
+    margin-top: 0;
+    color: #495057;
+}
+
+.file-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.file-stat {
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+    min-width: 120px;
+}
+
+.file-stat-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.file-stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #495057;
+    margin-top: 5px;
+}
+
+/* Статусы */
+.status-pending {
+    color: #ffc107;
+}
+
+.status-processing {
+    color: #007bff;
+}
+
+.status-completed {
+    color: #28a745;
+}
+
+.status-failed {
+    color: #dc3545;
+}
+
+.status-cancelled {
+    color: #6c757d;
+}
+
+/* Кнопки действий */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.btn-import-csv {
+    background: #417690 !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    font-size: 14px !important;
+}
+
+.btn-import-csv:hover {
+    background: #2c5aa0 !important;
+}
+
+.btn-cancel-import {
+    background: #dc3545 !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    font-size: 14px !important;
+}
+
+.btn-cancel-import:hover {
+    background: #c82333 !important;
+}
+
+/* Прогресс */
+.progress-bar {
+    background: #e9ecef;
+    border-radius: 4px;
+    height: 20px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: #007bff;
+    height: 100%;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .file-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .btn-import-csv,
+    .btn-cancel-import {
+        width: 100%;
+        text-align: center;
+    }
+} 

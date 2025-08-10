@@ -63,6 +63,19 @@ class Command(BaseCommand):
     
     def import_csv(self, csv_path, import_file=None):
         """Основная логика импорта CSV"""
+        # Проверяем существование файла
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f'CSV файл не найден: {csv_path}')
+        
+        # Проверяем размер файла
+        file_size = os.path.getsize(csv_path)
+        if file_size == 0:
+            if import_file:
+                import_file.status = 'failed'
+                import_file.error_log = 'CSV файл пустой'
+                import_file.save()
+            raise ValueError('CSV файл пустой')
+        
         processed_rows = 0
         created_products = 0
         updated_products = 0
@@ -78,8 +91,16 @@ class Command(BaseCommand):
         # Читаем CSV файл
         with open(csv_path, 'r', encoding='utf-8-sig') as file:
             # Подсчитываем общее количество строк
-            total_rows = sum(1 for line in file) - 1  # -1 для заголовка
+            total_rows = max(0, sum(1 for line in file) - 1)  # -1 для заголовка, но не меньше 0
             file.seek(0)
+            
+            # Проверяем, что файл не пустой
+            if total_rows <= 0:
+                if import_file:
+                    import_file.status = 'failed'
+                    import_file.error_log = 'CSV файл пустой или содержит только заголовок'
+                    import_file.save()
+                raise ValueError('CSV файл пустой или содержит только заголовок')
             
             # Обновляем общее количество строк
             if import_file:
@@ -87,6 +108,16 @@ class Command(BaseCommand):
                 import_file.save()
             
             reader = csv.DictReader(file, delimiter=';')
+            
+            # Проверяем структуру CSV файла
+            required_fields = ['TMP_ID', 'NAME']
+            missing_fields = [field for field in required_fields if field not in reader.fieldnames]
+            if missing_fields:
+                if import_file:
+                    import_file.status = 'failed'
+                    import_file.error_log = f'Отсутствуют обязательные поля: {", ".join(missing_fields)}'
+                    import_file.save()
+                raise ValueError(f'Отсутствуют обязательные поля: {", ".join(missing_fields)}')
             
             # УСКОРЕНИЕ: Обрабатываем по большим пакетам для максимальной производительности
             batch_size = 5000  # Увеличили в 100 раз!
@@ -96,6 +127,10 @@ class Command(BaseCommand):
                 # Проверяем отмену импорта только изредка для скорости
                 if row_num % 1000 == 0 and self.check_cancellation(import_file):
                     break
+                
+                # Пропускаем пустые строки
+                if not row or all(not value.strip() if isinstance(value, str) else not value for value in row.values()):
+                    continue
                 
                 batch_rows.append((row_num, row))
                 
@@ -238,70 +273,74 @@ class Command(BaseCommand):
     
     def process_row_fast(self, row):
         """УСКОРЕННАЯ обработка одной строки CSV"""
-        # Обязательные поля
-        tmp_id = row.get('TMP_ID', '').strip()
-        name = row.get('NAME', '').strip()
-        
-        if not tmp_id or not name:
-            raise ValueError('Отсутствуют обязательные поля TMP_ID или NAME')
-        
-        # УСКОРЕНИЕ: Кешируем бренды и категории для избежания частых запросов к БД
-        brand_name = row.get('PROPERTY_PRODUCER_ID', '').strip() or 'Неизвестный'
-        brand = self.get_or_create_brand_cached(brand_name)
-        
-        section_id = row.get('SECTION_ID', '').strip()
-        category = self.get_or_create_category_cached(section_id)
-        
-        # Данные товара
-        catalog_number = row.get('PROPERTY_TMC_NUMBER', '').strip()
-        artikyl_number = row.get('PROPERTY_ARTIKYL_NUMBER', '').strip()
-        cross_number = row.get('PROPERTY_CROSS_NUMBER', '').strip()
-        applicability = row.get('PROPERTY_MODEL_AVTO', '').strip()
-        
-        # Цена
-        price_str = row.get('PRICE', '0').strip().replace(',', '.')
         try:
-            price = Decimal(price_str) if price_str else Decimal('0')
-        except InvalidOperation:
-            price = Decimal('0')
-        
-        # Создание slug
-        slug = slugify(f"{name}-{catalog_number}")
-        if not slug:
-            slug = f"product-{tmp_id}"
-        
-        # УСКОРЕНИЕ: Проверяем существование товара
-        try:
-            product = Product.objects.get(code=tmp_id)
-            # Обновляем существующий товар
-            product.name = name
-            product.category = category
-            product.brand = brand
-            product.catalog_number = catalog_number
-            product.artikyl_number = artikyl_number
-            product.cross_number = cross_number
-            product.applicability = applicability
-            product.price = price
+            # Обязательные поля
+            tmp_id = row.get('TMP_ID', '').strip()
+            name = row.get('NAME', '').strip()
             
-            return {'action': 'update', 'product': product}
-        
-        except Product.DoesNotExist:
-            # Создаем новый товар
-            product = Product(
-                name=name,
-                slug=self.generate_unique_slug(slug),
-                code=tmp_id,
-                category=category,
-                brand=brand,
-                catalog_number=catalog_number,
-                artikyl_number=artikyl_number,
-                cross_number=cross_number,
-                applicability=applicability,
-                price=price,
-                in_stock=True
-            )
+            if not tmp_id or not name:
+                raise ValueError('Отсутствуют обязательные поля TMP_ID или NAME')
             
-            return {'action': 'create', 'product': product}
+            # УСКОРЕНИЕ: Кешируем бренды и категории для избежания частых запросов к БД
+            brand_name = row.get('PROPERTY_PRODUCER_ID', '').strip() or 'Неизвестный'
+            brand = self.get_or_create_brand_cached(brand_name)
+            
+            section_id = row.get('SECTION_ID', '').strip()
+            category = self.get_or_create_category_cached(section_id)
+            
+            # Данные товара
+            catalog_number = row.get('PROPERTY_TMC_NUMBER', '').strip()
+            artikyl_number = row.get('PROPERTY_ARTIKYL_NUMBER', '').strip()
+            cross_number = row.get('PROPERTY_CROSS_NUMBER', '').strip()
+            applicability = row.get('PROPERTY_MODEL_AVTO', '').strip()
+            
+            # Цена
+            price_str = row.get('PRICE', '0').strip().replace(',', '.')
+            try:
+                price = Decimal(price_str) if price_str else Decimal('0')
+            except (InvalidOperation, ValueError, TypeError):
+                price = Decimal('0')
+            
+            # Создание slug
+            slug = slugify(f"{name}-{catalog_number}")
+            if not slug:
+                slug = f"product-{tmp_id}"
+            
+            # УСКОРЕНИЕ: Проверяем существование товара
+            try:
+                product = Product.objects.get(code=tmp_id)
+                # Обновляем существующий товар
+                product.name = name
+                product.category = category
+                product.brand = brand
+                product.catalog_number = catalog_number
+                product.artikyl_number = artikyl_number
+                product.cross_number = cross_number
+                product.applicability = applicability
+                product.price = price
+                
+                return {'action': 'update', 'product': product}
+            
+            except Product.DoesNotExist:
+                # Создаем новый товар
+                product = Product(
+                    name=name,
+                    slug=self.generate_unique_slug(slug),
+                    code=tmp_id,
+                    category=category,
+                    brand=brand,
+                    catalog_number=catalog_number,
+                    artikyl_number=artikyl_number,
+                    cross_number=cross_number,
+                    applicability=applicability,
+                    price=price,
+                    in_stock=True
+                )
+                
+                return {'action': 'create', 'product': product}
+        except Exception as e:
+            # Логируем ошибку и возвращаем информацию об ошибке
+            raise ValueError(f'Ошибка обработки строки: {str(e)}')
     
     # УСКОРЕНИЕ: Кеширование для брендов и категорий
     _brand_cache = {}
@@ -347,11 +386,22 @@ class Command(BaseCommand):
     
     def generate_unique_slug(self, base_slug):
         """Генерирует уникальный slug"""
-        slug = base_slug
-        counter = 1
-        
-        while Product.objects.filter(slug=slug).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-        
-        return slug 
+        try:
+            if not base_slug:
+                base_slug = 'product'
+            
+            slug = base_slug
+            counter = 1
+            
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+                # Защита от бесконечного цикла
+                if counter > 1000:
+                    slug = f"{base_slug}-{hash(str(timezone.now()))}"
+                    break
+            
+            return slug
+        except Exception:
+            # В случае любой ошибки возвращаем безопасный slug
+            return f"product-{hash(str(timezone.now()))}" 

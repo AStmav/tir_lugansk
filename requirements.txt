@@ -1,4 +1,5 @@
 Django
 Pillow
 django-jazzmin
-whitenoise 
+whitenoise
+chardet
