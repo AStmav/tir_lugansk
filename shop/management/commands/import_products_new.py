@@ -25,6 +25,8 @@ class Command(BaseCommand):
         parser.add_argument('--encoding', type=str, default='auto', help='Кодировка файла (auto, utf-8, cp1251, windows-1251)')
         parser.add_argument('--disable-transactions', action='store_true', help='Отключить транзакции для ускорения')
         parser.add_argument('--import-file-id', type=int, default=None, help='ID записи ImportFile для обновления прогресса')
+        parser.add_argument('--clear-existing', action='store_true', help='Очистить существующие товары перед импортом')
+        parser.add_argument('--test-lines', type=int, default=0, help='Ограничить импорт первыми N строками (для тестирования)')
 
     def detect_encoding(self, file_path):
         """Автоматически определяет кодировку файла"""
@@ -70,7 +72,10 @@ class Command(BaseCommand):
         encoding = options['encoding']
         disable_transactions = options['disable_transactions']
         import_file_id = options.get('import_file_id')
+        clear_existing = options.get('clear_existing', False)
+        test_lines = options.get('test_lines', 0)
         import_file = None
+        
         if import_file_id:
             import_file = ImportFile.objects.filter(id=import_file_id).first()
             if import_file:
@@ -85,6 +90,48 @@ class Command(BaseCommand):
                     updated_products=0,
                     error_count=0,
                 )
+        
+        # Очищаем существующие товары если указан флаг
+        if clear_existing:
+            self.stdout.write('Очищаем существующие товары...')
+            deleted_count = Product.objects.count()
+            Product.objects.all().delete()
+            self.stdout.write(f'Удалено {deleted_count} существующих товаров')
+            logger.info(f"Удалено {deleted_count} существующих товаров")
+            
+            # Очищаем кэши
+            existing_tmp_ids = set()
+            existing_codes = set()
+            all_categories = {}
+            all_brands = {}
+        else:
+            # Загружаем существующие данные в память для быстрого поиска
+            self.stdout.write('Загружаем существующие данные в память...')
+            
+            existing_tmp_ids = set(Product.objects.values_list('tmp_id', flat=True))
+            existing_codes = set(Product.objects.values_list('slug', flat=True))
+            all_categories = {cat.slug: cat for cat in Category.objects.all()}
+            all_brands = {brand.slug: brand for brand in Brand.objects.all()}
+            
+            self.stdout.write(f'Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID')
+            self.stdout.write(f'Загружено {len(existing_codes)} существующих товаров по коду')
+            self.stdout.write(f'Загружено {len(all_categories)} существующих категорий')
+            self.stdout.write(f'Загружено {len(all_brands)} существующих брендов')
+            
+            logger.info(f"Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID")
+            logger.info(f"Загружено {len(existing_codes)} существующих товаров по коду")
+            logger.info(f"Загружено {len(all_categories)} существующих категорий")
+            logger.info(f"Загружено {len(all_brands)} существующих брендов")
+        
+        # Инициализируем кэши и счетчики
+        categories_cache = {}
+        brands_cache = {}
+        created_categories = 0
+        created_brands = 0
+        created_products = 0
+        updated_products = 0
+        errors = 0
+        processed_rows = 0
         
         logger.info(f"Начинаем импорт товаров из файла: {csv_file}")
         logger.info(f"Параметры: batch_size={batch_size}, skip_rows={skip_rows}, delimiter='{delimiter}', encoding={encoding}")
@@ -117,34 +164,6 @@ class Command(BaseCommand):
             if import_file:
                 ImportFile.objects.filter(id=import_file.id).update(status='failed', error_log=error_msg)
             return
-
-        created_categories = 0
-        created_brands = 0
-        created_products = 0
-        updated_products = 0
-        errors = 0
-        processed_rows = 0
-
-        categories_cache = {}
-        brands_cache = {}
-        
-        # Загружаем существующие данные в память для быстрого поиска
-        self.stdout.write('Загружаем существующие данные в память...')
-        
-        existing_tmp_ids = set(Product.objects.values_list('tmp_id', flat=True))
-        existing_codes = set(Product.objects.values_list('slug', flat=True))
-        all_categories = {cat.slug: cat for cat in Category.objects.all()}
-        all_brands = {brand.slug: brand for brand in Brand.objects.all()}
-        
-        self.stdout.write(f'Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID')
-        self.stdout.write(f'Загружено {len(existing_codes)} существующих товаров по коду')
-        self.stdout.write(f'Загружено {len(all_categories)} существующих категорий')
-        self.stdout.write(f'Загружено {len(all_brands)} существующих брендов')
-        
-        logger.info(f"Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID")
-        logger.info(f"Загружено {len(existing_codes)} существующих товаров по коду")
-        logger.info(f"Загружено {len(all_categories)} существующих категорий")
-        logger.info(f"Загружено {len(all_brands)} существующих брендов")
 
         products_batch = []
         products_to_update = []
@@ -210,6 +229,11 @@ class Command(BaseCommand):
 
                 for row_num, row in enumerate(reader, start=skip_rows + 1):
                     try:
+                        # Ограничиваем количество строк для тестирования
+                        if test_lines > 0 and row_num > test_lines:
+                            self.stdout.write(f'Достигнут лимит тестовых строк: {test_lines}')
+                            break
+                        
                         # Парсим данные по новой структуре
                         tmp_id = row.get('TMP_ID', '').strip()
                         name = row.get('NAME', '').strip()
@@ -220,6 +244,10 @@ class Command(BaseCommand):
                         cross_number = row.get('PROPERTY_CROSS_NUMBER', '').strip()
                         section_id = row.get('SECTION_ID', '').strip()
                         
+                        # Логируем первые несколько строк для отладки
+                        if row_num <= 5:
+                            logger.info(f"Строка {row_num}: TMP_ID={tmp_id}, NAME={name}, PRODUCER={producer_id}, SECTION={section_id}, APPLICABILITY={model_avto}")
+                        
                         # Очищаем SECTION_ID от квадратных скобок и других символов
                         if section_id:
                             section_id = section_id.replace('[', '').replace(']', '').replace(';', '').strip()
@@ -227,6 +255,12 @@ class Command(BaseCommand):
                         if not tmp_id or not name:
                             stats['skipped_empty'] += 1
                             continue
+                        
+                        # Проверяем, что у товара есть бренд и категория
+                        if not producer_id:
+                            logger.warning(f"Строка {row_num}: Товар {tmp_id} без производителя")
+                        if not section_id:
+                            logger.warning(f"Строка {row_num}: Товар {tmp_id} без категории")
                         
                         # Логируем каждые 1000 строк для отслеживания прогресса
                         if row_num % 1000 == 0:
@@ -240,12 +274,38 @@ class Command(BaseCommand):
                                     error_count=errors,
                                 )
                         
+                        brand = None
+                        if producer_id:
+                            # Создаем slug из названия бренда, а не используем название как slug
+                            brand_slug = slugify(producer_id)
+                            if brand_slug in all_brands:
+                                brand = all_brands[brand_slug]
+                                logger.info(f"Найден существующий бренд: {brand.name} (slug: {brand_slug})")
+                            elif brand_slug not in brands_cache:
+                                brand, created = Brand.objects.get_or_create(
+                                    slug=brand_slug,
+                                    defaults={
+                                        'name': producer_id,  # Сохраняем оригинальное название
+                                        'description': f'Автоматически созданный бренд для {producer_id}'
+                                    }
+                                )
+                                all_brands[brand_slug] = brand
+                                brands_cache[brand_slug] = brand
+                                if created:
+                                    stats['new_brands'] += 1
+                                    self.stdout.write(f'Создан бренд: {brand.name}')
+                                    logger.info(f"Создан новый бренд: {brand.name} (slug: {brand_slug})")
+                        else:
+                            logger.warning(f"Строка {row_num}: Отсутствует производитель для товара {tmp_id}")
+                        
                         # Создаем/получаем категорию (с кэшем)
                         category = None
                         if section_id:
-                            category_slug = section_id  # Убираем префикс category-
+                            # Создаем slug из SECTION_ID, а не используем SECTION_ID как slug
+                            category_slug = slugify(section_id)
                             if category_slug in all_categories:
                                 category = all_categories[category_slug]
+                                logger.info(f"Найдена существующая категория: {category.name} (slug: {category_slug})")
                             elif category_slug not in categories_cache:
                                 # Создаем категорию сразу
                                 category, created = Category.objects.get_or_create(
@@ -261,26 +321,8 @@ class Command(BaseCommand):
                                     stats['new_categories'] += 1
                                     self.stdout.write(f'Создана категория: {category.name}')
                                     logger.info(f"Создана новая категория: {category.name} (slug: {category_slug})")
-                        
-                        brand = None
-                        if producer_id:
-                            brand_slug = producer_id 
-                            if brand_slug in all_brands:
-                                brand = all_brands[brand_slug]
-                            elif brand_slug not in brands_cache:
-                                brand, created = Brand.objects.get_or_create(
-                                    slug=brand_slug,
-                                    defaults={
-                                        'name': f'Бренд {producer_id}',
-                                        'description': f'Автоматически созданный бренд для {producer_id}'
-                                    }
-                                )
-                                all_brands[brand_slug] = brand
-                                brands_cache[brand_slug] = brand
-                                if created:
-                                    stats['new_brands'] += 1
-                                    self.stdout.write(f'Создан бренд: {brand.name}')
-                                    logger.info(f"Создан новый бренд: {brand.name} (slug: {brand_slug})")
+                        else:
+                            logger.warning(f"Строка {row_num}: Отсутствует категория для товара {tmp_id}")
                         
                         base_slug = slugify(name)[:30]  
                         slug = f"{base_slug}-{tmp_id}"
@@ -299,13 +341,17 @@ class Command(BaseCommand):
                             brand=brand,
                             code=tmc_number or tmp_id,
                             catalog_number=tmc_number or tmp_id,
-                            cross_number=cross_number[:100],
-                            artikyl_number=artikyl_number[:100],
-                            applicability=model_avto[:500],
+                            cross_number=cross_number[:100] if cross_number else '',
+                            artikyl_number=artikyl_number[:100] if artikyl_number else '',
+                            applicability=model_avto[:500] if model_avto else 'Уточняйте',
                             price=0,
                             in_stock=True,
                             is_new=True,
                         )
+                        
+                        # Логируем создание товара для отладки
+                        if row_num <= 5:
+                            logger.info(f"Создается товар: {product.name}, бренд: {product.brand.name if product.brand else 'Нет'}, категория: {product.category.name if product.category else 'Нет'}")
                         
                         products_batch.append(product)
                         stats['new_products'] += 1
