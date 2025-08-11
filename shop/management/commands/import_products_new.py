@@ -339,8 +339,8 @@ class Command(BaseCommand):
                             slug=slug,
                             category=category,
                             brand=brand,
-                            code=tmc_number or tmp_id,
-                            catalog_number=tmc_number or tmp_id,
+                            code=tmp_id,  # Используем TMP_ID как код товара
+                            catalog_number=tmc_number or tmp_id,  # TMC_NUMBER как каталожный номер
                             cross_number=cross_number[:100] if cross_number else '',
                             artikyl_number=artikyl_number[:100] if artikyl_number else '',
                             applicability=model_avto[:500] if model_avto else 'Уточняйте',

@@ -138,7 +138,7 @@ class BrandAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number', 'price', 'in_stock']
     list_filter = ['category', 'brand', 'in_stock', 'is_featured', 'is_new', 'created_at']
-    search_fields = ['name', 'code', 'catalog_number', 'artikyl_number', 'cross_number']
+    search_fields = ['name', 'code', 'tmp_id', 'catalog_number', 'artikyl_number', 'cross_number']
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'in_stock']

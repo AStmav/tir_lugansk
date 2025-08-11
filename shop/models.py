@@ -215,6 +215,10 @@ class OeKod(models.Model):
         alpha_count = sum(1 for c in term if c.isalpha())
         special_count = sum(1 for c in term if c in '-._/')
         
+        # Специальная логика для TMP_ID (обычно только цифры, например 000179920)
+        if term.isdigit() and len(term) >= 6:
+            return True
+        
         # Если есть цифры и общая длина не слишком большая
         if digit_count > 0 and len(term) <= 50:
             # Если много букв относительно цифр, скорее всего это название

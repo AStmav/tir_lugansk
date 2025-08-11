@@ -32,12 +32,31 @@ class CatalogView(ListView):
             if OeKod.is_number_search(search):
                 logger.info(f"Поиск по номеру: '{search}'")
                 
-                # ПОИСК ПО НОМЕРУ - ищем по ВСЕМ товарам независимо от фильтров
-                number_search_query = (
-                    Q(catalog_number__istartswith=search) |  # PROPERTY_TMC_NUMBER
-                    Q(artikyl_number__istartswith=search) |  # PROPERTY_ARTIKYL_NUMBER
-                    Q(cross_number__istartswith=search)      # PROPERTY_CROSS_NUMBER
-                )
+                # Для коротких номеров (менее 5 символов) используем только точное совпадение
+                if len(search) < 5:
+                    logger.info(f"Короткий номер, точное совпадение: '{search}'")
+                    number_search_query = (
+                        Q(code__iexact=search) |                    # TMP_ID точное совпадение
+                        Q(tmp_id__iexact=search) |                  # TMP_ID точное совпадение (дублирующее поле)
+                        Q(catalog_number__iexact=search) |          # PROPERTY_TMC_NUMBER точное совпадение
+                        Q(artikyl_number__iexact=search) |          # PROPERTY_ARTIKYL_NUMBER точное совпадение
+                        Q(cross_number__iexact=search)              # PROPERTY_CROSS_NUMBER точное совпадение
+                    )
+                else:
+                    # Для длинных номеров используем точное совпадение + начинается с
+                    logger.info(f"Длинный номер, точное + частичное совпадение: '{search}'")
+                    number_search_query = (
+                        Q(code__iexact=search) |                    # TMP_ID точное совпадение
+                        Q(tmp_id__iexact=search) |                  # TMP_ID точное совпадение (дублирующее поле)
+                        Q(catalog_number__iexact=search) |          # PROPERTY_TMC_NUMBER точное совпадение
+                        Q(artikyl_number__iexact=search) |          # PROPERTY_ARTIKYL_NUMBER точное совпадение
+                        Q(cross_number__iexact=search) |            # PROPERTY_CROSS_NUMBER точное совпадение
+                        Q(code__istartswith=search) |               # TMP_ID начинается с
+                        Q(tmp_id__istartswith=search) |             # TMP_ID начинается с
+                        Q(catalog_number__istartswith=search) |     # PROPERTY_TMC_NUMBER начинается с
+                        Q(artikyl_number__istartswith=search) |     # PROPERTY_ARTIKYL_NUMBER начинается с
+                        Q(cross_number__istartswith=search)         # PROPERTY_CROSS_NUMBER начинается с
+                    )
                 
                 # Поиск в таблице аналогов OE
                 oe_products = Product.objects.filter(
