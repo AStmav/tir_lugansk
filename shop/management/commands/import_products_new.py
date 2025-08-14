@@ -10,6 +10,7 @@ import logging
 from django.db.models import Q
 from collections import defaultdict
 import chardet
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,39 @@ class Command(BaseCommand):
             return False
         except Exception:
             return False
+
+    def parse_csv_line(self, line, delimiter='#'):
+        """Парсит строку CSV с учетом специфики формата 1С"""
+        # Удаляем лишние разделители в конце
+        line = line.rstrip(delimiter).strip()
+        # Разбиваем по разделителю
+        fields = line.split(delimiter)
+        
+        # Убеждаемся, что у нас есть все нужные поля (8 полей)
+        while len(fields) < 8:
+            fields.append('')
+            
+        return {
+            'TMP_ID': fields[0].strip() if len(fields) > 0 else '',
+            'NAME': fields[1].strip() if len(fields) > 1 else '',
+            'PROPERTY_PRODUCER_ID': fields[2].strip() if len(fields) > 2 else '',
+            'PROPERTY_TMC_NUMBER': fields[3].strip() if len(fields) > 3 else '',
+            'PROPERTY_ARTIKYL_NUMBER': fields[4].strip() if len(fields) > 4 else '',
+            'PROPERTY_MODEL_AVTO': fields[5].strip() if len(fields) > 5 else '',
+            'PROPERTY_CROSS_NUMBER': fields[6].strip() if len(fields) > 6 else '',
+            'SECTION_ID': fields[7].strip() if len(fields) > 7 else '',
+        }
+
+    def count_lines_in_file(self, file_path, encoding, delimiter='#'):
+        """Подсчитывает количество строк в CSV файле, исключая заголовок"""
+        try:
+            with open(file_path, 'r', encoding=encoding) as file:
+                lines = file.readlines()
+                # Исключаем заголовок (первую строку)
+                return len(lines) - 1 if len(lines) > 0 else 0
+        except Exception as e:
+            logger.error(f"Ошибка подсчета строк в файле: {e}")
+            return 0
 
     def handle(self, *args, **options):
         csv_file = options['csv_file']
@@ -165,6 +199,13 @@ class Command(BaseCommand):
                 ImportFile.objects.filter(id=import_file.id).update(status='failed', error_log=error_msg)
             return
 
+        # Подсчитываем общее количество строк
+        total_lines = self.count_lines_in_file(csv_file, working_encoding, delimiter)
+        self.stdout.write(f'Всего строк в файле (без заголовка): {total_lines}')
+        logger.info(f"Всего строк в файле: {total_lines}")
+        if import_file:
+            ImportFile.objects.filter(id=import_file.id).update(total_rows=total_lines)
+
         products_batch = []
         products_to_update = []
         
@@ -175,46 +216,33 @@ class Command(BaseCommand):
                 connection.autocommit = False
             
             with open(csv_file, 'r', encoding=working_encoding) as file:
-                # Определяем общее количество строк
-                total_lines = sum(1 for _ in file)
-                file.seek(0)
+                lines = file.readlines()
                 
-                self.stdout.write(f'Всего строк в файле: {total_lines}')
-                if import_file:
-                    ImportFile.objects.filter(id=import_file.id).update(total_rows=total_lines)
+                # Пропускаем заголовок (первую строку)
+                if len(lines) == 0:
+                    self.stdout.write(self.style.ERROR('Файл пустой'))
+                    return
                 
-                reader = csv.DictReader(file, delimiter=delimiter)
-                
-                # Пропускаем уже обработанные строки
-                for _ in range(skip_rows):
-                    try:
-                        next(reader)
-                        processed_rows += 1
-                    except StopIteration:
-                        break
-                
-                self.stdout.write(f'Пропущено {skip_rows} строк, начинаем с строки {skip_rows + 1}')
-                
-                # Подсчитываем общее количество строк
-                total_lines = sum(1 for _ in reader)
-                self.stdout.write(f'Всего строк в файле: {total_lines}')
-                logger.info(f"Всего строк в файле: {total_lines}")
-                if import_file:
-                    ImportFile.objects.filter(id=import_file.id).update(total_rows=total_lines)
+                header_line = lines[0].strip()
+                self.stdout.write(f'Заголовок: {header_line}')
+                logger.info(f"Заголовок CSV: {header_line}")
                 
                 # Проверяем на дублирующиеся tmp_id
-                file.seek(0)
-                reader = csv.DictReader(file, delimiter=delimiter)
                 tmp_ids_in_csv = set()
                 duplicate_tmp_ids = set()
                 
-                for row in reader:
+                for line_num, line in enumerate(lines[1:], start=1):  # Пропускаем заголовок
+                    try:
+                        row = self.parse_csv_line(line, delimiter)
                     tmp_id = row.get('TMP_ID', '').strip()
                     if tmp_id:
                         if tmp_id in tmp_ids_in_csv:
                             duplicate_tmp_ids.add(tmp_id)
                         else:
                             tmp_ids_in_csv.add(tmp_id)
+                    except Exception as e:
+                        logger.warning(f"Ошибка парсинга строки {line_num} при проверке дубликатов: {e}")
+                        continue
                 
                 if duplicate_tmp_ids:
                     self.stdout.write(self.style.WARNING(f'Найдено {len(duplicate_tmp_ids)} дублирующихся TMP_ID в CSV файле'))
@@ -223,16 +251,20 @@ class Command(BaseCommand):
                 self.stdout.write(f'Уникальных TMP_ID в CSV: {len(tmp_ids_in_csv)}')
                 logger.info(f"Уникальных TMP_ID в CSV: {len(tmp_ids_in_csv)}")
                 
-                # Возвращаемся в начало файла для основного импорта
-                file.seek(0)
-                reader = csv.DictReader(file, delimiter=delimiter)
-
-                for row_num, row in enumerate(reader, start=skip_rows + 1):
+                # Основной импорт
+                for line_num, line in enumerate(lines[1:], start=1):  # Пропускаем заголовок
                     try:
+                        # Пропускаем уже обработанные строки
+                        if line_num <= skip_rows:
+                            continue
+                            
                         # Ограничиваем количество строк для тестирования
-                        if test_lines > 0 and row_num > test_lines:
+                        if test_lines > 0 and line_num > test_lines:
                             self.stdout.write(f'Достигнут лимит тестовых строк: {test_lines}')
                             break
+                        
+                        # Парсим строку
+                        row = self.parse_csv_line(line, delimiter)
                         
                         # Парсим данные по новой структуре
                         tmp_id = row.get('TMP_ID', '').strip()
@@ -245,30 +277,52 @@ class Command(BaseCommand):
                         section_id = row.get('SECTION_ID', '').strip()
                         
                         # Логируем первые несколько строк для отладки
-                        if row_num <= 5:
-                            logger.info(f"Строка {row_num}: TMP_ID={tmp_id}, NAME={name}, PRODUCER={producer_id}, SECTION={section_id}, APPLICABILITY={model_avto}")
+                        if line_num <= 5:
+                            logger.info(f"Строка {line_num}: TMP_ID={tmp_id}, NAME={name}, PRODUCER={producer_id}, SECTION={section_id}, TMC={tmc_number}")
+                            self.stdout.write(f"Отладка строки {line_num}: TMP_ID={tmp_id}, NAME={name}, PRODUCER={producer_id}")
+                        
+                        # МИНИМАЛЬНАЯ ОБРАБОТКА - ПЕРЕНОСИМ КАК ЕСТЬ!
+                        
+                        # Обрабатываем только критичные пустые поля
+                        if not tmp_id:
+                            tmp_id = "Недоступно"
+                            logger.warning(f"Строка {line_num}: Пустой TMP_ID, установлен 'Недоступно'")
+                        
+                        if not name:
+                            name = "Недоступно"
+                            logger.warning(f"Строка {line_num}: Пустое название, установлено 'Недоступно'")
+                        
+                        # Логируем обработку
+                        if line_num <= 10 or line_num % 10000 == 0:
+                            self.stdout.write(f"Строка {line_num}: TMP_ID='{tmp_id}', NAME='{name[:30]}...'")
                         
                         # Очищаем SECTION_ID от квадратных скобок и других символов
                         if section_id:
                             section_id = section_id.replace('[', '').replace(']', '').replace(';', '').strip()
                         
-                        if not tmp_id or not name:
-                            stats['skipped_empty'] += 1
-                            continue
+                        # Обрабатываем дубликаты по TMP_ID (только суффиксы)
+                        original_tmp_id = tmp_id
+                        counter = 1
+                        while tmp_id in existing_tmp_ids:
+                            tmp_id = f"{original_tmp_id}-dup{counter}"
+                            counter += 1
                         
-                        # Проверяем, что у товара есть бренд и категория
+                        if tmp_id != original_tmp_id:
+                            logger.warning(f"Строка {line_num}: Дубликат TMP_ID '{original_tmp_id}', изменен на '{tmp_id}'")
+                        
+                        # Логируем отсутствие данных (без изменений)
                         if not producer_id:
-                            logger.warning(f"Строка {row_num}: Товар {tmp_id} без производителя")
+                            logger.info(f"Строка {line_num}: Товар {tmp_id} без производителя")
                         if not section_id:
-                            logger.warning(f"Строка {row_num}: Товар {tmp_id} без категории")
+                            logger.info(f"Строка {line_num}: Товар {tmp_id} без категории")
                         
                         # Логируем каждые 1000 строк для отслеживания прогресса
-                        if row_num % 1000 == 0:
-                            logger.info(f"Обработано строк: {row_num}/{total_lines} ({(row_num/total_lines)*100:.1f}%)")
+                        if line_num % 1000 == 0:
+                            logger.info(f"Обработано строк: {line_num}/{total_lines} ({(line_num/total_lines)*100:.1f}%)")
                             if import_file:
                                 # Промежуточное обновление прогресса
                                 ImportFile.objects.filter(id=import_file.id).update(
-                                    current_row=row_num,
+                                    current_row=line_num,
                                     processed_rows=processed_rows,
                                     created_products=stats['new_products'],
                                     error_count=errors,
@@ -280,6 +334,7 @@ class Command(BaseCommand):
                             brand_slug = slugify(producer_id)
                             if brand_slug in all_brands:
                                 brand = all_brands[brand_slug]
+                                if line_num <= 5:
                                 logger.info(f"Найден существующий бренд: {brand.name} (slug: {brand_slug})")
                             elif brand_slug not in brands_cache:
                                 brand, created = Brand.objects.get_or_create(
@@ -296,15 +351,18 @@ class Command(BaseCommand):
                                     self.stdout.write(f'Создан бренд: {brand.name}')
                                     logger.info(f"Создан новый бренд: {brand.name} (slug: {brand_slug})")
                         else:
-                            logger.warning(f"Строка {row_num}: Отсутствует производитель для товара {tmp_id}")
+                                brand = brands_cache[brand_slug]
+                        else:
+                            logger.warning(f"Строка {line_num}: Отсутствует производитель для товара {tmp_id}")
                         
                         # Создаем/получаем категорию (с кэшем)
                         category = None
                         if section_id:
                             # Создаем slug из SECTION_ID, а не используем SECTION_ID как slug
-                            category_slug = slugify(section_id)
+                            category_slug = slugify(f"category-{section_id}")
                             if category_slug in all_categories:
                                 category = all_categories[category_slug]
+                                if line_num <= 5:
                                 logger.info(f"Найдена существующая категория: {category.name} (slug: {category_slug})")
                             elif category_slug not in categories_cache:
                                 # Создаем категорию сразу
@@ -322,16 +380,36 @@ class Command(BaseCommand):
                                     self.stdout.write(f'Создана категория: {category.name}')
                                     logger.info(f"Создана новая категория: {category.name} (slug: {category_slug})")
                         else:
-                            logger.warning(f"Строка {row_num}: Отсутствует категория для товара {tmp_id}")
+                                category = categories_cache[category_slug]
+                        else:
+                            logger.warning(f"Строка {line_num}: Отсутствует категория для товара {tmp_id}")
                         
-                        base_slug = slugify(name)[:30]  
-                        slug = f"{base_slug}-{tmp_id}"
+                        # Создаем безопасный slug для товара
+                        # Очищаем название товара
+                        clean_name = slugify(name)[:30] if name else 'product'
                         
+                        # Очищаем TMP_ID от всех спецсимволов
+                        clean_tmp_id = re.sub(r'[^a-zA-Z0-9]', '', tmp_id) if tmp_id else 'unknown'
+                        
+                        # Создаем базовый slug
+                        base_slug = f"{clean_name}-{clean_tmp_id}"
+                        
+                        # Дополнительно очищаем весь slug
+                        slug = slugify(base_slug)
+                        
+                        # Если slug пустой, создаем дефолтный
+                        if not slug:
+                            slug = f"product-{clean_tmp_id}"
+                        
+                        # Проверяем уникальность
                         counter = 1
                         original_slug = slug
                         while slug in existing_codes:
                             slug = f"{original_slug}-{counter}"
                             counter += 1
+                        
+                        existing_codes.add(slug)  # Добавляем в кэш
+                        existing_tmp_ids.add(tmp_id)  # Добавляем в кэш
                         
                         product = Product(
                             tmp_id=tmp_id,
@@ -350,7 +428,7 @@ class Command(BaseCommand):
                         )
                         
                         # Логируем создание товара для отладки
-                        if row_num <= 5:
+                        if line_num <= 5:
                             logger.info(f"Создается товар: {product.name}, бренд: {product.brand.name if product.brand else 'Нет'}, категория: {product.category.name if product.category else 'Нет'}")
                         
                         products_batch.append(product)
@@ -384,9 +462,9 @@ class Command(BaseCommand):
                     except Exception as e:
                         errors += 1
                         if errors <= 10:  
-                            error_msg = f'Ошибка в строке {row_num}: {str(e)}'
+                            error_msg = f'Ошибка в строке {line_num}: {str(e)}'
                             self.stdout.write(self.style.ERROR(error_msg))
-                            logger.error(f"Ошибка в строке {row_num}: {str(e)}")
+                            logger.error(f"Ошибка в строке {line_num}: {str(e)}")
                         if import_file:
                             ImportFile.objects.filter(id=import_file.id).update(error_count=errors)
                         continue

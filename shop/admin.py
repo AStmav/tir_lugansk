@@ -167,7 +167,7 @@ class OeKodAdmin(admin.ModelAdmin):
 
 @admin.register(ImportFile)
 class ImportFileAdmin(admin.ModelAdmin):
-    list_display = ['original_filename', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'processed_rows', 'created_products', 'action_buttons']
+    list_display = ['original_filename', 'file_type_display', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'processed_rows', 'created_products', 'action_buttons']
     list_filter = ['status', 'processed', 'uploaded_at']
     search_fields = ['original_filename']
     readonly_fields = ['file', 'original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at']
@@ -190,6 +190,11 @@ class ImportFileAdmin(admin.ModelAdmin):
         except Exception:
             return "Неизвестно"
     file_size.short_description = 'Размер файла'
+    
+    def file_type_display(self, obj):
+        """Отображение типа файла"""
+        return obj.file_type_display
+    file_type_display.short_description = 'Тип файла'
     
     def file_info_display(self, obj):
         """Безопасное отображение информации о файле"""
@@ -410,60 +415,77 @@ class ImportFileAdmin(admin.ModelAdmin):
         return custom_urls + urls
     
     def upload_csv_view(self, request):
-        """Страница загрузки CSV файла"""
+        """Страница загрузки CSV и DBF файлов"""
         if request.method == 'POST' and request.FILES.get('csv_file'):
-            csv_file = request.FILES['csv_file']
+            import_file = request.FILES['csv_file']
             
             # Проверяем расширение файла
-            if not csv_file.name.lower().endswith('.csv'):
-                messages.error(request, 'Пожалуйста, загрузите файл с расширением .csv')
+            allowed_extensions = ('.csv', '.dbf')
+            if not any(import_file.name.lower().endswith(ext) for ext in allowed_extensions):
+                messages.error(request, 'Пожалуйста, загрузите файл с расширением .csv или .dbf')
                 return HttpResponseRedirect('../')
             
             try:
                 # Создаем запись импорта
-                import_file = ImportFile.objects.create(
-                    file=csv_file,
-                    original_filename=csv_file.name,
+                import_file_obj = ImportFile.objects.create(
+                    file=import_file,
+                    original_filename=import_file.name,
                     status='pending'
                 )
                 
-                # Подсчитываем количество строк в файле для отображения прогресса
+                # Подсчитываем количество строк/записей в файле для отображения прогресса
                 try:
-                    import csv
-                    import chardet
+                    total_rows = 0
                     
-                    # Определяем кодировку
-                    with open(import_file.file.path, 'rb') as f:
-                        raw_data = f.read()
-                        result = chardet.detect(raw_data)
-                        encoding = result['encoding']
+                    if import_file.name.lower().endswith('.dbf'):
+                        # Обработка DBF файла
+                        try:
+                            from dbfread import DBF
+                            table = DBF(import_file_obj.file.path, encoding='cp1251', load=False)
+                            total_rows = len(table)
+                        except ImportError:
+                            import_file_obj.error_log = "Библиотека dbfread не установлена"
+                        except Exception as e:
+                            import_file_obj.error_log = f"Ошибка чтения DBF файла: {str(e)}"
                     
-                    # Подсчитываем строки
-                    with open(import_file.file.path, 'r', encoding=encoding, errors='ignore') as f:
-                        # Пробуем разные разделители
-                        content = f.read()
-                        if '#' in content:
-                            delimiter = '#'
-                        elif ';' in content:
-                            delimiter = ';'
-                        elif ',' in content:
-                            delimiter = ','
-                        else:
-                            delimiter = '\t'
+                    elif import_file.name.lower().endswith('.csv'):
+                        # Обработка CSV файла (старая логика)
+                        import csv
+                        import chardet
                         
-                        f.seek(0)
-                        reader = csv.DictReader(f, delimiter=delimiter)
-                        total_rows = sum(1 for _ in reader)
+                        # Определяем кодировку
+                        with open(import_file_obj.file.path, 'rb') as f:
+                            raw_data = f.read()
+                            result = chardet.detect(raw_data)
+                            encoding = result['encoding']
                         
-                        import_file.total_rows = total_rows
-                        import_file.save()
+                        # Подсчитываем строки
+                        with open(import_file_obj.file.path, 'r', encoding=encoding, errors='ignore') as f:
+                            # Пробуем разные разделители
+                            content = f.read()
+                            if '#' in content:
+                                delimiter = '#'
+                            elif ';' in content:
+                                delimiter = ';'
+                            elif ',' in content:
+                                delimiter = ','
+                            else:
+                                delimiter = '\t'
+                            
+                            f.seek(0)
+                            reader = csv.DictReader(f, delimiter=delimiter)
+                            total_rows = sum(1 for _ in reader)
+                    
+                    import_file_obj.total_rows = total_rows
+                    import_file_obj.save()
                         
                 except Exception as e:
                     # Если не удалось подсчитать строки, продолжаем без этого
-                    import_file.error_log = f"Не удалось подсчитать строки: {str(e)}"
-                    import_file.save()
+                    import_file_obj.error_log = f"Не удалось подсчитать строки/записи: {str(e)}"
+                    import_file_obj.save()
                 
-                messages.success(request, f'Файл "{csv_file.name}" успешно загружен на сервер! Всего строк: {import_file.total_rows or "неизвестно"}. Теперь можно запустить импорт.')
+                file_type = "DBF" if import_file.name.lower().endswith('.dbf') else "CSV"
+                messages.success(request, f'{file_type} файл "{import_file.name}" успешно загружен на сервер! Всего записей: {import_file_obj.total_rows or "неизвестно"}. Теперь можно запустить импорт.')
                 return HttpResponseRedirect('../')
                 
             except Exception as e:
@@ -503,14 +525,25 @@ class ImportFileAdmin(admin.ModelAdmin):
                         import_file.status = 'processing'
                         import_file.save()
                         
-                        # Используем новую команду import_products_new с загруженным файлом
-                        call_command(
-                            'import_products_new',
-                            import_file.file.path,  # positional csv_file
-                            batch_size=10000,
-                            disable_transactions=True,
-                            import_file_id=import_file.id,
-                        )
+                        # Выбираем команду импорта в зависимости от типа файла
+                        if import_file.is_dbf_file:
+                            # Используем новую команду для DBF файлов
+                            call_command(
+                                'import_dbf',
+                                import_file.file.path,  # positional dbf_file
+                                batch_size=10000,
+                                disable_transactions=True,
+                                import_file_id=import_file.id,
+                            )
+                        else:
+                            # Используем команду для CSV файлов
+                            call_command(
+                                'import_products_new',
+                                import_file.file.path,  # positional csv_file
+                                batch_size=10000,
+                                disable_transactions=True,
+                                import_file_id=import_file.id,
+                            )
                         
                         # Обновляем статус на completed
                         import_file.status = 'completed'

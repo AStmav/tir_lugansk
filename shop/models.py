@@ -229,8 +229,8 @@ class OeKod(models.Model):
 
 
 class ImportFile(models.Model):
-    """Модель для загрузки CSV файлов импорта"""
-    file = models.FileField(upload_to='imports/', verbose_name='CSV файл')
+    """Модель для загрузки CSV и DBF файлов импорта"""
+    file = models.FileField(upload_to='imports/', verbose_name='Файл импорта (CSV/DBF)')
     original_filename = models.CharField(max_length=255, verbose_name='Исходное имя файла')
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата загрузки')
     processed = models.BooleanField(default=False, verbose_name='Обработан')
@@ -299,3 +299,27 @@ class ImportFile(models.Model):
     
     def __str__(self):
         return f"{self.original_filename} ({self.uploaded_at})"
+    
+    @property
+    def is_dbf_file(self):
+        """Проверяет, является ли файл DBF файлом"""
+        if self.original_filename:
+            return self.original_filename.lower().endswith('.dbf')
+        return False
+    
+    @property
+    def is_csv_file(self):
+        """Проверяет, является ли файл CSV файлом"""
+        if self.original_filename:
+            return self.original_filename.lower().endswith('.csv')
+        return False
+    
+    @property
+    def file_type_display(self):
+        """Возвращает тип файла для отображения"""
+        if self.is_dbf_file:
+            return 'DBF'
+        elif self.is_csv_file:
+            return 'CSV'
+        else:
+            return 'Неизвестный'
