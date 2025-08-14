@@ -1,6 +1,7 @@
 # Большие файлы и папки
 images/
 1CEXP_SITE(29.07.25).csv
+*.DBF
 
 # Python
 __pycache__/
@@ -79,4 +80,7 @@ logs/
 *.backup
 
 # Cache
-.cache/ 
+.cache/ *.DBF
+*.dbf
+db.sqlite3
+__pycache__/
