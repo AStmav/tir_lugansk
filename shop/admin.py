@@ -458,7 +458,7 @@ class ImportFileAdmin(admin.ModelAdmin):
                             raw_data = f.read()
                             result = chardet.detect(raw_data)
                             encoding = result['encoding']
-                        
+                    
                         # Подсчитываем строки
                         with open(import_file_obj.file.path, 'r', encoding=encoding, errors='ignore') as f:
                             # Пробуем разные разделители
