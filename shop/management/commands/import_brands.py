@@ -127,18 +127,14 @@ class Command(BaseCommand):
                             self.stdout.write(f'Строка {line_num}: код={brand_code}, название={brand_name}')
                         
                         # Создаем slug
-                        brand_slug = slugify(brand_name)
-                        if not brand_slug:
-                            brand_slug = f'brand-{brand_code}'
+                        brand_slug = brand_code.lower()
                         
                         # Создаем или обновляем бренд
-                        brand, created = Brand.objects.get_or_create(
-                            slug=brand_slug,
-                            defaults={
-                                'name': brand_name,
-                                'description': f'Бренд импортирован из справочника 1С (код: {brand_code})'
-                            }
-                        )
+                        brand, created = Brand.objects.get_or_create(slug=brand_slug, defaults={
+                            'code': brand_code,
+                            'name': brand_name,
+                            'description': f'Бренд импортирован из справочника 1С (код: {brand_code})'
+                        })
                         
                         if created:
                             created_brands += 1
@@ -146,8 +142,14 @@ class Command(BaseCommand):
                                 self.stdout.write(f'✅ Создан бренд: {brand_name} (slug: {brand_slug})')
                         else:
                             # Обновляем название если нужно
+                            update_needed = False
+                            if brand.code != brand_code:
+                                brand.code = brand_code
+                                update_needed = True
                             if brand.name != brand_name:
                                 brand.name = brand_name
+                                update_needed = True
+                            if update_needed:
                                 brand.save()
                                 updated_brands += 1
                         

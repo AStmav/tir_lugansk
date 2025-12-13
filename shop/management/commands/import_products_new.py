@@ -146,6 +146,9 @@ class Command(BaseCommand):
             existing_codes = set(Product.objects.values_list('slug', flat=True))
             all_categories = {cat.slug: cat for cat in Category.objects.all()}
             all_brands = {brand.slug: brand for brand in Brand.objects.all()}
+            for brand in Brand.objects.all():
+                if brand.code:
+                    all_brands.setdefault(str(brand.code).lower(), brand)
             
             self.stdout.write(f'Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID')
             self.stdout.write(f'Загружено {len(existing_codes)} существующих товаров по коду')
@@ -231,15 +234,15 @@ class Command(BaseCommand):
                 tmp_ids_in_csv = set()
                 duplicate_tmp_ids = set()
                 
-                for line_num, line in enumerate(lines[1:], start=1):  # Пропускаем заголовок
+                for line_num, line in enumerate(lines[1:], start=1):
                     try:
                         row = self.parse_csv_line(line, delimiter)
-                    tmp_id = row.get('TMP_ID', '').strip()
-                    if tmp_id:
-                        if tmp_id in tmp_ids_in_csv:
-                            duplicate_tmp_ids.add(tmp_id)
-                        else:
-                            tmp_ids_in_csv.add(tmp_id)
+                        tmp_id = row.get('TMP_ID', '').strip()
+                        if tmp_id:
+                            if tmp_id in tmp_ids_in_csv:
+                                duplicate_tmp_ids.add(tmp_id)
+                            else:
+                                tmp_ids_in_csv.add(tmp_id)
                     except Exception as e:
                         logger.warning(f"Ошибка парсинга строки {line_num} при проверке дубликатов: {e}")
                         continue
@@ -330,42 +333,32 @@ class Command(BaseCommand):
                         
                         brand = None
                         if producer_id:
-                            # Создаем slug из названия бренда, а не используем название как slug
-                            brand_slug = slugify(producer_id)
-                            if brand_slug in all_brands:
-                                brand = all_brands[brand_slug]
-                                if line_num <= 5:
-                                logger.info(f"Найден существующий бренд: {brand.name} (slug: {brand_slug})")
-                            elif brand_slug not in brands_cache:
-                                brand, created = Brand.objects.get_or_create(
-                                    slug=brand_slug,
-                                    defaults={
-                                        'name': producer_id,  # Сохраняем оригинальное название
-                                        'description': f'Автоматически созданный бренд для {producer_id}'
-                                    }
-                                )
-                                all_brands[brand_slug] = brand
-                                brands_cache[brand_slug] = brand
+                            brand_code = producer_id.lower()
+                            if brand_code in all_brands:
+                                brand = all_brands[brand_code]
+                            elif brand_code not in brands_cache:
+                                brand, created = Brand.objects.get_or_create(slug=brand_code, defaults={
+                                    'code': producer_id,
+                                    'name': producer_id
+                                })
+                                all_brands[brand_code] = brand
+                                brands_cache[brand_code] = brand
                                 if created:
                                     stats['new_brands'] += 1
                                     self.stdout.write(f'Создан бренд: {brand.name}')
-                                    logger.info(f"Создан новый бренд: {brand.name} (slug: {brand_slug})")
-                        else:
-                                brand = brands_cache[brand_slug]
+                                    logger.info(f"Создан новый бренд: {brand.name}")
+                            else:
+                                brand = brands_cache[brand_code]
                         else:
                             logger.warning(f"Строка {line_num}: Отсутствует производитель для товара {tmp_id}")
                         
                         # Создаем/получаем категорию (с кэшем)
                         category = None
                         if section_id:
-                            # Создаем slug из SECTION_ID, а не используем SECTION_ID как slug
                             category_slug = slugify(f"category-{section_id}")
                             if category_slug in all_categories:
                                 category = all_categories[category_slug]
-                                if line_num <= 5:
-                                logger.info(f"Найдена существующая категория: {category.name} (slug: {category_slug})")
                             elif category_slug not in categories_cache:
-                                # Создаем категорию сразу
                                 category, created = Category.objects.get_or_create(
                                     slug=category_slug,
                                     defaults={
@@ -378,8 +371,8 @@ class Command(BaseCommand):
                                 if created:
                                     stats['new_categories'] += 1
                                     self.stdout.write(f'Создана категория: {category.name}')
-                                    logger.info(f"Создана новая категория: {category.name} (slug: {category_slug})")
-                        else:
+                                    logger.info(f"Создана новая категория: {category.name}")
+                            else:
                                 category = categories_cache[category_slug]
                         else:
                             logger.warning(f"Строка {line_num}: Отсутствует категория для товара {tmp_id}")

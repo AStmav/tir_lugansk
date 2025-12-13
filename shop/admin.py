@@ -129,9 +129,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug']
-    prepopulated_fields = {'slug': ('name',)}
-    search_fields = ['name']
+    list_display = ['code', 'name', 'slug']
+    search_fields = ['name', 'code']
 
 
 @admin.register(Product)

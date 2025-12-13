@@ -69,6 +69,7 @@ class SubCategory(models.Model):
 
 
 class Brand(models.Model):
+    code = models.CharField(max_length=100, unique=True, null=True, blank=True, verbose_name='Код')
     name = models.CharField(max_length=100, verbose_name='Название')
     slug = models.SlugField(unique=True, verbose_name='URL')
     description = models.TextField(blank=True, verbose_name='Описание')

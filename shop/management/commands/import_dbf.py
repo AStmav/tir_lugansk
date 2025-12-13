@@ -127,6 +127,9 @@ class Command(BaseCommand):
             existing_codes = set(Product.objects.values_list('slug', flat=True))
             all_categories = {cat.slug: cat for cat in Category.objects.all()}
             all_brands = {brand.slug: brand for brand in Brand.objects.all()}
+            for brand in Brand.objects.all():
+                if brand.code:
+                    all_brands.setdefault(brand.code.lower(), brand)
             
             self.stdout.write(f'📊 Загружено:')
             self.stdout.write(f'   • {len(existing_tmp_ids)} товаров по TMP_ID')
@@ -193,7 +196,7 @@ class Command(BaseCommand):
                     
                     tmp_id = data.get('TMP_ID', '').strip()
                     name = data.get('NAME', '').strip()
-                    producer = data.get('PROPERTY_P', '').strip()  # бренд
+                    producer = data.get('PROPERTY_P', '').strip()
                     catalog_number = data.get('PROPERTY_T', '').strip()  # каталожный номер
                     artikyl_number = data.get('PROPERTY_A', '').strip()  # дополнительный номер
                     applicability = data.get('PROPERTY_M', '').strip()  # применяемость
@@ -227,25 +230,22 @@ class Command(BaseCommand):
                     # Создаем/получаем бренд
                     brand = None
                     if producer:
-                        brand_slug = slugify(producer)
-                        if brand_slug in all_brands:
-                            brand = all_brands[brand_slug]
-                        elif brand_slug not in brands_cache:
-                            brand, created = Brand.objects.get_or_create(
-                                slug=brand_slug,
-                                defaults={
-                                    'name': producer,
-                                    'description': f'Автоматически созданный бренд для {producer}'
-                                }
-                            )
-                            all_brands[brand_slug] = brand
-                            brands_cache[brand_slug] = brand
+                        brand_code = producer.lower()
+                        if brand_code in all_brands:
+                            brand = all_brands[brand_code]
+                        elif brand_code not in brands_cache:
+                            brand, created = Brand.objects.get_or_create(slug=brand_code, defaults={
+                                'code': producer,
+                                'name': producer
+                            })
+                            all_brands[brand_code] = brand
+                            brands_cache[brand_code] = brand
                             if created:
                                 stats['new_brands'] += 1
                                 self.stdout.write(f'🏭 Создан бренд: {brand.name}')
                                 logger.info(f"Создан новый бренд: {brand.name}")
                         else:
-                            brand = brands_cache[brand_slug]
+                            brand = brands_cache[brand_code]
 
                     # Создаем/получаем категорию
                     category = None

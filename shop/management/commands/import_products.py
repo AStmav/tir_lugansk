@@ -36,7 +36,6 @@ class Command(BaseCommand):
         errors = 0
         processed_rows = 0
 
-        # Кэш для категорий и брендов
         categories_cache = {}
         brands_cache = {}
         
@@ -95,20 +94,19 @@ class Command(BaseCommand):
                         else:
                             category = categories_cache[section_id]
                     
-                    # Создаем/получаем бренд (с кэшем)
                     brand = None
                     if producer:
-                        producer_slug = slugify(producer)
-                        if producer_slug not in brands_cache:
-                            brand, created = Brand.objects.get_or_create(
-                                slug=producer_slug,
-                                defaults={'name': producer}
-                            )
-                            brands_cache[producer_slug] = brand
+                        brand_slug = producer.lower()
+                        if brand_slug not in brands_cache:
+                            brand, created = Brand.objects.get_or_create(slug=brand_slug, defaults={
+                                'code': producer,
+                                'name': producer
+                            })
+                            brands_cache[brand_slug] = brand
                             if created:
                                 created_brands += 1
                         else:
-                            brand = brands_cache[producer_slug]
+                            brand = brands_cache[brand_slug]
                     
                     # Добавляем товар в пачку
                     product = Product(
