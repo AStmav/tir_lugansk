@@ -2,24 +2,71 @@ from django.shortcuts import render, get_object_or_404
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q
 from django.db import models
+from django.core.cache import cache
+from django.conf import settings
 from .models import Product, Category, Brand, OeKod
+from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
 import logging
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
 
-class CatalogView(ListView):
+def normalize_latin_to_cyrillic(text):
+    """
+    Нормализует латинские буквы, визуально похожие на кириллицу, в кириллицу.
+    Решает проблему когда пользователь вводит "Яблоко M16/8" (Latin M),
+    а в базе записано "Яблоко М16/8" (Cyrillic М).
+    
+    Пример:
+        "Apple M16" → "Apple М16" (M → М)
+        "KOMETA" → "КОМЕТА" (K,O,M,E,T,A → К,О,М,Е,Т,А)
+    """
+    # Мапа похожих букв: Latin → Cyrillic
+    latin_to_cyrillic_map = {
+        # Заглавные
+        'A': 'А', 'B': 'В', 'C': 'С', 'E': 'Е', 'H': 'Н',
+        'K': 'К', 'M': 'М', 'O': 'О', 'P': 'Р', 'T': 'Т',
+        'X': 'Х', 'Y': 'У',
+        # Строчные
+        'a': 'а', 'c': 'с', 'e': 'е', 'o': 'о', 'p': 'р',
+        'x': 'х', 'y': 'у',
+    }
+    
+    result = []
+    for char in text:
+        result.append(latin_to_cyrillic_map.get(char, char))
+    return ''.join(result)
+
+
+class CatalogView(CategorySEOMixin, ListView):
+    """
+    Каталог товаров с SEO оптимизацией
+    """
     model = Product
     template_name = 'catalog.html'
     context_object_name = 'products'
     paginate_by = 100
     
     def get_queryset(self):
-        # Начинаем с базового queryset всех товаров в наличии
-        base_queryset = Product.objects.filter(in_stock=True)
+        """
+        ОПТИМИЗИРОВАННЫЙ ПОИСК с использованием очищенных номеров
+        - Использует catalog_number_clean, artikyl_number_clean для быстрого поиска
+        - Использует oe_kod_clean для поиска по аналогам
+        - Оптимизирует запросы с select_related и prefetch_related
+        """
+        # Инициализируем список найденных аналогов
+        self._found_analogs = OeKod.objects.none()
         
-        # Логируем базовый queryset
+        # Начинаем с базового queryset с оптимизацией
+        base_queryset = Product.objects.filter(
+            in_stock=True
+        ).select_related(
+            'category', 'brand'
+        ).prefetch_related(
+            'oe_analogs', 'oe_analogs__brand'
+        )
+        
         logger.info(f"Базовый queryset: {base_queryset.count()} товаров")
         
         # Поиск согласно ТЗ (приоритет поиска выше фильтров)
@@ -32,96 +79,496 @@ class CatalogView(ListView):
             if OeKod.is_number_search(search):
                 logger.info(f"Поиск по номеру: '{search}'")
                 
-                # Для коротких номеров (менее 5 символов) используем только точное совпадение
-                if len(search) < 5:
-                    logger.info(f"Короткий номер, точное совпадение: '{search}'")
-                    number_search_query = (
-                        Q(code__iexact=search) |                    # TMP_ID точное совпадение
-                        Q(tmp_id__iexact=search) |                  # TMP_ID точное совпадение (дублирующее поле)
-                        Q(catalog_number__iexact=search) |          # PROPERTY_TMC_NUMBER точное совпадение
-                        Q(artikyl_number__iexact=search) |          # PROPERTY_ARTIKYL_NUMBER точное совпадение
-                        Q(cross_number__iexact=search)              # PROPERTY_CROSS_NUMBER точное совпадение
-                    )
-                else:
-                    # Для длинных номеров используем точное совпадение + начинается с
-                    logger.info(f"Длинный номер, точное + частичное совпадение: '{search}'")
-                    number_search_query = (
-                        Q(code__iexact=search) |                    # TMP_ID точное совпадение
-                        Q(tmp_id__iexact=search) |                  # TMP_ID точное совпадение (дублирующее поле)
-                        Q(catalog_number__iexact=search) |          # PROPERTY_TMC_NUMBER точное совпадение
-                        Q(artikyl_number__iexact=search) |          # PROPERTY_ARTIKYL_NUMBER точное совпадение
-                        Q(cross_number__iexact=search) |            # PROPERTY_CROSS_NUMBER точное совпадение
-                        Q(code__istartswith=search) |               # TMP_ID начинается с
-                        Q(tmp_id__istartswith=search) |             # TMP_ID начинается с
-                        Q(catalog_number__istartswith=search) |     # PROPERTY_TMC_NUMBER начинается с
-                        Q(artikyl_number__istartswith=search) |     # PROPERTY_ARTIKYL_NUMBER начинается с
-                        Q(cross_number__istartswith=search)         # PROPERTY_CROSS_NUMBER начинается с
-                    )
+                # КРИТИЧНО: Очищаем поисковый запрос от символов
+                search_clean = Product.clean_number(search)
+                logger.info(f"Очищенный запрос: '{search_clean}'")
                 
-                # Поиск в таблице аналогов OE
-                oe_products = Product.objects.filter(
-                    oe_analogs__oe_kod__istartswith=search
+                # ИСПРАВЛЕНИЕ: Создаем нормализованную версию (Latin → Cyrillic)
+                # Для случаев типа "Яблоко M16/8" (Latin M) → "Яблоко М16/8" (Cyrillic М)
+                search_normalized = normalize_latin_to_cyrillic(search)
+                search_clean_normalized = Product.clean_number(search_normalized)
+                
+                # Проверяем нужна ли нормализация (избегаем дублирования условий)
+                needs_normalization = (search_clean != search_clean_normalized)
+                
+                # Логируем обе версии для отладки
+                if needs_normalization:
+                    logger.info(f"Нормализованный запрос: '{search_clean_normalized}' (Latin→Cyrillic)")
+                else:
+                    logger.info(f"Нормализация не требуется (нет латиницы)")
+                
+                # Для коротких номеров (менее 4 символов) используем точное совпадение + содержит
+                # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                if len(search_clean) < 4:
+                    logger.info(f"Короткий номер, точное совпадение + содержит")
+                    number_search_query = (
+                        Q(code__iexact=search) |                       # TMP_ID точное совпадение
+                        Q(tmp_id__iexact=search) |                     # TMP_ID точное совпадение
+                        # Оригинальные поля - точное и содержит
+                        Q(catalog_number__iexact=search) |             # Оригинальный каталожный номер точное
+                        Q(catalog_number__icontains=search) |          # Оригинальный каталожный номер содержит (НОВОЕ)
+                        Q(artikyl_number__iexact=search) |              # Оригинальный дополнительный номер точное
+                        Q(artikyl_number__icontains=search) |           # Оригинальный дополнительный номер содержит (НОВОЕ)
+                        # Очищенные поля - точное и содержит
+                        Q(catalog_number_clean__iexact=search_clean) |  # ОЧИЩЕННЫЙ каталожный номер точное
+                        Q(artikyl_number_clean__iexact=search_clean) |  # ОЧИЩЕННЫЙ дополнительный номер точное
+                        Q(catalog_number_clean__icontains=search_clean) | # ОЧИЩЕННЫЙ каталожный номер содержит (НОВОЕ)
+                        Q(artikyl_number_clean__icontains=search_clean)  # ОЧИЩЕННЫЙ дополнительный номер содержит (НОВОЕ)
+                    )
+                    
+                    # Добавляем нормализованные версии только если они отличаются
+                    if needs_normalization:
+                        number_search_query |= (
+                            Q(catalog_number__iexact=search_normalized) |
+                            Q(catalog_number__icontains=search_normalized) |  # НОВОЕ
+                            Q(artikyl_number__iexact=search_normalized) |
+                            Q(artikyl_number__icontains=search_normalized) |  # НОВОЕ
+                            Q(catalog_number_clean__iexact=search_clean_normalized) |
+                            Q(artikyl_number_clean__iexact=search_clean_normalized) |
+                            Q(catalog_number_clean__icontains=search_clean_normalized) |  # НОВОЕ
+                            Q(artikyl_number_clean__icontains=search_clean_normalized)    # НОВОЕ
+                        )
+                    
+                    # Поиск по OE аналогам (очищенное поле) - точное + содержит
+                    # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                    oe_search_query = (
+                        Q(oe_analogs__oe_kod_clean__iexact=search_clean) |
+                        Q(oe_analogs__oe_kod_clean__icontains=search_clean)  # НОВОЕ
+                    )
+                    
+                    if needs_normalization:
+                        oe_search_query |= (
+                            Q(oe_analogs__oe_kod_clean__iexact=search_clean_normalized) |
+                            Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
+                        )
+                else:
+                    # Для длинных номеров используем точное совпадение + начинается с + содержит
+                    # ИСПРАВЛЕНО: Добавлен icontains для очищенных полей, чтобы находить номера независимо от символов
+                    # ИСПРАВЛЕНО: Добавлен поиск по cross_number (Majorsell/CEI)
+                    # НОВОЕ: Добавлен поиск по названию товара (может содержать номер, например "WABCO 412 352 922 2")
+                    logger.info(f"Длинный номер, точное + частичное совпадение")
+                    number_search_query = (
+                        Q(code__iexact=search) |                           # TMP_ID точное
+                        Q(tmp_id__iexact=search) |                         # TMP_ID точное
+                        # Оригинальные поля - точное и содержит (независимо от регистра)
+                        Q(catalog_number__iexact=search) |                # Оригинальный каталожный номер точное
+                        Q(catalog_number__icontains=search) |              # Оригинальный каталожный номер содержит
+                        Q(artikyl_number__iexact=search) |                  # Оригинальный дополнительный номер точное
+                        Q(artikyl_number__icontains=search) |               # Оригинальный дополнительный номер содержит
+                        # НОВОЕ: Поиск по кросс-коду (Majorsell/CEI) - например "220169" и "220.169"
+                        Q(cross_number__iexact=search) |                    # Кросс-код точное
+                        Q(cross_number__icontains=search) |                # Кросс-код содержит
+                        Q(cross_number__icontains=search_clean) |           # Кросс-код содержит (очищенный)
+                        # НОВОЕ: Поиск по названию товара (может содержать номер, например "WABCO 412 352 922 2")
+                        Q(name__icontains=search) |                          # Название содержит (для случаев типа "WABCO 412 352 922 2")
+                        Q(name__icontains=search_clean) |                    # Название содержит (очищенный)
+                        # Очищенные поля - точное, начинается с И содержит (для поиска без символов)
+                        Q(catalog_number_clean__iexact=search_clean) |      # ОЧИЩЕННЫЙ каталожный номер точное
+                        Q(artikyl_number_clean__iexact=search_clean) |     # ОЧИЩЕННЫЙ дополнительный номер точное
+                        Q(catalog_number_clean__istartswith=search_clean) | # ОЧИЩЕННЫЙ каталожный номер начинается
+                        Q(artikyl_number_clean__istartswith=search_clean) | # ОЧИЩЕННЫЙ дополнительный номер начинается
+                        Q(catalog_number_clean__icontains=search_clean) |   # ОЧИЩЕННЫЙ каталожный номер содержит (НОВОЕ)
+                        Q(artikyl_number_clean__icontains=search_clean)      # ОЧИЩЕННЫЙ дополнительный номер содержит (НОВОЕ)
+                    )
+                    
+                    # Добавляем нормализованные версии только если они отличаются
+                    if needs_normalization:
+                        number_search_query |= (
+                            Q(catalog_number__iexact=search_normalized) |
+                            Q(catalog_number__icontains=search_normalized) |
+                            Q(artikyl_number__iexact=search_normalized) |
+                            Q(artikyl_number__icontains=search_normalized) |
+                            Q(cross_number__iexact=search_normalized) |        # НОВОЕ: Кросс-код нормализованный
+                            Q(cross_number__icontains=search_normalized) |       # НОВОЕ: Кросс-код нормализованный
+                            Q(catalog_number_clean__iexact=search_clean_normalized) |
+                            Q(artikyl_number_clean__iexact=search_clean_normalized) |
+                            Q(catalog_number_clean__istartswith=search_clean_normalized) |
+                            Q(artikyl_number_clean__istartswith=search_clean_normalized) |
+                            Q(catalog_number_clean__icontains=search_clean_normalized) |  # НОВОЕ
+                            Q(artikyl_number_clean__icontains=search_clean_normalized)      # НОВОЕ
+                        )
+                    
+                    # Поиск по OE аналогам (оригинальное И очищенное поле) - точное + начинается + содержит
+                    # ИСПРАВЛЕНО: Добавлен поиск по оригинальному полю oe_kod (может содержать пробелы)
+                    # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                    oe_search_query = (
+                        # Поиск по оригинальному полю (может содержать пробелы, например "412 352 922 2")
+                        Q(oe_analogs__oe_kod__iexact=search) |              # НОВОЕ: Оригинальный OE код точное
+                        Q(oe_analogs__oe_kod__icontains=search) |            # НОВОЕ: Оригинальный OE код содержит
+                        # Поиск по очищенному полю
+                        Q(oe_analogs__oe_kod_clean__iexact=search_clean) |
+                        Q(oe_analogs__oe_kod_clean__istartswith=search_clean) |
+                        Q(oe_analogs__oe_kod_clean__icontains=search_clean)  # НОВОЕ
+                    )
+                    
+                    if needs_normalization:
+                        oe_search_query |= (
+                            Q(oe_analogs__oe_kod_clean__iexact=search_clean_normalized) |
+                            Q(oe_analogs__oe_kod_clean__istartswith=search_clean_normalized) |
+                            Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
+                        )
+                
+                # Находим товары по номерам + по OE аналогам в одном запросе
+                found_products = base_queryset.filter(
+                    number_search_query | oe_search_query
                 ).distinct()
                 
-                logger.info(f"Найдено товаров по номеру: {Product.objects.filter(number_search_query).count()}")
-                logger.info(f"Найдено товаров по OE аналогам: {oe_products.count()}")
+                logger.info(f"Найдено товаров напрямую (по номерам/названию/cross_number): {found_products.count()}")
                 
-                # Находим товары, соответствующие поиску по номеру
-                found_products = Product.objects.filter(number_search_query).distinct()
+                # НОВОЕ: Ищем ВСЕ аналогов (с товарами и без), которые соответствуют поисковому запросу
+                # Это нужно для нахождения родительских товаров через id_tovar
+                # Создаем запрос для прямого поиска в OeKod (не через связь)
+                # ИСПРАВЛЕНО: Добавлен поиск по оригинальному полю oe_kod (может содержать пробелы)
+                # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                oe_direct_query = (
+                    # Поиск по оригинальному полю (может содержать пробелы, например "412 352 922 2")
+                    Q(oe_kod__iexact=search) |                              # НОВОЕ: Оригинальный OE код точное
+                    Q(oe_kod__icontains=search) |                           # НОВОЕ: Оригинальный OE код содержит
+                    # Поиск по очищенному полю
+                    Q(oe_kod_clean__iexact=search_clean)
+                )
+                if len(search_clean) >= 4:
+                    oe_direct_query |= (
+                        Q(oe_kod_clean__istartswith=search_clean) |
+                        Q(oe_kod_clean__icontains=search_clean)  # НОВОЕ
+                    )
                 
-                # Объединяем результаты
-                if oe_products.exists():
-                    found_products = found_products.union(oe_products).distinct()
+                if needs_normalization:
+                    oe_direct_query |= (
+                        Q(oe_kod__iexact=search_normalized) |               # НОВОЕ
+                        Q(oe_kod__icontains=search_normalized) |            # НОВОЕ
+                        Q(oe_kod_clean__iexact=search_clean_normalized)
+                    )
+                    if len(search_clean_normalized) >= 4:
+                        oe_direct_query |= (
+                            Q(oe_kod_clean__istartswith=search_clean_normalized) |
+                            Q(oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
+                        )
                 
-                if found_products.exists():
-                    logger.info(f"Всего найдено товаров по номеру: {found_products.count()}")
+                # ИСПРАВЛЕНО: Ищем ВСЕ аналогов (не только без товаров), которые соответствуют поисковому запросу
+                # Это позволяет найти родительские товары через id_tovar
+                all_matching_oe_analogs = OeKod.objects.filter(oe_direct_query)
+                
+                products_by_id_tovar = base_queryset.none()  # Инициализируем пустым
+                all_oe_codes_from_owners = set()  # НОВОЕ: Собираем все OE коды от владельцев аналогов
+                
+                if all_matching_oe_analogs.exists():
+                    # Получаем id_tovar из всех найденных аналогов
+                    id_tovar_list = list(all_matching_oe_analogs.values_list('id_tovar', flat=True).distinct())
+                    # Убираем суффиксы -dupN для поиска
+                    import re
+                    clean_id_tovar_list = [re.sub(r'-dup\d+$', '', tid) for tid in id_tovar_list if tid]
                     
-                    # Этап 2: Собираем все номера найденных товаров для поиска связанных
-                    related_numbers = set()
+                    # Ищем товары по tmp_id (с учетом возможных суффиксов)
+                    products_by_id_tovar = base_queryset.filter(
+                        Q(tmp_id__in=id_tovar_list) |
+                        Q(tmp_id__in=clean_id_tovar_list)
+                    ).distinct()
                     
-                    for product in found_products:
-                        # Добавляем номера товара
-                        if product.catalog_number:  # PROPERTY_TMC_NUMBER
-                            related_numbers.add(product.catalog_number)
-                        if product.artikyl_number:  # PROPERTY_ARTIKYL_NUMBER
-                            related_numbers.add(product.artikyl_number)
-                        if product.cross_number:    # PROPERTY_CROSS_NUMBER
-                            related_numbers.add(product.cross_number)
-                    
-                    logger.info(f"Связанных номеров найдено: {len(related_numbers)}")
-                    
-                    # Этап 3: Находим все товары с точным совпадением этих номеров
-                    if related_numbers:
-                        analog_query = Q()
-                        for number in related_numbers:
-                            analog_query |= (
-                                Q(catalog_number__exact=number) |  # PROPERTY_TMC_NUMBER
-                                Q(artikyl_number__exact=number) |  # PROPERTY_ARTIKYL_NUMBER  
-                                Q(cross_number__exact=number)      # PROPERTY_CROSS_NUMBER
-                            )
+                    if products_by_id_tovar.exists():
+                        logger.info(f"Найдено {products_by_id_tovar.count()} товаров через OE аналоги (по id_tovar)")
+                        found_products = found_products | products_by_id_tovar
                         
-                        # Финальный результат: объединяем найденные товары и их аналоги
-                        queryset = base_queryset.filter(analog_query).distinct()
-                        logger.info(f"Финальный результат поиска по номеру: {queryset.count()} товаров")
+                        # НОВОЕ: Находим ВСЕ OE аналоги, связанные с найденными товарами (через id_tovar)
+                        # Это нужно для поиска товаров по artikyl_number_clean, которые совпадают с oe_kod_clean этих аналогов
+                        # Например, если найден товар с id_tovar="000198222", находим все его OE аналоги (включая "20390840")
+                        # Затем находим товары с artikyl_number_clean = "20390840"
+                        all_owner_oe_analogs = OeKod.objects.filter(
+                            Q(id_tovar__in=id_tovar_list) | Q(id_tovar__in=clean_id_tovar_list)
+                        ).distinct()
+                        
+                        # Собираем все oe_kod_clean из этих аналогов
+                        for oe in all_owner_oe_analogs:
+                            if oe.oe_kod_clean:
+                                all_oe_codes_from_owners.add(oe.oe_kod_clean)
+                        
+                        if all_oe_codes_from_owners:
+                            logger.info(f"Найдено {len(all_oe_codes_from_owners)} уникальных OE кодов от владельцев аналогов")
+                            logger.info(f"Примеры OE кодов: {list(all_oe_codes_from_owners)[:5]}")
+                            
+                            # ИСПРАВЛЕНО: Исключаем сам поисковый запрос из списка OE кодов для поиска
+                            # (чтобы не дублировать уже найденные товары)
+                            oe_codes_for_search = all_oe_codes_from_owners - {search_clean}
+                            
+                            if oe_codes_for_search:
+                                # Находим товары, у которых artikyl_number_clean совпадает с oe_kod_clean найденных аналогов
+                                # (кроме самого поискового запроса)
+                                products_by_oe_codes = base_queryset.filter(
+                                    artikyl_number_clean__in=oe_codes_for_search
+                                ).distinct()
+                                
+                                if products_by_oe_codes.exists():
+                                    logger.info(f"Найдено {products_by_oe_codes.count()} товаров по artikyl_number_clean, совпадающим с OE кодами владельцев (исключая сам запрос)")
+                                    found_products = found_products | products_by_oe_codes
+                
+                # НОВОЕ: Находим ВСЕ аналоги найденных товаров для отображения отдельными карточками
+                # Это аналоги, которые принадлежат найденным товарам
+                found_analogs = OeKod.objects.none()
+                if found_products.exists():
+                    found_product_ids = found_products.values_list('id', flat=True)
+                    found_analogs = OeKod.objects.filter(
+                        product_id__in=found_product_ids
+                    ).select_related(
+                        'product', 'brand', 'product__brand', 'product__category'
+                    ).distinct()
+                
+                # НОВОЕ: ЛОГИКА ГРУППИРОВКИ для поиска по номерам
+                # Согласно ТЗ заказчика:
+                # 1. Найти код в artikyl_number_clean (PROPERTY_A) и oe_kod_clean (Name_STR в аналогах)
+                # 2. Найти владельцев аналогов (id_tovar)
+                # 3. По кодам владельцев (catalog_number_clean/PROPERTY_T и artikyl_number_clean/PROPERTY_A) найти товары
+                # 4. По cross_number (PROPERTY_C) найти все товары с одинаковыми значениями
+                if found_products.exists():
+                    # Собираем коды из ВСЕХ найденных товаров (напрямую + через OE аналоги + через id_tovar)
+                    found_artikyl_clean_values = set()
+                    found_catalog_clean_values = set()  # НОВОЕ: Для поиска по catalog_number_clean (PROPERTY_T)
+                    found_catalog_numbers = set()  # Для группировки по catalog_number (Majorsell/CEI)
+                    found_cross_numbers = set()  # НОВОЕ: Для поиска по cross_number (PROPERTY_C)
+                    
+                    # Используем ВСЕ найденные товары для группировки
+                    all_found_for_grouping = found_products
+                    if products_by_id_tovar.exists():
+                        # Добавляем товары, найденные через id_tovar, если они еще не включены
+                        all_found_for_grouping = (all_found_for_grouping | products_by_id_tovar).distinct()
+                    
+                    # Собираем artikyl_number_clean (PROPERTY_A) из всех найденных товаров
+                    artikyl_clean_data = all_found_for_grouping.values_list('artikyl_number_clean', flat=True)
+                    for artikyl_number_clean in artikyl_clean_data:
+                        if artikyl_number_clean:
+                            found_artikyl_clean_values.add(artikyl_number_clean)
+                    
+                    # НОВОЕ: Собираем catalog_number_clean (PROPERTY_T) из всех найденных товаров
+                    # Это нужно для поиска товаров по кодам владельцев аналогов
+                    catalog_clean_data = all_found_for_grouping.values_list('catalog_number_clean', flat=True)
+                    for catalog_number_clean in catalog_clean_data:
+                        if catalog_number_clean:
+                            found_catalog_clean_values.add(catalog_number_clean)
+                    
+                    # Собираем catalog_number для группировки по Majorsell/CEI
+                    catalog_data = all_found_for_grouping.values_list('catalog_number', 'catalog_number_clean', flat=False)
+                    for catalog_number, catalog_number_clean in catalog_data:
+                        if catalog_number:
+                            found_catalog_numbers.add(catalog_number)
+                        if catalog_number_clean:
+                            found_catalog_numbers.add(catalog_number_clean)
+                    
+                    # НОВОЕ: Собираем cross_number (PROPERTY_C) из всех найденных товаров
+                    cross_data = all_found_for_grouping.values_list('cross_number', flat=True)
+                    for cross_number in cross_data:
+                        if cross_number and cross_number.strip():
+                            found_cross_numbers.add(cross_number.strip())
+                    
+                    # НОВОЕ: Находим товары по catalog_number_clean (PROPERTY_T) владельцев аналогов
+                    # Согласно ТЗ: по кодам владельца найти товары по PROPERTY_T (catalog_number_clean)
+                    products_by_catalog_clean = base_queryset.none()
+                    if found_catalog_clean_values:
+                        products_by_catalog_clean = base_queryset.filter(
+                            catalog_number_clean__in=found_catalog_clean_values
+                        ).distinct()
+                        if products_by_catalog_clean.exists():
+                            logger.info(f"Найдено {products_by_catalog_clean.count()} товаров по catalog_number_clean (PROPERTY_T) владельцев аналогов")
+                    
+                    # НОВОЕ: Находим товары с такими же catalog_number (Majorsell/CEI)
+                    # Например, "220169" и "220.169" считаются одинаковыми
+                    products_by_catalog = base_queryset.none()
+                    if found_catalog_numbers:
+                        # Создаем запрос для поиска по catalog_number (с точкой и без)
+                        catalog_query = Q()
+                        for cat_num in found_catalog_numbers:
+                            # Ищем точное совпадение
+                            catalog_query |= Q(catalog_number__iexact=cat_num)
+                            # Ищем варианты с точкой и без (например, "220169" и "220.169")
+                            if '.' in cat_num:
+                                # Если есть точка, ищем без точки
+                                cat_num_no_dot = cat_num.replace('.', '')
+                                catalog_query |= Q(catalog_number__iexact=cat_num_no_dot)
+                            else:
+                                # Если нет точки, ищем с точкой (добавляем точку в разных местах)
+                                # Для "220169" ищем "220.169", "22.0169", "2201.69" и т.д.
+                                if len(cat_num) >= 4:
+                                    # Простой вариант: добавляем точку после первых 3 символов
+                                    cat_num_with_dot = cat_num[:3] + '.' + cat_num[3:]
+                                    catalog_query |= Q(catalog_number__iexact=cat_num_with_dot)
+                        
+                        products_by_catalog = base_queryset.filter(catalog_query).distinct()
+                        if products_by_catalog.exists():
+                            logger.info(f"Найдено {products_by_catalog.count()} товаров с такими же catalog_number (Majorsell/CEI группировка)")
+                    
+                    # НОВОЕ: Находим товары по cross_number (PROPERTY_C) владельцев аналогов
+                    # Согласно ТЗ: по cross_number найти все товары с одинаковыми значениями
+                    products_by_cross = base_queryset.none()
+                    if found_cross_numbers:
+                        products_by_cross = base_queryset.filter(
+                            cross_number__in=found_cross_numbers
+                        ).exclude(cross_number='').distinct()
+                        if products_by_cross.exists():
+                            logger.info(f"Найдено {products_by_cross.count()} товаров по cross_number (PROPERTY_C) владельцев аналогов")
+                    
+                    # Если нашли товары с artikyl_number_clean, находим ВСЕ товары с такими же значениями
+                    # ИСПРАВЛЕНО: Группировка по artikyl_number_clean применяется ТОЛЬКО к товарам, найденным напрямую или через OE аналоги
+                    if found_artikyl_clean_values:
+                        logger.info(f"Найдено уникальных artikyl_number_clean в товарах (напрямую/OE): {len(found_artikyl_clean_values)}")
+                        logger.info(f"Значения artikyl_number_clean: {list(found_artikyl_clean_values)[:5]}")
+                        
+                        # ИСПРАВЛЕНО: Используем artikyl_number_clean для группировки
+                        # Это позволяет находить все варианты (с точками и запятыми)
+                        products_by_artikyl = base_queryset.filter(
+                            artikyl_number_clean__in=found_artikyl_clean_values
+                        ).distinct()
+                        
+                        if products_by_artikyl.exists():
+                            logger.info(f"Найдено {products_by_artikyl.count()} товаров с такими же artikyl_number_clean (группировка по PROPERTY_A)")
+                            
+                            # ИСПРАВЛЕНО: Объединяем товары, найденные напрямую/OE + группировку по artikyl_number_clean + 
+                            # группировку по catalog_number_clean (PROPERTY_T) + группировку по catalog_number (Majorsell/CEI) + группировку по cross_number (PROPERTY_C)
+                            found_products = (
+                                all_found_for_grouping | 
+                                products_by_artikyl | 
+                                products_by_catalog_clean | 
+                                products_by_catalog | 
+                                products_by_cross
+                            ).distinct()
+                            initial_count = all_found_for_grouping.count()
+                            artikyl_count = products_by_artikyl.count()
+                            catalog_clean_count = products_by_catalog_clean.count() if products_by_catalog_clean.exists() else 0
+                            catalog_count = products_by_catalog.count() if products_by_catalog.exists() else 0
+                            cross_count = products_by_cross.count() if products_by_cross.exists() else 0
+                            added_by_artikyl = artikyl_count - initial_count
+                            logger.info(f"Исходных результатов: {initial_count}, добавлено по artikyl_number: {added_by_artikyl}, по catalog_number_clean: {catalog_clean_count}, по catalog_number: {catalog_count}, по cross_number: {cross_count}, итого: {found_products.count()}")
+                        else:
+                            # Если нет группировки по artikyl_number_clean, добавляем товары по catalog_number_clean, catalog_number и cross_number
+                            found_products = (
+                                all_found_for_grouping | 
+                                products_by_catalog_clean | 
+                                products_by_catalog | 
+                                products_by_cross
+                            ).distinct()
                     else:
-                        queryset = base_queryset.filter(pk__in=[p.pk for p in found_products])
-                        logger.info(f"Результат поиска по номеру (без аналогов): {queryset.count()} товаров")
+                        # Если нет artikyl_number_clean для группировки, добавляем товары по catalog_number_clean, catalog_number и cross_number
+                        found_products = (
+                            all_found_for_grouping | 
+                            products_by_catalog_clean | 
+                            products_by_catalog | 
+                            products_by_cross
+                        ).distinct()
+                
+                products_count = found_products.count()
+                analogs_count = found_analogs.count()
+                logger.info(f"Найдено товаров: {products_count}, аналогов этих товаров: {analogs_count}")
+                
+                # Сохраняем найденные аналоги в атрибуте для использования в get_context_data
+                self._found_analogs = found_analogs
+                
+                if found_products.exists() or found_analogs.exists():
+                    queryset = found_products
+                    logger.info(f"Финальный результат: {queryset.count()} товаров, {analogs_count} аналогов")
                 else:
                     # Если по номеру ничего не найдено, возвращаем пустой результат
                     logger.warning(f"По номеру '{search}' ничего не найдено")
-                    queryset = Product.objects.none()
+                    queryset = base_queryset.none()
+                    self._found_analogs = OeKod.objects.none()
             else:
                 logger.info(f"Поиск по тексту: '{search}'")
                 
+                # ИСПРАВЛЕНО: Для SQLite icontains может не работать корректно с кириллицей
+                # Используем оба варианта: оригинальный и в нижнем регистре
+                search_lower = search.lower()
+                search_upper = search.upper()
+                search_capitalize = search.capitalize()
+                # НОВОЕ: Очищенная версия для поиска в очищенных полях
+                search_clean = Product.clean_number(search)
+                
                 # ПОИСК ПО НАЗВАНИЮ И БРЕНДУ - ищем по ВСЕМ товарам независимо от фильтров
+                # ИСПРАВЛЕНО: Добавлен поиск по artikyl_number и artikyl_number_clean (PROPERTY_A)
+                # ИСПРАВЛЕНО: Добавлен поиск по OE кодам в текстовой логике (для случаев типа "fynbktl")
+                # Пробуем все варианты регистра для надежности
                 text_search_query = (
                     Q(name__icontains=search) |
+                    Q(name__icontains=search_lower) |
+                    Q(name__icontains=search_upper) |
+                    Q(name__icontains=search_capitalize) |
                     Q(brand__name__icontains=search) |
+                    Q(brand__name__icontains=search_lower) |
+                    Q(brand__name__icontains=search_upper) |
+                    Q(brand__name__icontains=search_capitalize) |
                     Q(description__icontains=search) |
-                    Q(applicability__icontains=search)
+                    Q(description__icontains=search_lower) |
+                    Q(applicability__icontains=search) |
+                    Q(applicability__icontains=search_lower) |
+                    # НОВОЕ: Поиск по дополнительному номеру (PROPERTY_A) - оригинальное поле
+                    Q(artikyl_number__icontains=search) |
+                    Q(artikyl_number__icontains=search_lower) |
+                    Q(artikyl_number__icontains=search_upper) |
+                    Q(artikyl_number__icontains=search_capitalize) |
+                    # НОВОЕ: Поиск по очищенному дополнительному номеру (без символов и регистра)
+                    Q(artikyl_number_clean__icontains=search_clean) |
+                    # НОВОЕ: Поиск по каталожному номеру (на случай если там текст)
+                    Q(catalog_number__icontains=search) |
+                    Q(catalog_number__icontains=search_lower) |
+                    Q(catalog_number_clean__icontains=search_clean) |
+                    # НОВОЕ: Поиск по OE кодам (для случаев типа "fynbktl" - только буквы)
+                    Q(oe_analogs__oe_kod__icontains=search) |
+                    Q(oe_analogs__oe_kod__icontains=search_lower) |
+                    Q(oe_analogs__oe_kod__icontains=search_upper) |
+                    Q(oe_analogs__oe_kod_clean__icontains=search_clean)
                 )
                 
-                queryset = base_queryset.filter(text_search_query)
+                # НОВОЕ: ЛОГИКА ГРУППИРОВКИ ПО PROPERTY_A (artikyl_number)
+                # Если найдены товары (по любому полю, включая OE коды), проверяем их artikyl_number
+                # и находим ВСЕ товары с такими же значениями artikyl_number/artikyl_number_clean
+                initial_results = base_queryset.filter(text_search_query).distinct()
+                
+                # ИСПРАВЛЕНО: Также находим товары через OE коды, если они не попали в initial_results
+                # Это нужно для случаев типа "fynbktl" - когда товар найден только через OE код
+                oe_products = base_queryset.filter(
+                    Q(oe_analogs__oe_kod__icontains=search) |
+                    Q(oe_analogs__oe_kod__icontains=search_lower) |
+                    Q(oe_analogs__oe_kod__icontains=search_upper) |
+                    Q(oe_analogs__oe_kod_clean__icontains=search_clean)
+                ).distinct()
+                
+                # Объединяем все найденные товары
+                all_found_products = (initial_results | oe_products).distinct()
+                
+                # Находим уникальные значения artikyl_number и artikyl_number_clean из найденных товаров
+                # Это работает для товаров, найденных по названию, artikyl_number, OE кодам или любому другому полю
+                # ИСПРАВЛЕНО: Используем values_list вместо only() чтобы избежать конфликта с select_related
+                found_artikyl_values = set()
+                found_artikyl_clean_values = set()
+                
+                # Загружаем artikyl_number из найденных товаров (используем values_list для эффективности)
+                artikyl_data = all_found_products.values_list('artikyl_number', 'artikyl_number_clean', flat=False)
+                for artikyl_number, artikyl_number_clean in artikyl_data:
+                    if artikyl_number:
+                        found_artikyl_values.add(artikyl_number)
+                    if artikyl_number_clean:
+                        found_artikyl_clean_values.add(artikyl_number_clean)
+                
+                # Если нашли товары с artikyl_number, добавляем все товары с такими же значениями
+                if found_artikyl_values or found_artikyl_clean_values:
+                    logger.info(f"Найдено уникальных artikyl_number: {len(found_artikyl_values)}, artikyl_number_clean: {len(found_artikyl_clean_values)}")
+                    
+                    # Поиск всех товаров с такими же artikyl_number
+                    # ИСПРАВЛЕНО: Используем artikyl_number_clean для поиска всех вариантов (с точками и запятыми)
+                    artikyl_query = Q()
+                    if found_artikyl_clean_values:
+                        artikyl_query |= Q(artikyl_number_clean__in=found_artikyl_clean_values)
+                    # Также добавляем оригинальные значения для совместимости
+                    if found_artikyl_values:
+                        artikyl_query |= Q(artikyl_number__in=found_artikyl_values)
+                    
+                    # Добавляем все товары с такими же artikyl_number
+                    products_by_artikyl = base_queryset.filter(artikyl_query).distinct()
+                    
+                    if products_by_artikyl.exists():
+                        logger.info(f"Найдено {products_by_artikyl.count()} товаров с такими же artikyl_number (группировка по PROPERTY_A)")
+                        # Объединяем результаты: исходные + все товары с такими же artikyl_number
+                        queryset = (all_found_products | products_by_artikyl).distinct()
+                    else:
+                        queryset = all_found_products
+                else:
+                    queryset = all_found_products
+                
                 logger.info(f"Результат поиска по тексту: {queryset.count()} товаров")
         else:
             # Если поиска нет, применяем фильтры к базовому queryset
@@ -171,24 +618,55 @@ class CatalogView(ListView):
             queryset = queryset.order_by('-created_at')
             logger.info("Сортировка по дате создания (новые сначала)")
         
+        # КРИТИЧНО: Применяем distinct() ПОСЛЕ сортировки
+        # Это гарантирует удаление дубликатов, которые могут возникнуть
+        # при JOIN с таблицей oe_analogs (если у товара несколько OE)
+        queryset = queryset.distinct()
+        
         logger.info(f"Финальный результат: {queryset.count()} товаров")
         return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Логируем контекст
         logger.info(f"Формируем контекст для страницы каталога")
         
-        # Основные категории (без родителя)
-        context['main_categories'] = Category.objects.filter(parent=None, is_active=True).order_by('order', 'name')
-        logger.info(f"Основных категорий: {context['main_categories'].count()}")
+        # Добавляем найденные аналоги в контекст (если был поиск по номеру)
+        if hasattr(self, '_found_analogs'):
+            context['found_analogs'] = self._found_analogs
+            logger.info(f"Добавлено {self._found_analogs.count()} аналогов в контекст")
+        else:
+            context['found_analogs'] = OeKod.objects.none()
         
-        # Все категории для фильтра
-        context['categories'] = Category.objects.filter(is_active=True).order_by('order', 'name')
-        context['brands'] = Brand.objects.all()
-        logger.info(f"Всего категорий для фильтра: {context['categories'].count()}")
-        logger.info(f"Всего брендов для фильтра: {context['brands'].count()}")
+        # КЕШИРОВАНИЕ: Основные категории (обновляются редко)
+        main_categories = cache.get('main_categories')
+        if main_categories is None:
+            main_categories = list(Category.objects.filter(parent=None, is_active=True).order_by('order', 'name'))
+            cache.set('main_categories', main_categories, settings.CATEGORY_CACHE_TIMEOUT)
+            logger.info(f"Основные категории загружены из БД: {len(main_categories)}")
+        else:
+            logger.info(f"Основные категории загружены из кеша: {len(main_categories)}")
+        context['main_categories'] = main_categories
+        
+        # КЕШИРОВАНИЕ: Все категории для фильтра
+        all_categories = cache.get('all_categories')
+        if all_categories is None:
+            all_categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
+            cache.set('all_categories', all_categories, settings.CATEGORY_CACHE_TIMEOUT)
+            logger.info(f"Категории загружены из БД: {len(all_categories)}")
+        else:
+            logger.info(f"Категории загружены из кеша: {len(all_categories)}")
+        context['categories'] = all_categories
+        
+        # КЕШИРОВАНИЕ: Все бренды для фильтра
+        all_brands = cache.get('all_brands')
+        if all_brands is None:
+            all_brands = list(Brand.objects.all().order_by('name'))
+            cache.set('all_brands', all_brands, settings.BRAND_CACHE_TIMEOUT)
+            logger.info(f"Бренды загружены из БД: {len(all_brands)}")
+        else:
+            logger.info(f"Бренды загружены из кеша: {len(all_brands)}")
+        context['brands'] = all_brands
         
         # Выбранные фильтры для template
         context['selected_categories'] = self.request.GET.getlist('category')
@@ -211,11 +689,27 @@ class CatalogView(ListView):
         return context
 
 
-class ProductView(DetailView):
+class ProductView(ProductSEOMixin, DetailView):
+    """
+    Страница товара с SEO оптимизацией
+    """
     model = Product
     template_name = 'product.html'
     context_object_name = 'product'
     slug_url_kwarg = 'slug'
+    
+    def get_queryset(self):
+        """
+        ОПТИМИЗАЦИЯ: загружаем связанные данные за один запрос
+        """
+        return Product.objects.select_related(
+            'category', 'brand'
+        ).prefetch_related(
+            'images',  # Изображения товара
+            'oe_analogs',  # OE аналоги
+            'oe_analogs__brand',  # Бренды аналогов
+            'oe_analogs__product'  # Товары-владельцы аналогов
+        )
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

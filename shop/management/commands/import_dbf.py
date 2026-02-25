@@ -30,6 +30,12 @@ class Command(BaseCommand):
         parser.add_argument('--import-file-id', type=int, default=None, help='ID записи ImportFile для обновления прогресса')
         parser.add_argument('--clear-existing', action='store_true', help='Очистить существующие товары перед импортом')
         parser.add_argument('--test-records', type=int, default=0, help='Ограничить импорт первыми N записями (для тестирования)')
+        parser.add_argument(
+            '--update-mode',
+            choices=['create_only', 'update', 'skip'],
+            default='update',
+            help='Режим обработки существующих товаров: create_only (создать дубликат), update (обновить), skip (пропустить)'
+        )
 
     def count_records_in_dbf(self, dbf_file, encoding='cp1251'):
         """Подсчитывает количество записей в DBF файле"""
@@ -68,6 +74,7 @@ class Command(BaseCommand):
         import_file_id = options.get('import_file_id')
         clear_existing = options.get('clear_existing', False)
         test_records = options.get('test_records', 0)
+        update_mode = options.get('update_mode', 'update')
         import_file = None
         
         self.stdout.write(f'🔄 Начинаем импорт DBF файла: {dbf_file}')
@@ -163,7 +170,23 @@ class Command(BaseCommand):
         stats = defaultdict(int)
         processed_records = 0
         errors = 0
-        products_batch = []
+        products_batch_create = []  # Для новых товаров
+        products_batch_update = []  # Для обновления существующих
+        
+        # Загружаем все существующие товары в память для быстрой проверки
+        self.stdout.write('📥 Загрузка существующих товаров из БД...')
+        existing_products_dict = {p.tmp_id: p for p in Product.objects.all()}
+        self.stdout.write(f'✅ Загружено {len(existing_products_dict):,} существующих товаров')
+        logger.info(f"Загружено {len(existing_products_dict)} существующих товаров")
+        
+        # Информация о режиме обработки
+        mode_descriptions = {
+            'create_only': '🔸 Режим: СОЗДАНИЕ (дубликаты → -dup)',
+            'update': '🔄 Режим: ОБНОВЛЕНИЕ (дубликаты → обновить)',
+            'skip': '⏭️  Режим: ПРОПУСК (дубликаты → пропустить)',
+        }
+        self.stdout.write(mode_descriptions.get(update_mode, ''))
+        logger.info(f"Режим обработки: {update_mode}")
 
         # Выводим структуру первой записи для отладки
         try:
@@ -216,36 +239,46 @@ class Command(BaseCommand):
                     if not name:
                         name = "Товар без названия"
                         logger.warning(f"Запись {record_num}: Пустое название, установлено '{name}'")
+                    
+                    # ИСПРАВЛЕНО: Если catalog_number пустой, используем tmp_id
+                    # Это нужно для корректного заполнения catalog_number_clean
+                    if not catalog_number:
+                        catalog_number = tmp_id
 
-                    # Обрабатываем дубликаты по TMP_ID
-                    original_tmp_id = tmp_id
-                    counter = 1
-                    while tmp_id in existing_tmp_ids:
-                        tmp_id = f"{original_tmp_id}-dup{counter}"
-                        counter += 1
-                        
-                    if tmp_id != original_tmp_id:
-                        logger.warning(f"Запись {record_num}: Дубликат TMP_ID '{original_tmp_id}', изменен на '{tmp_id}'")
-
-                    # Создаем/получаем бренд
+                    # Создаем/получаем бренд (СНАЧАЛА бренд, потом товар!)
+                    # ВАЖНО: PROPERTY_P содержит ID_brend (код бренда из 1С)
                     brand = None
                     if producer:
-                        brand_code = producer.lower()
-                        if brand_code in all_brands:
-                            brand = all_brands[brand_code]
-                        elif brand_code not in brands_cache:
-                            brand, created = Brand.objects.get_or_create(slug=brand_code, defaults={
-                                'code': producer,
-                                'name': producer
-                            })
-                            all_brands[brand_code] = brand
-                            brands_cache[brand_code] = brand
-                            if created:
-                                stats['new_brands'] += 1
-                                self.stdout.write(f'🏭 Создан бренд: {brand.name}')
-                                logger.info(f"Создан новый бренд: {brand.name}")
+                        # producer = PROPERTY_P = ID_brend из файла
+                        brand_id = producer  # Это ID_brend, не slug!
+                        
+                        if brand_id in all_brands:
+                            brand = all_brands[brand_id]
+                        elif brand_id not in brands_cache:
+                            # Ищем бренд по полю code (где хранится ID_brend)
+                            try:
+                                brand = Brand.objects.get(code=brand_id)
+                                all_brands[brand_id] = brand
+                                brands_cache[brand_id] = brand
+                            except Brand.DoesNotExist:
+                                # Бренд не найден - создаем новый
+                                brand_slug = slugify(f'brand-{brand_id}')
+                                brand, created = Brand.objects.get_or_create(
+                                    code=brand_id,
+                                    defaults={
+                                        'slug': brand_slug,
+                                        'name': f'Бренд {brand_id}',
+                                        'description': f'Автоматически созданный бренд (ID: {brand_id})'
+                                    }
+                                )
+                                all_brands[brand_id] = brand
+                                brands_cache[brand_id] = brand
+                                if created:
+                                    stats['new_brands'] += 1
+                                    self.stdout.write(f'🏭 Создан бренд: {brand.name} (ID: {brand_id})')
+                                    logger.info(f"Создан новый бренд: {brand.name} (ID: {brand_id})")
                         else:
-                            brand = brands_cache[brand_code]
+                            brand = brands_cache[brand_id]
 
                     # Создаем/получаем категорию
                     category = None
@@ -270,71 +303,140 @@ class Command(BaseCommand):
                         else:
                             category = categories_cache[category_slug]
 
-                    # Создаем безопасный slug для товара
-                    clean_name = slugify(name)[:30] if name else 'product'
-                    clean_tmp_id = re.sub(r'[^a-zA-Z0-9]', '', tmp_id) if tmp_id else 'unknown'
-                    base_slug = f"{clean_name}-{clean_tmp_id}"
-                    slug = slugify(base_slug)
+                    # ============================================================
+                    # НОВАЯ ЛОГИКА: Обработка дубликатов в зависимости от режима
+                    # ============================================================
                     
-                    if not slug:
-                        slug = f"product-{clean_tmp_id}"
+                    existing_product = existing_products_dict.get(tmp_id)
                     
-                    # Проверяем уникальность slug
-                    counter = 1
-                    original_slug = slug
-                    while slug in existing_codes:
-                        slug = f"{original_slug}-{counter}"
-                        counter += 1
+                    if existing_product and update_mode == 'update':
+                        # ========== РЕЖИМ ОБНОВЛЕНИЯ ==========
+                        # Обновляем существующий товар
+                        existing_product.name = name[:200]
+                        existing_product.brand = brand
+                        existing_product.category = category
+                        # ИСПРАВЛЕНО: Если catalog_number пустой, используем tmp_id
+                        catalog_number_for_clean = catalog_number if catalog_number else tmp_id
+                        existing_product.catalog_number = catalog_number_for_clean[:50]
+                        existing_product.cross_number = cross_number[:100] if cross_number else ''
+                        existing_product.artikyl_number = artikyl_number[:100] if artikyl_number else ''
+                        # ИСПРАВЛЕНО: Всегда заполняем очищенные номера
+                        existing_product.catalog_number_clean = Product.clean_number(catalog_number_for_clean)[:50]
+                        existing_product.artikyl_number_clean = Product.clean_number(artikyl_number)[:100] if artikyl_number else ''
+                        existing_product.applicability = applicability[:500] if applicability else 'Уточняйте'
+                        
+                        products_batch_update.append(existing_product)
+                        stats['updated_products'] += 1
+                        
+                    elif existing_product and update_mode == 'skip':
+                        # ========== РЕЖИМ ПРОПУСКА ==========
+                        # Пропускаем существующий товар
+                        stats['skipped_products'] += 1
+                        
+                    elif existing_product and update_mode == 'create_only':
+                        # ========== РЕЖИМ СОЗДАНИЯ ДУБЛИКАТОВ (старый) ==========
+                        # Создаём дубликат с суффиксом
+                        original_tmp_id = tmp_id
+                        counter = 1
+                        # Ищем свободный tmp_id с суффиксом
+                        while (tmp_id in existing_products_dict or 
+                               any(p.tmp_id == tmp_id for p in products_batch_create)):
+                            tmp_id = f"{original_tmp_id}-dup{counter}"
+                            counter += 1
+                        
+                        logger.warning(f"Запись {record_num}: Дубликат TMP_ID '{original_tmp_id}', изменен на '{tmp_id}'")
+                        
+                        # Создаём товар с новым tmp_id (логика ниже)
+                        # Флаг что это создание нового товара
+                        existing_product = None
+                        
+                    # else: existing_product is None - создаём новый товар
                     
-                    existing_codes.add(slug)
-                    existing_tmp_ids.add(tmp_id)
+                    # ========== СОЗДАНИЕ НОВОГО ТОВАРА ==========
+                    if not existing_product or update_mode == 'create_only':
+                        # Создаем безопасный slug для товара
+                        clean_name = slugify(name)[:30] if name else 'product'
+                        clean_tmp_id = re.sub(r'[^a-zA-Z0-9]', '', tmp_id) if tmp_id else 'unknown'
+                        base_slug = f"{clean_name}-{clean_tmp_id}"
+                        slug = slugify(base_slug)
+                        
+                        if not slug:
+                            slug = f"product-{clean_tmp_id}"
+                        
+                        # Проверяем уникальность slug (среди уже созданных в этом импорте)
+                        counter = 1
+                        original_slug = slug
+                        existing_slugs = set(p.slug for p in products_batch_create)
+                        while slug in existing_slugs:
+                            slug = f"{original_slug}-{counter}"
+                            counter += 1
 
-                    # Создаем товар
-                    product = Product(
-                        tmp_id=tmp_id,
-                        name=name[:200], 
-                        slug=slug,
-                        category=category,
-                        brand=brand,
-                        code=tmp_id,
-                        catalog_number=catalog_number[:50] if catalog_number else tmp_id,
-                        cross_number=cross_number[:100] if cross_number else '',
-                        artikyl_number=artikyl_number[:100] if artikyl_number else '',
-                        applicability=applicability[:500] if applicability else 'Уточняйте',
-                        price=0,  # Цена будет обновляться отдельно
-                        in_stock=True,
-                        is_new=True,
-                    )
+                        # Создаем товар
+                        # ВАЖНО: Заполняем очищенные номера вручную, 
+                        # так как при bulk_create метод save() не вызывается
+                        product = Product(
+                            tmp_id=tmp_id,
+                            name=name[:200], 
+                            slug=slug,
+                            category=category,
+                            brand=brand,
+                            code=tmp_id,
+                            catalog_number=catalog_number[:50] if catalog_number else tmp_id,
+                            cross_number=cross_number[:100] if cross_number else '',
+                            artikyl_number=artikyl_number[:100] if artikyl_number else '',
+                            # ИСПРАВЛЕНО: Всегда заполняем очищенные номера (даже если catalog_number = tmp_id)
+                            catalog_number_clean=Product.clean_number(catalog_number if catalog_number else tmp_id)[:50],
+                            artikyl_number_clean=Product.clean_number(artikyl_number)[:100] if artikyl_number else '',
+                            applicability=applicability[:500] if applicability else 'Уточняйте',
+                            price=0,  # Цена будет обновляться отдельно
+                            in_stock=True,
+                            is_new=True,
+                        )
 
-                    products_batch.append(product)
-                    stats['new_products'] += 1
+                        products_batch_create.append(product)
+                        stats['new_products'] += 1
+
                     processed_records += 1
 
                     # Логируем прогресс
                     if processed_records % 1000 == 0:
                         progress = (processed_records / total_records) * 100
-                        self.stdout.write(f'⏳ Прогресс: {progress:.1f}% ({processed_records}/{total_records}) | Создано товаров: {stats["new_products"]}')
-                        logger.info(f"Прогресс: {progress:.1f}%, создано товаров: {stats['new_products']}")
+                        self.stdout.write(
+                            f'⏳ Прогресс: {progress:.1f}% ({processed_records}/{total_records}) | '
+                            f'Создано: {stats["new_products"]} | Обновлено: {stats["updated_products"]} | '
+                            f'Пропущено: {stats["skipped_products"]}'
+                        )
+                        logger.info(
+                            f"Прогресс: {progress:.1f}%, создано: {stats['new_products']}, "
+                            f"обновлено: {stats['updated_products']}, пропущено: {stats['skipped_products']}"
+                        )
                         
                         if import_file:
                             ImportFile.objects.filter(id=import_file.id).update(
                                 current_row=processed_records,
                                 processed_rows=processed_records,
                                 created_products=stats['new_products'],
+                                updated_products=stats['updated_products'],
                                 error_count=errors,
                             )
 
-                    # Сохраняем пачку товаров
-                    if len(products_batch) >= batch_size:
-                        self._save_products_batch(products_batch)
-                        logger.info(f"Сохранена пачка товаров: {len(products_batch)}")
-                        products_batch = []
-                        
-                        if import_file:
-                            ImportFile.objects.filter(id=import_file.id).update(
-                                processed_rows=processed_records,
-                                created_products=stats['new_products']
-                            )
+                    # Сохраняем пачку НОВЫХ товаров
+                    if len(products_batch_create) >= batch_size:
+                        self._save_products_batch(products_batch_create)
+                        logger.info(f"Создано товаров в пачке: {len(products_batch_create)}")
+                        products_batch_create = []
+                    
+                    # Сохраняем пачку ОБНОВЛЁННЫХ товаров
+                    if len(products_batch_update) >= batch_size:
+                        # Используем bulk_update для обновления
+                        Product.objects.bulk_update(
+                            products_batch_update,
+                            fields=['name', 'brand', 'category', 'catalog_number', 'cross_number', 
+                                   'artikyl_number', 'catalog_number_clean', 'artikyl_number_clean', 'applicability'],
+                            batch_size=batch_size
+                        )
+                        logger.info(f"Обновлено товаров в пачке: {len(products_batch_update)}")
+                        products_batch_update = []
 
                 except Exception as e:
                     errors += 1
@@ -348,9 +450,19 @@ class Command(BaseCommand):
                     continue
 
             # Сохраняем оставшиеся товары
-            if products_batch:
-                self._save_products_batch(products_batch)
-                logger.info(f"Сохранена финальная пачка товаров: {len(products_batch)}")
+            if products_batch_create:
+                self._save_products_batch(products_batch_create)
+                logger.info(f"Сохранена финальная пачка НОВЫХ товаров: {len(products_batch_create)}")
+            
+            # Сохраняем оставшиеся обновления
+            if products_batch_update:
+                Product.objects.bulk_update(
+                    products_batch_update,
+                    fields=['name', 'brand', 'category', 'catalog_number', 'cross_number', 
+                           'artikyl_number', 'catalog_number_clean', 'artikyl_number_clean', 'applicability'],
+                    batch_size=batch_size
+                )
+                logger.info(f"Сохранена финальная пачка ОБНОВЛЁННЫХ товаров: {len(products_batch_update)}")
 
             if not disable_transactions:
                 connection.autocommit = True
@@ -358,11 +470,15 @@ class Command(BaseCommand):
             # Финальная статистика
             final_stats = (
                 f'\n🎉 Импорт DBF завершен!\n'
+                f'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
                 f'📊 Обработано записей: {processed_records}\n'
                 f'📁 Создано категорий: {stats["new_categories"]}\n'
                 f'🏭 Создано брендов: {stats["new_brands"]}\n'
-                f'📦 Создано товаров: {stats["new_products"]}\n'
-                f'⚠️ Ошибок: {errors}'
+                f'✅ Создано товаров: {stats["new_products"]}\n'
+                f'🔄 Обновлено товаров: {stats["updated_products"]}\n'
+                f'⏭️ Пропущено товаров: {stats["skipped_products"]}\n'
+                f'⚠️ Ошибок: {errors}\n'
+                f'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             )
 
             # Логируем без эмодзи для избежания проблем с кодировкой
@@ -372,6 +488,8 @@ class Command(BaseCommand):
                 f'Создано категорий: {stats["new_categories"]}, '
                 f'Создано брендов: {stats["new_brands"]}, '
                 f'Создано товаров: {stats["new_products"]}, '
+                f'Обновлено товаров: {stats["updated_products"]}, '
+                f'Пропущено товаров: {stats["skipped_products"]}, '
                 f'Ошибок: {errors}'
             )
 

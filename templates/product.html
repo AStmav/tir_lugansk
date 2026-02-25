@@ -1,10 +1,42 @@
 {% load static %}
+{% load seo_tags %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{{ product.name }} - Tir Lugansk</title>
+        
+        {# SEO Meta-теги #}
+        {% if seo %}
+            <title>{{ seo.title }}</title>
+            <meta name="description" content="{{ seo.description }}" />
+            <meta name="keywords" content="{{ seo.keywords }}" />
+            <link rel="canonical" href="{{ seo.canonical_url }}" />
+            
+            {# Open Graph для социальных сетей #}
+            <meta property="og:type" content="{{ seo.og_type }}" />
+            <meta property="og:title" content="{{ seo.title }}" />
+            <meta property="og:description" content="{{ seo.description }}" />
+            <meta property="og:image" content="{{ seo.og_image }}" />
+            <meta property="og:url" content="{{ seo.canonical_url }}" />
+            <meta property="og:site_name" content="TIR-Lugansk" />
+            
+            {# Twitter Card #}
+            <meta name="twitter:card" content="{{ seo.twitter_card }}" />
+            <meta name="twitter:title" content="{{ seo.title }}" />
+            <meta name="twitter:description" content="{{ seo.description }}" />
+            <meta name="twitter:image" content="{{ seo.og_image }}" />
+            
+            {# Schema.org разметка для товара #}
+            {% if seo.structured_data %}
+                <script type="application/ld+json">
+                {{ seo.structured_data|json_script:"product-schema" }}
+                </script>
+            {% endif %}
+        {% else %}
+            <title>{{ product.name }} - Tir Lugansk</title>
+        {% endif %}
+        
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
         <link rel="stylesheet" href="{% static 'css/main.css' %}">
     
@@ -78,15 +110,8 @@
         <main>
             <section class="product">
                 <div class="container">
-                    <div class="product__breadcrumbs">
-                        <a href="{% url 'pages:home' %}">Главная</a>
-                        <span>/</span>
-                        <a href="{% url 'shop:catalog' %}">Каталог</a>
-                        <span>/</span>
-                        <a href="{% url 'shop:catalog' %}?category={{ product.category.slug }}">{{ product.category.name }}</a>
-                        <span>/</span>
-                        <span>{{ product.name }}</span>
-                    </div>
+                    <!-- SEO Breadcrumbs с Schema.org разметкой -->
+                    {% render_breadcrumbs product=product %}
                     
                     <div class="product__content">
                         <div class="product__gallery">
@@ -94,7 +119,7 @@
                                 {% if product.has_main_image %}
                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
                                 {% elif product.images.first %}
-                                <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
+                                <img src="{{ product.images.first.url }}" alt="{{ product.name }}">
                                 {% else %}
                                 <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
                                 {% endif %}
@@ -102,7 +127,7 @@
                             <div class="product__thumbnails">
                                 {% for image in product.images.all %}
                                 <div class="product__thumbnail {% if forloop.first %}product__thumbnail--active{% endif %}">
-                                    <img src="{{ image.image.url }}" alt="{{ product.name }}">
+                                    <img src="{{ image.url }}" alt="{{ product.name }}">
                                 </div>
                                 {% empty %}
                                 <div class="product__thumbnail product__thumbnail--active">
@@ -187,6 +212,22 @@
                         </div>
                     </div>
                     
+                    {% if product.oe_analogs.exists %}
+                    <div class="product__analogs">
+                        <h2>АНАЛОГИ (OE НОМЕРА)</h2>
+                        <p class="product__analogs-info">Данный товар имеет следующие аналоги от других производителей:</p>
+                        <div class="product__analogs-list">
+                            {% for analog in product.oe_analogs.all %}
+                            <div class="analog-item">
+                                <span class="analog-brand">{% if analog.brand %}{{ analog.brand.name }}{% else %}Без бренда{% endif %}</span>
+                                <span class="analog-code">{{ analog.oe_kod }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <p class="product__analogs-count">Всего аналогов: {{ product.oe_analogs.count }}</p>
+                    </div>
+                    {% endif %}
+                    
                     <div class="product__related">
                         <h2>ПОХОЖИЕ ТОВАРЫ</h2>
                         <div class="swiper products-slider-related">
@@ -204,7 +245,7 @@
                                             {% if related_product.has_main_image %}
                                             <img src="{{ related_product.main_image_url }}" alt="{{ related_product.name }}">
                                             {% elif related_product.images.first %}
-                                            <img src="{{ related_product.images.first.image.url }}" alt="{{ related_product.name }}">
+                                            <img src="{{ related_product.images.first.url }}" alt="{{ related_product.name }}">
                                             {% else %}
                                             <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ related_product.name }}">
                                             {% endif %}

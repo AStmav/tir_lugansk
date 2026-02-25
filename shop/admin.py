@@ -11,7 +11,11 @@ from django.conf import settings
 import os
 import threading
 import traceback
+import logging
 from .models import Category, SubCategory, Brand, Product, ProductImage, ProductAnalog, OeKod, ImportFile
+
+# Глобальный logger для всего модуля
+logger = logging.getLogger(__name__)
 
 
 class ProductImageInline(admin.TabularInline):
@@ -141,6 +145,69 @@ class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'in_stock']
+    actions = ['update_clean_numbers', 'link_product_images']
+    
+    def link_product_images(self, request, queryset):
+        """
+        Массовое действие для связывания изображений с выбранными товарами.
+        Ищет изображения в папке images/{section_id}/{tmp_id}.jpg
+        """
+        from shop.utils.image_linker import link_images_for_products
+        
+        linked_count, total_count = link_images_for_products(queryset)
+        
+        if linked_count > 0:
+            self.message_user(
+                request,
+                f'✅ Успешно связано {linked_count} изображений для {total_count} товаров',
+                level='SUCCESS'
+            )
+        else:
+            self.message_user(
+                request,
+                f'⚠️ Не найдено изображений для {total_count} товаров. Проверьте папку images/',
+                level='WARNING'
+            )
+    
+    link_product_images.short_description = '🖼️ Связать изображения с товарами'
+    
+    def update_clean_numbers(self, request, queryset):
+        """
+        Массовое действие для обновления очищенных номеров у выбранных товаров
+        Полезно после ручного редактирования номеров в админке
+        """
+        updated_count = 0
+        batch = []
+        batch_size = 1000
+        
+        for product in queryset:
+            product.catalog_number_clean = Product.clean_number(product.catalog_number)
+            product.artikyl_number_clean = Product.clean_number(product.artikyl_number)
+            batch.append(product)
+            
+            if len(batch) >= batch_size:
+                Product.objects.bulk_update(
+                    batch,
+                    ['catalog_number_clean', 'artikyl_number_clean']
+                )
+                updated_count += len(batch)
+                batch = []
+        
+        # Сохраняем остатки
+        if batch:
+            Product.objects.bulk_update(
+                batch,
+                ['catalog_number_clean', 'artikyl_number_clean']
+            )
+            updated_count += len(batch)
+        
+        self.message_user(
+            request,
+            f'✅ Обновлено поисковых индексов для {updated_count} товаров'
+        )
+    
+    update_clean_numbers.short_description = '🔄 Обновить поисковые индексы (clean номера)'
+    
     # Для автокомплита в других админках
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
@@ -166,11 +233,49 @@ class OeKodAdmin(admin.ModelAdmin):
 
 @admin.register(ImportFile)
 class ImportFileAdmin(admin.ModelAdmin):
-    list_display = ['original_filename', 'file_type_display', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'processed_rows', 'created_products', 'action_buttons']
-    list_filter = ['status', 'processed', 'uploaded_at']
+    list_display = ['original_filename', 'file_type', 'validation_status_display', 'file_type_display', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'processed_rows', 'created_products', 'action_buttons']
+    list_filter = ['file_type', 'validation_status', 'status', 'processed', 'uploaded_at']
     search_fields = ['original_filename']
-    readonly_fields = ['file', 'original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at']
     ordering = ['-uploaded_at']
+    
+    def get_readonly_fields(self, request, obj=None):
+        """Динамически определяем readonly поля"""
+        if obj:  # Редактирование существующего объекта
+            return ['file', 'original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
+        else:  # Создание нового объекта
+            return ['original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
+    
+    fieldsets = [
+        ('Файл', {
+            'fields': ['file', 'original_filename', 'file_type', 'file_info_display'],
+            'description': '1️⃣ Загрузите файл → 2️⃣ Выберите тип → 3️⃣ Нажмите "Сохранить" (валидация произойдет автоматически)'
+        }),
+        ('✅ Результат валидации', {
+            'fields': ['validation_status', 'validation_message', 'suggested_type', 'detected_fields'],
+            'description': 'Валидация выполняется автоматически при сохранении файла'
+        }),
+        ('⚙️ Настройки импорта', {
+            'fields': ['update_mode'],
+            'description': '🛡️ Защита от дублирования: выберите как обрабатывать повторный импорт'
+        }),
+        ('Статус импорта', {
+            'fields': ['status', 'processed', 'processed_at', 'uploaded_at']
+        }),
+        ('Прогресс', {
+            'fields': ['total_rows', 'processed_rows', 'current_row', 'created_products', 'updated_products', 'error_count']
+        }),
+        ('Ошибки', {
+            'fields': ['error_log'],
+            'classes': ['collapse']
+        }),
+    ]
+    
+    # Больше не нужен JavaScript - валидация работает автоматически при сохранении
+    # class Media:
+    #     js = ['admin/js/import_file_validation.js']
+    #     css = {
+    #         'all': ['admin/css/import_file_validation.css']
+    #     }
     
     def file_size(self, obj):
         """Безопасное отображение размера файла"""
@@ -243,6 +348,73 @@ class ImportFileAdmin(admin.ModelAdmin):
             return "Ошибка отображения информации"
     
     file_info_display.short_description = 'Информация о файле'
+    
+    def save_model(self, request, obj, form, change):
+        """Автоматически заполняем original_filename и валидируем файл при сохранении"""
+        import os
+        
+        # Если файл загружен и имя файла не установлено
+        if obj.file:
+            if not obj.original_filename or change:
+                # Получаем имя из загруженного файла
+                if hasattr(obj.file, 'name'):
+                    obj.original_filename = os.path.basename(obj.file.name)
+        
+        # ✅ АВТОМАТИЧЕСКАЯ ВАЛИДАЦИЯ ПЕРЕД сохранением (если есть файл и тип)
+        if obj.file and obj.file_type and obj.file.name:
+            try:
+                from shop.utils.dbf_validator import DBFValidator
+                
+                logger.info(f"Автоматическая валидация файла {obj.original_filename} (тип: {obj.file_type})")
+                
+                # Проверяем что файл существует на диске
+                file_path = obj.file.path if hasattr(obj.file, 'path') else None
+                if file_path and os.path.exists(file_path):
+                    validator = DBFValidator()
+                    result = validator.validate_file(file_path, obj.file_type)
+                    
+                    # Устанавливаем статус валидации ДО сохранения
+                    obj.validation_status = 'valid' if result.is_valid else 'invalid'
+                    obj.validation_message = result.message or ''
+                    obj.detected_fields = result.found_fields or []
+                    obj.suggested_type = result.suggested_type or ''
+                    
+                    # Показываем сообщение пользователю
+                    if result.is_valid:
+                        if result.warnings:
+                            self.message_user(
+                                request, 
+                                f'⚠️ Файл валиден с предупреждениями: {result.message}. Предупреждения: {"; ".join(result.warnings)}',
+                                level='warning'
+                            )
+                        else:
+                            self.message_user(
+                                request, 
+                                f'✅ Файл успешно валидирован! {result.message}',
+                                level='success'
+                            )
+                        logger.info(f"✅ Валидация успешна: {result.message}")
+                    else:
+                        self.message_user(
+                            request, 
+                            f'❌ Файл НЕ соответствует выбранному типу! {result.message}' + 
+                            (f' Возможно, это файл типа: {result.suggested_type}' if result.suggested_type else ''),
+                            level='error'
+                        )
+                        logger.error(f"❌ Валидация провалена: {result.message}")
+                else:
+                    logger.warning(f"Файл {obj.original_filename} еще не сохранен на диск, валидация пропущена")
+                        
+            except Exception as e:
+                logger.error(f"Ошибка валидации файла: {e}", exc_info=True)
+                self.message_user(
+                    request, 
+                    f'⚠️ Ошибка при валидации файла: {str(e)}',
+                    level='warning'
+                )
+        
+        # Теперь сохраняем объект со всеми полями
+        super().save_model(request, obj, form, change)
     
     def total_rows(self, obj):
         """Безопасное отображение общего количества строк"""
@@ -356,6 +528,26 @@ class ImportFileAdmin(admin.ModelAdmin):
             )
     status_display.short_description = 'Статус'
     
+    def validation_status_display(self, obj):
+        """Отображение статуса валидации с цветом"""
+        try:
+            status_map = {
+                'pending': ('Ожидает проверки', 'orange', '⏳'),
+                'valid': ('Корректна', 'green', '✅'),
+                'invalid': ('Не соответствует', 'red', '❌'),
+                'warning': ('Есть предупреждения', 'darkorange', '⚠️'),
+            }
+            
+            icon, text, color = status_map.get(obj.validation_status, ('⏳', 'Неизвестно', 'gray'))
+            
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{} {}</span>',
+                color, icon, text
+            )
+        except Exception:
+            return format_html('<span style="color: gray;">-</span>')
+    validation_status_display.short_description = 'Валидация'
+    
     def action_buttons(self, obj):
         """Безопасное отображение кнопок действий"""
         try:
@@ -410,8 +602,82 @@ class ImportFileAdmin(admin.ModelAdmin):
             path('cancel/<int:file_id>/', self.admin_site.admin_view(self.cancel_import), name='shop_import_cancel'),
             path('progress/<int:file_id>/', self.admin_site.admin_view(self.import_progress), name='shop_import_progress'),
             path('status/<int:file_id>/', self.admin_site.admin_view(self.import_status), name='shop_import_status'),
+            # Валидация теперь автоматическая при сохранении, endpoint не нужен
+            # path('<int:file_id>/validate/', self.admin_site.admin_view(self.validate_file), name='shop_importfile_validate'),
         ]
         return custom_urls + urls
+    
+    @method_decorator(csrf_exempt)
+    def validate_file(self, request, file_id):
+        """
+        AJAX endpoint для валидации структуры DBF файла
+        """
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'message': 'Только POST запросы'})
+        
+        try:
+            import_file = get_object_or_404(ImportFile, id=file_id)
+            
+            # Проверка что выбран тип файла
+            if not import_file.file_type:
+                return JsonResponse({
+                    'success': False,
+                    'message': '❌ Сначала выберите тип файла в форме выше'
+                })
+            
+            # Проверка что это DBF файл
+            if not import_file.file.name.lower().endswith('.dbf'):
+                return JsonResponse({
+                    'success': False,
+                    'message': '⚠️ Валидация работает только для DBF файлов'
+                })
+            
+            # Валидация файла
+            from shop.utils.dbf_validator import DBFValidator
+            
+            logger.info(f"Начало валидации файла {import_file.id}, тип: {import_file.file_type}")
+            
+            validator = DBFValidator()
+            result = validator.validate_file(
+                import_file.file.path,
+                import_file.file_type
+            )
+            
+            # Сохранение результатов валидации
+            if result.is_valid:
+                import_file.validation_status = 'warning' if result.warnings else 'valid'
+            else:
+                import_file.validation_status = 'invalid'
+            
+            import_file.validation_message = result.message
+            import_file.detected_fields = result.found_fields
+            import_file.suggested_type = result.suggested_type
+            import_file.save()
+            
+            logger.info(f"Валидация завершена: {import_file.validation_status}")
+            
+            # Формируем ответ
+            response_data = {
+                'success': True,
+                'is_valid': result.is_valid,
+                'message': result.message,
+                'validation_status': import_file.validation_status,
+                'record_count': result.record_count,
+                'found_fields': result.found_fields,
+                'missing_fields': result.missing_fields,
+                'suggested_type': result.suggested_type,
+                'warnings': result.warnings,
+                'errors': result.errors
+            }
+            
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            logger.error(f"Ошибка валидации: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ Ошибка валидации: {str(e)}'
+            })
     
     def upload_csv_view(self, request):
         """Страница загрузки CSV и DBF файлов"""
@@ -517,6 +783,48 @@ class ImportFileAdmin(admin.ModelAdmin):
                         'message': 'Дождитесь завершения текущего импорта. Одновременно может выполняться только один импорт.'
                     })
                 
+                # ==================== НОВАЯ ПРОВЕРКА ВАЛИДАЦИИ ====================
+                # Для DBF файлов проверяем валидацию
+                if import_file.is_dbf_file:
+                    # Проверка что выбран тип файла
+                    if not import_file.file_type:
+                        return JsonResponse({
+                            'success': False,
+                            'message': '❌ Сначала выберите тип файла и сохраните для автоматической валидации'
+                        })
+                    
+                    # Если файл еще не валидирован - валидируем автоматически
+                    if import_file.validation_status == 'pending' and import_file.file and import_file.file_type:
+                        try:
+                            from shop.utils.dbf_validator import DBFValidator
+                            import os
+                            
+                            if os.path.exists(import_file.file.path):
+                                validator = DBFValidator()
+                                result = validator.validate_file(import_file.file.path, import_file.file_type)
+                                
+                                import_file.validation_status = 'valid' if result.is_valid else 'invalid'
+                                import_file.validation_message = result.message or ''
+                                import_file.detected_fields = result.found_fields or []
+                                import_file.suggested_type = result.suggested_type or ''
+                                import_file.save(update_fields=['validation_status', 'validation_message', 'detected_fields', 'suggested_type'])
+                                
+                                logger.info(f"Автоматическая валидация при запуске импорта: {result.message}")
+                        except Exception as e:
+                            logger.error(f"Ошибка автоматической валидации: {e}", exc_info=True)
+                            return JsonResponse({
+                                'success': False,
+                                'message': f'⚠️ Ошибка валидации файла: {str(e)}'
+                            })
+                    
+                    # Проверка что файл прошел валидацию
+                    if import_file.validation_status == 'invalid':
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'❌ Файл не прошел валидацию:\n{import_file.validation_message}'
+                        })
+                # ==================== КОНЕЦ ПРОВЕРКИ ====================
+                
                 # Запускаем импорт в отдельном потоке
                 def run_import():
                     try:
@@ -524,21 +832,75 @@ class ImportFileAdmin(admin.ModelAdmin):
                         import_file.status = 'processing'
                         import_file.save()
                         
-                        # Выбираем команду импорта в зависимости от типа файла
-                        if import_file.is_dbf_file:
-                            # Используем новую команду для DBF файлов
-                            call_command(
-                                'import_dbf',
-                                import_file.file.path,  # positional dbf_file
-                                batch_size=10000,
-                                disable_transactions=True,
-                                import_file_id=import_file.id,
-                            )
+                        # ==================== НОВАЯ ЛОГИКА: ИСПОЛЬЗУЕМ file_type ====================
+                        if import_file.is_dbf_file and import_file.file_type:
+                            # Используем тип из поля file_type (выбранный пользователем)
+                            from shop.dbf_schemas import DBF_SCHEMAS
+                            
+                            schema = DBF_SCHEMAS.get(import_file.file_type)
+                            if schema:
+                                command_name = schema['command']
+                                logger.info(f"Импорт типа '{import_file.file_type}' командой '{command_name}'")
+                                
+                                # Параметры команды зависят от типа
+                                if import_file.file_type == 'products':
+                                    # Только import_dbf поддерживает batch_size и update_mode
+                                    call_command(
+                                        command_name,
+                                        import_file.file.path,
+                                        batch_size=10000,
+                                        disable_transactions=True,
+                                        import_file_id=import_file.id,
+                                        update_mode=import_file.update_mode or 'update',  # НОВОЕ!
+                                    )
+                                else:
+                                    # import_brands_dbf и import_oe_analogs_dbf не используют batch_size
+                                    call_command(
+                                        command_name,
+                                        import_file.file.path,
+                                        import_file_id=import_file.id,
+                                    )
+                            else:
+                                raise ValueError(f"Неизвестный тип файла: {import_file.file_type}")
+                        
+                        # Старая логика для DBF без типа (fallback) и CSV
+                        elif import_file.is_dbf_file:
+                            # Fallback: определяем по имени файла (старая логика)
+                            file_name = os.path.basename(import_file.file.name).lower()
+                            logger.warning(f"Тип файла не указан, определяем по имени: {file_name}")
+                            
+                            if 'brend' in file_name:
+                                # Импорт брендов
+                                logger.info(f"Импорт брендов из: {file_name}")
+                                call_command(
+                                    'import_brands_dbf',
+                                    import_file.file.path,
+                                    import_file_id=import_file.id,
+                                )
+                            elif 'oe_nomer' in file_name or 'oenomer' in file_name:
+                                # Импорт OE аналогов
+                                logger.info(f"Импорт OE аналогов из: {file_name}")
+                                call_command(
+                                    'import_oe_analogs_dbf',
+                                    import_file.file.path,
+                                    import_file_id=import_file.id,
+                                )
+                            else:
+                                # Импорт товаров (1C*.DBF)
+                                logger.info(f"Импорт товаров из: {file_name}")
+                                call_command(
+                                    'import_dbf',
+                                    import_file.file.path,
+                                    batch_size=10000,
+                                    disable_transactions=True,
+                                    import_file_id=import_file.id,
+                                    update_mode=import_file.update_mode or 'update',  # НОВОЕ!
+                                )
                         else:
                             # Используем команду для CSV файлов
                             call_command(
                                 'import_products_new',
-                                import_file.file.path,  # positional csv_file
+                                import_file.file.path,
                                 batch_size=10000,
                                 disable_transactions=True,
                                 import_file_id=import_file.id,

@@ -21,10 +21,17 @@ from django.conf.urls.static import static
 from django.views.static import serve
 import os
 
+# SEO: импорт для sitemap и robots
+from shop.sitemap_views import SitemapView, RobotsView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('pages.urls')),
     path('shop/', include('shop.urls')),
+    
+    # SEO: sitemap и robots
+    path('sitemap.xml', SitemapView.as_view(), name='sitemap'),
+    path('robots.txt', RobotsView.as_view(), name='robots'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Добавляем обслуживание статических файлов для продакшн

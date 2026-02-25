@@ -1,7 +1,11 @@
+# Markdown (документация не в репозитории)
+*.md
+
 # Большие файлы и папки
 images/
 1CEXP_SITE(29.07.25).csv
 *.DBF
+*.dbf
 
 # Python
 __pycache__/
@@ -57,7 +61,7 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Media files (если не нужны в Git)
+# Media files
 media/
 
 # Static files (собранные)
@@ -68,7 +72,6 @@ static_root/
 node_modules/
 
 # Logs
-*.log
 logs/
 
 # Temporary files
@@ -80,7 +83,9 @@ logs/
 *.backup
 
 # Cache
-.cache/ *.DBF
-*.dbf
-db.sqlite3
-__pycache__/
+.cache/
+
+# Secrets
+.env
+.env.local
+*.pem

@@ -1,0 +1,57 @@
+/**
+ * CSS для валидации DBF файлов в админке
+ */
+
+#validate-file-btn {
+    transition: all 0.3s ease;
+}
+
+#validate-file-btn:hover {
+    background-color: #2e5a72 !important;
+    transform: scale(1.05);
+}
+
+#validate-file-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#validation-results {
+    animation: slideDown 0.3s ease-out;
+}
+
+#validation-results h3 {
+    margin-top: 0;
+}
+
+#validation-results ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+#validation-results li {
+    margin: 5px 0;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 500px;
+    }
+}
+
+/* Стили для статуса валидации в списке */
+.field-validation_status_display {
+    font-weight: bold;
+}
+
+/* Подсветка поля file_type */
+.field-file_type select:focus {
+    border-color: #417690;
+    box-shadow: 0 0 5px rgba(65, 118, 144, 0.5);
+}
+

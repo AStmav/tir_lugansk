@@ -1,6 +1,8 @@
-Django
+Django==5.2.4
+python-dotenv
 Pillow
-django-jazzmin
+django-jazzmin==3.0.1
 whitenoise
 chardet
 dbfread
+gunicorn

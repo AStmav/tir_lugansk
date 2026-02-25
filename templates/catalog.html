@@ -1,10 +1,33 @@
 {% load static %}
+{% load seo_tags %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Ассортимент запчастей - Tir Lugansk</title>
+        
+        {# SEO Meta-теги #}
+        {% if seo %}
+            <title>{{ seo.title }}</title>
+            <meta name="description" content="{{ seo.description }}" />
+            <meta name="keywords" content="{{ seo.keywords }}" />
+            <link rel="canonical" href="{{ seo.canonical_url }}" />
+            
+            {# Open Graph для социальных сетей #}
+            <meta property="og:type" content="{{ seo.og_type }}" />
+            <meta property="og:title" content="{{ seo.title }}" />
+            <meta property="og:description" content="{{ seo.description }}" />
+            <meta property="og:url" content="{{ seo.canonical_url }}" />
+            <meta property="og:site_name" content="TIR-Lugansk" />
+            
+            {# Twitter Card #}
+            <meta name="twitter:card" content="{{ seo.twitter_card }}" />
+            <meta name="twitter:title" content="{{ seo.title }}" />
+            <meta name="twitter:description" content="{{ seo.description }}" />
+        {% else %}
+            <title>Ассортимент запчастей - Tir Lugansk</title>
+        {% endif %}
+        
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
         <link rel="stylesheet" href="{% static 'css/main.css' %}">
     
@@ -467,7 +490,7 @@
                                                 {% if product.has_main_image %}
                                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
                                                 {% elif product.images.first %}
-                                                <img src="{{ product.images.first.image.url }}" alt="{{ product.name }}">
+                                                <img src="{{ product.images.first.url }}" alt="{{ product.name }}">
                                                 {% else %}
                                                 <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
                                                 {% endif %}

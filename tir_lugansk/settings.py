@@ -10,17 +10,30 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Загрузка .env из папки с settings или из корня проекта
+_env_file = Path(__file__).resolve().parent / '.env'
+if not _env_file.exists():
+    _env_file = BASE_DIR / '.env'
+load_dotenv(_env_file)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'y=6tsudu$$qt$qq23acu)-%v2&rurnd1c5rcm27sng71dt572m'
+# Задаётся через переменную окружения DJANGO_SECRET_KEY (в .env или systemd).
+# Для локальной разработки без .env используется небезопасный ключ — не для продакшена.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    SECRET_KEY = 'dev-insecure-key-do-not-use-in-production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -90,6 +103,25 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+
+# Cache Configuration
+# Используем локальную память (для продакшена рекомендуется Redis/Memcached)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'tir-lugansk-cache',
+        'TIMEOUT': 300,  # 5 минут по умолчанию
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
+# Кеширование категорий и брендов (обновляется редко)
+CATEGORY_CACHE_TIMEOUT = 3600  # 1 час
+BRAND_CACHE_TIMEOUT = 3600  # 1 час
+PRODUCT_CACHE_TIMEOUT = 300  # 5 минут
 
 
 # Password validation
