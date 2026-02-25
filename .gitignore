@@ -3,6 +3,8 @@
 
 # Большие файлы и папки
 images/
+images.zip
+*.zip
 1CEXP_SITE(29.07.25).csv
 *.DBF
 *.dbf
