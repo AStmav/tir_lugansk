@@ -4,6 +4,8 @@ from django.db.models import Q
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
 from .models import Product, Category, Brand, OeKod
 from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
 import logging
@@ -38,6 +40,71 @@ def normalize_latin_to_cyrillic(text):
     for char in text:
         result.append(latin_to_cyrillic_map.get(char, char))
     return ''.join(result)
+
+
+@require_GET
+def search_autocomplete(request):
+    """
+    Асинхронные подсказки для поиска (autocomplete).
+    GET-параметр q — строка запроса (минимум 2 символа).
+    Возвращает JSON: список { "text": "отображаемый текст", "value": "значение для поиска" }.
+    """
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return JsonResponse({'suggestions': []})
+
+    q_normalized = normalize_latin_to_cyrillic(q)
+    q_clean = Product.clean_number(q)
+    q_clean_norm = Product.clean_number(q_normalized)
+    suggestions = []
+    seen_values = set()
+    max_items = 10
+
+    # Подсказки по товарам: название, каталожный номер, артикул
+    product_q = (
+        Q(name__icontains=q_normalized) |
+        Q(catalog_number__icontains=q_normalized) |
+        Q(catalog_number_clean__istartswith=q_clean) |
+        Q(catalog_number_clean__istartswith=q_clean_norm) |
+        Q(artikyl_number_clean__istartswith=q_clean) |
+        Q(artikyl_number_clean__istartswith=q_clean_norm)
+    )
+    products = (
+        Product.objects.filter(in_stock=True)
+        .filter(product_q)
+        .select_related('brand')
+        .distinct()[:max_items]
+    )
+    for p in products:
+        val = (p.catalog_number or p.artikyl_number or p.name or '').strip()
+        if not val or val in seen_values:
+            continue
+        seen_values.add(val)
+        brand_name = p.brand.name if p.brand else ''
+        text = p.name
+        if p.catalog_number:
+            text += ' (' + p.catalog_number + ')'
+        if brand_name:
+            text += ' — ' + brand_name
+        suggestions.append({'text': text[:80] + ('…' if len(text) > 80 else ''), 'value': val[:120]})
+        if len(suggestions) >= max_items:
+            break
+
+    # Подсказки по брендам (если ещё есть место)
+    if len(suggestions) < max_items:
+        brands = (
+            Brand.objects.filter(name__icontains=q_normalized)
+            .distinct()[:max_items - len(suggestions)]
+        )
+        for b in brands:
+            val = b.name.strip()
+            if val and val not in seen_values:
+                seen_values.add(val)
+                suggestions.append({'text': 'Бренд: ' + b.name, 'value': val})
+                if len(suggestions) >= max_items:
+                    break
+
+    return JsonResponse({'suggestions': suggestions})
 
 
 class CatalogView(CategorySEOMixin, ListView):
