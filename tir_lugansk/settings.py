@@ -48,6 +48,12 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
 ]
 
+# Защита cookies и сессий (без перегрузки)
+SESSION_COOKIE_HTTPONLY = True   # Доступ к sessionid только по HTTP, не из JS
+SESSION_COOKIE_SAMESITE = 'Lax'  # Защита от CSRF через cookie в сторонних запросах
+CSRF_COOKIE_SAMESITE = 'Lax'
+# В продакшене (settings_prod) дополнительно: SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE
+
 
 # Application definition
 

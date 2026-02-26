@@ -1,0 +1,33 @@
+{# Баннер согласия на использование cookies. Показывается один раз, выбор сохраняется в localStorage. #}
+<div id="cookie-consent-banner" class="cookie-consent" role="dialog" aria-label="Уведомление о cookies" style="display: none;">
+    <div class="cookie-consent__inner">
+        <p class="cookie-consent__text">
+            Мы используем файлы cookie для работы сайта, сохранения настроек и обеспечения безопасности. Продолжая пользоваться сайтом, вы соглашаетесь с использованием cookie.
+        </p>
+        <button type="button" class="cookie-consent__btn" id="cookie-consent-accept" aria-label="Принять">Принять</button>
+    </div>
+</div>
+<style>
+.cookie-consent { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: #f8f9fa; color: #1a1a1a; padding: 16px 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); border-top: 1px solid #e9ecef; }
+.cookie-consent__inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.cookie-consent__text { margin: 0; font-size: 14px; line-height: 1.5; flex: 1; min-width: 260px; color: #1a1a1a; }
+.cookie-consent__btn { flex-shrink: 0; background: #3CC14E; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.cookie-consent__btn:hover { background: #309a3e; }
+@media (max-width: 768px) { .cookie-consent__inner { flex-direction: column; text-align: center; } .cookie-consent__btn { width: 100%; max-width: 200px; } }
+</style>
+<script>
+(function() {
+    var key = 'cookie_consent_accepted';
+    var banner = document.getElementById('cookie-consent-banner');
+    var btn = document.getElementById('cookie-consent-accept');
+    if (!banner || !btn) return;
+    try {
+        if (localStorage.getItem(key)) { return; }
+        banner.style.display = 'block';
+    } catch (e) { return; }
+    btn.addEventListener('click', function() {
+        try { localStorage.setItem(key, '1'); } catch (e) {}
+        banner.style.display = 'none';
+    });
+})();
+</script>
