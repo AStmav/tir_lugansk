@@ -7,6 +7,7 @@ from django.conf import settings
 from .models import Product, Category, Brand, OeKod
 from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
 import logging
+import re
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -272,7 +273,7 @@ class CatalogView(CategorySEOMixin, ListView):
                     
                     if products_by_id_tovar.exists():
                         logger.info(f"Найдено {products_by_id_tovar.count()} товаров через OE аналоги (по id_tovar)")
-                        found_products = found_products | products_by_id_tovar
+                        found_products = (found_products | products_by_id_tovar).distinct()
                         
                         # НОВОЕ: Находим ВСЕ OE аналоги, связанные с найденными товарами (через id_tovar)
                         # Это нужно для поиска товаров по artikyl_number_clean, которые совпадают с oe_kod_clean этих аналогов
@@ -304,7 +305,11 @@ class CatalogView(CategorySEOMixin, ListView):
                                 
                                 if products_by_oe_codes.exists():
                                     logger.info(f"Найдено {products_by_oe_codes.count()} товаров по artikyl_number_clean, совпадающим с OE кодами владельцев (исключая сам запрос)")
-                                    found_products = found_products | products_by_oe_codes
+                                    found_products = (found_products | products_by_oe_codes).distinct()
+                
+                # Уникальных товаров до группировки (без дублей по разным путям поиска)
+                if found_products.exists():
+                    logger.info(f"Уникальных товаров до группировки (напрямую/OE/id_tovar): {found_products.count()}")
                 
                 # НОВОЕ: Находим ВСЕ аналоги найденных товаров для отображения отдельными карточками
                 # Это аналоги, которые принадлежат найденным товарам
@@ -456,6 +461,13 @@ class CatalogView(CategorySEOMixin, ListView):
                             products_by_catalog | 
                             products_by_cross
                         ).distinct()
+                
+                # Принудительная дедупликация по id: union в SQLite может давать дубликаты строк
+                found_product_ids = list(found_products.values_list('id', flat=True).distinct())
+                unique_count = len(found_product_ids)
+                if unique_count != found_products.count():
+                    logger.info(f"Дедупликация по id: было {found_products.count()} строк, уникальных товаров: {unique_count}")
+                found_products = base_queryset.filter(id__in=found_product_ids)
                 
                 products_count = found_products.count()
                 analogs_count = found_analogs.count()

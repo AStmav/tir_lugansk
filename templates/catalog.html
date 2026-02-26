@@ -133,6 +133,27 @@
             .catalog__search .search-info strong {
                 color: #007bff;
             }
+            /* Блок только с результатами поиска (без дублирования поля ввода) */
+            .catalog__search--results-only .search-info {
+                margin-top: 0;
+                padding-top: 0;
+                border-top: none;
+            }
+            .catalog__search--results-only .search-clear-link {
+                display: inline-block;
+                margin-top: 12px;
+                padding: 8px 16px;
+                background: #e9ecef;
+                color: #495057;
+                border-radius: 6px;
+                text-decoration: none;
+                font-size: 14px;
+                transition: background 0.2s ease, color 0.2s ease;
+            }
+            .catalog__search--results-only .search-clear-link:hover {
+                background: #dee2e6;
+                color: #1a1a1a;
+            }
             
             /* Стили для древовидной структуры категорий */
             .category-group {
@@ -302,53 +323,16 @@
                             <h1>Ассортимент запчастей</h1>
                         </div>
                         
-                        <!-- Поиск -->
-                        <div class="catalog__search">
-                            <form method="get" class="search-form">
-                                <!-- Сохраняем текущие фильтры -->
-                                {% for category in selected_categories %}
-                                <input type="hidden" name="category" value="{{ category }}">
-                                {% endfor %}
-                                {% for brand in selected_brands %}
-                                <input type="hidden" name="brand" value="{{ brand }}">
-                                {% endfor %}
-                                {% if request.GET.min_price %}
-                                <input type="hidden" name="min_price" value="{{ request.GET.min_price }}">
-                                {% endif %}
-                                {% if request.GET.max_price %}
-                                <input type="hidden" name="max_price" value="{{ request.GET.max_price }}">
-                                {% endif %}
-                                {% if request.GET.sort %}
-                                <input type="hidden" name="sort" value="{{ request.GET.sort }}">
-                                {% endif %}
-                                
-                                <div class="search-input-wrapper">
-                                    <input type="text" 
-                                           name="search" 
-                                           placeholder="Поиск по номеру детали, названию, бренду..." 
-                                           value="{{ search_query }}"
-                                           class="search-input">
-                                    <button type="submit" class="search-button">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M21 21L16.514 16.506L21 21ZM19 10.5C19 15.194 15.194 19 10.5 19C5.806 19 2 15.194 2 10.5C2 5.806 5.806 2 10.5 2C15.194 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </button>
-                                    {% if search_query %}
-                                    <a href="{% url 'shop:catalog' %}" class="search-clear" title="Очистить поиск">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </form>
-                            {% if search_query %}
+                        <!-- Информация о текущем поиске (само поле поиска — только в хедере) -->
+                        {% if search_query %}
+                        <div class="catalog__search catalog__search--results-only">
                             <div class="search-info">
                                 <p>Результаты поиска по запросу: <strong>"{{ search_query }}"</strong></p>
                                 <p><small>Включены аналоги и кросс-коды товаров. Поиск по номерам производится с начала номера.</small></p>
                             </div>
-                            {% endif %}
+                            <a href="{% url 'shop:catalog' %}" class="search-clear-link" title="Очистить поиск">Очистить поиск</a>
                         </div>
+                        {% endif %}
                         
                         <div class="catalog__layout">
                             <aside class="catalog__sidebar">

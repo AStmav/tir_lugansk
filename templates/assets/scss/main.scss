@@ -10,6 +10,37 @@
     background-repeat: no-repeat;
     min-height: 120vh;
 }
+
+/* Фиксированный хедер при скролле */
+/* Страницы каталога, товара, о компании, контакты и т.д.: весь header — фиксированная полоса */
+header:not(.header) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #fff;
+    box-shadow: 0px 0px 25px 0px #A9AFB41F;
+}
+header:not(.header) + main {
+    padding-top: 260px;
+    position: relative;
+    z-index: 1;
+}
+/* Главная: фиксируем только верхнюю полосу (.navbar), блок .info остаётся в потоке */
+.header > .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+.header {
+    padding-top: 260px;
+}
+
 .navbar {
     padding: 12px 0;
     &__content {
@@ -1567,6 +1598,12 @@
 }
 
 @media (max-width: 768px) {
+    header:not(.header) + main {
+        padding-top: 340px;
+    }
+    .header {
+        padding-top: 340px;
+    }
     header {
         background-size: cover;
         padding: 0 10px;
@@ -2028,6 +2065,12 @@
 }
 
 @media (max-width: 480px) {
+    header:not(.header) + main {
+        padding-top: 400px;
+    }
+    .header {
+        padding-top: 400px;
+    }
     .container {
         padding: 0 8px;
     }
