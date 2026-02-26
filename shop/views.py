@@ -54,7 +54,12 @@ class CatalogView(CategorySEOMixin, ListView):
         - Использует catalog_number_clean, artikyl_number_clean для быстрого поиска
         - Использует oe_kod_clean для поиска по аналогам
         - Оптимизирует запросы с select_related и prefetch_related
+        - Результат кешируется на время запроса (ListView может вызывать get_queryset несколько раз)
         """
+        # Кеш на время одного запроса — избегаем повторного тяжёлого поиска при пагинации/count
+        if getattr(self, '_queryset_cache', None) is not None:
+            return self._queryset_cache
+
         # Инициализируем список найденных аналогов
         self._found_analogs = OeKod.objects.none()
         
@@ -622,10 +627,11 @@ class CatalogView(CategorySEOMixin, ListView):
         # Это гарантирует удаление дубликатов, которые могут возникнуть
         # при JOIN с таблицей oe_analogs (если у товара несколько OE)
         queryset = queryset.distinct()
-        
+
         logger.info(f"Финальный результат: {queryset.count()} товаров")
+        self._queryset_cache = queryset
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         

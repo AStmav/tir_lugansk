@@ -944,13 +944,21 @@
                 });
             }
             
-            // Сохранение позиции для формы поиска
+            // Форма поиска: защита от двойной отправки (двойной клик / дубли запроса)
             const searchForm = document.querySelector('.search-form');
             if (searchForm) {
-                searchForm.addEventListener('submit', function() {
+                let searchFormSubmitted = false;
+                searchForm.addEventListener('submit', function(e) {
                     sessionStorage.setItem('catalogScrollPosition', window.scrollY.toString());
+                    if (searchFormSubmitted) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    searchFormSubmitted = true;
+                    const btn = searchForm.querySelector('.search-button');
+                    if (btn) btn.disabled = true;
                 });
-        }
+            }
         });
     </script>
 </body>
