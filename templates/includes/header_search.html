@@ -1,0 +1,36 @@
+{# Поиск в шапке: всегда виден на всех страницах, ведёт на каталог с параметром search #}
+<div class="header__search">
+    <form method="get" action="{% url 'shop:catalog' %}" class="header__search-form">
+        <div class="header__search-wrapper">
+            <input type="text"
+                   name="search"
+                   class="header__search-input"
+                   placeholder="Поиск по номеру детали, названию, бренду..."
+                   autocomplete="off"
+                   aria-label="Поиск по номеру детали, названию, бренду">
+            <button type="submit" class="header__search-btn" aria-label="Найти">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M21 21L16.514 16.506L21 21ZM19 10.5C19 15.194 15.194 19 10.5 19C5.806 19 2 15.194 2 10.5C2 5.806 5.806 2 10.5 2C15.194 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </form>
+</div>
+<style>
+.header__search { margin: 15px 0 20px; width: 100%; max-width: 100%; }
+.header__search-form { margin: 0; }
+.header__search-wrapper { display: flex; align-items: center; background: #fff; border: 2px solid #e9ecef; border-radius: 8px; transition: border-color 0.3s ease; }
+.header__search-wrapper:focus-within { border-color: #3CC14E; box-shadow: 0 0 0 3px rgba(60, 193, 78, 0.15); }
+.header__search-input { flex: 1; padding: 12px 18px; border: none; border-radius: 6px 0 0 6px; font-size: 16px; background: transparent; font-family: inherit; }
+.header__search-input:focus { outline: none; }
+.header__search-input::placeholder { color: #6c757d; }
+.header__search-btn { display: flex; align-items: center; justify-content: center; padding: 12px 18px; background: #3CC14E; color: white; border: none; border-radius: 0 6px 6px 0; cursor: pointer; transition: background 0.3s ease; }
+.header__search-btn:hover { background: #309a3e; }
+.header__search-btn svg { width: 20px; height: 20px; }
+@media (max-width: 768px) {
+  .header__search { margin: 12px 0 16px; }
+  .header__search-wrapper { flex-wrap: wrap; }
+  .header__search-input { width: 100%; border-radius: 8px 8px 0 0; padding: 10px 14px; font-size: 15px; }
+  .header__search-btn { width: 100%; border-radius: 0 0 8px 8px; padding: 10px; }
+}
+</style>

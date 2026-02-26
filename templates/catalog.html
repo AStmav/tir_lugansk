@@ -289,6 +289,7 @@
                                 </ul>
                             </nav>
                         </div>
+                        {% include "includes/header_search.html" %}
                     </div>
                 </div>
             </div>
@@ -948,9 +949,17 @@
             const searchForm = document.querySelector('.search-form');
             if (searchForm) {
                 let searchFormSubmitted = false;
+                window._searchSubmitCount = 0; // сброс при загрузке: один клик = одна отправка = #1
+                window.addEventListener('pageshow', function(ev) {
+                    if (ev.persisted) searchFormSubmitted = false;
+                });
                 searchForm.addEventListener('submit', function(e) {
+                    // Диагностика: в консоли видно, сколько раз сработал submit за один клик
+                    window._searchSubmitCount = (window._searchSubmitCount || 0) + 1;
+                    console.log('[Каталог] Отправка формы поиска #' + window._searchSubmitCount);
                     sessionStorage.setItem('catalogScrollPosition', window.scrollY.toString());
                     if (searchFormSubmitted) {
+                        console.warn('[Каталог] Двойная отправка заблокирована');
                         e.preventDefault();
                         return false;
                     }
