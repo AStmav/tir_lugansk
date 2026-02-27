@@ -40,6 +40,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['45.130.42.65', 'new.tir-lugansk.ru', 'tir-lugansk.ru', 'localhost', '127.0.0.1']
 
+# Админка только по этим хостам (None = не ограничивать). В продакшене задаётся в settings_prod.
+ADMIN_ALLOWED_HOSTS = None
+
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [
     'https://new.tir-lugansk.ru',
@@ -78,6 +81,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'tir_lugansk.middleware.AdminOnlyFromAllowedHostsMiddleware',  # админка только по IP (см. settings_prod)
 ]
 
 ROOT_URLCONF = 'tir_lugansk.urls'

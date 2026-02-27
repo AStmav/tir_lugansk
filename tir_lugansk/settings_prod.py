@@ -23,6 +23,13 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
+# Админка доступна только при заходе по IP сервера (или localhost). По домену — 403.
+ADMIN_ALLOWED_HOSTS = [
+    '45.130.42.65',
+    '127.0.0.1',
+    'localhost',
+]
+
 CSRF_TRUSTED_ORIGINS = [
     'https://tir-lugansk.ru',
     'https://www.tir-lugansk.ru',
