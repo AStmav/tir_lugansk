@@ -251,6 +251,9 @@ JAZZMIN_UI_TWEAKS = {
 }
 
 # Logging configuration
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -263,6 +266,10 @@ LOGGING = {
             'format': '{levelname} {message}',
             'style': '{',
         },
+        'audit': {
+            'format': '{asctime} | {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
@@ -271,8 +278,13 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
+            'filename': LOGS_DIR / 'django.log',
             'formatter': 'verbose',
+        },
+        'audit_file': {
+            'class': 'logging.FileHandler',
+            'filename': LOGS_DIR / 'audit.log',
+            'formatter': 'audit',
         },
     },
     'root': {
@@ -288,6 +300,11 @@ LOGGING = {
         'shop': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+        'audit': {
+            'handlers': ['audit_file'],
+            'level': 'INFO',
             'propagate': False,
         },
     },
