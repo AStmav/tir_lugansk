@@ -1433,6 +1433,9 @@ h2 {
 .product__tech-specs {
   margin-top: 20px;
 }
+.product__related {
+  margin-top: 60px;
+}
 .product__related h2 {
   font-size: 24px;
   font-weight: 700;

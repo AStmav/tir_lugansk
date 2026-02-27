@@ -790,21 +790,52 @@ class ProductView(ProductSEOMixin, DetailView):
         return Product.objects.select_related(
             'category', 'brand'
         ).prefetch_related(
-            'images',  # Изображения товара
-            'oe_analogs',  # OE аналоги
-            'oe_analogs__brand',  # Бренды аналогов
-            'oe_analogs__product'  # Товары-владельцы аналогов
+            'images',
+            'oe_analogs',
+            'oe_analogs__brand',
+            'oe_analogs__product',
         )
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Похожие товары (из той же категории, исключая текущий товар)
+        product = self.object
+
+        # Для каждой строки кросс-номеров — ссылка на один конкретный товар-аналог (страница товара, не поиск)
+        oe_analogs_with_url = []
+        if product.oe_analogs.exists():
+            oe_cleans = list({o.oe_kod_clean for o in product.oe_analogs.all() if o.oe_kod_clean})
+            if oe_cleans:
+                candidates = Product.objects.filter(
+                    in_stock=True,
+                    oe_analogs__oe_kod_clean__in=oe_cleans,
+                ).exclude(id=product.id).distinct().prefetch_related('oe_analogs')
+                by_oe_brand = {}
+                for p in candidates:
+                    for o in p.oe_analogs.filter(oe_kod_clean__in=oe_cleans):
+                        key = (o.oe_kod_clean, o.brand_id or 0)
+                        if key not in by_oe_brand:
+                            by_oe_brand[key] = p
+            else:
+                by_oe_brand = {}
+            for analog in product.oe_analogs.all():
+                key = (analog.oe_kod_clean, analog.brand_id or 0) if analog.oe_kod_clean else (None, 0)
+                p = by_oe_brand.get(key) if key[0] else None
+                if not p and analog.oe_kod_clean:
+                    p = by_oe_brand.get((analog.oe_kod_clean, 0))
+                if not p and analog.oe_kod_clean:
+                    for k, v in by_oe_brand.items():
+                        if k[0] == analog.oe_kod_clean:
+                            p = v
+                            break
+                url = p.get_absolute_url() if p else None
+                oe_analogs_with_url.append({'analog': analog, 'url': url})
+        context['oe_analogs_with_url'] = oe_analogs_with_url
+
+        # Похожие товары (из той же категории)
         related_products = Product.objects.filter(
-            category=self.object.category,
+            category=product.category,
             in_stock=True
-        ).exclude(id=self.object.id)[:6]
-        
+        ).exclude(id=product.id).select_related('brand').prefetch_related('images')[:6]
         context['related_products'] = related_products
-        
+
         return context

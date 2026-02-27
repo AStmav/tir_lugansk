@@ -63,6 +63,188 @@
                     min-height: unset;  
                 }
             }
+            /* Таблица аналогов (кросс-номера) — шрифты как в блоке Описание */
+            .product__analogs {
+                font-family: "Oswald", sans-serif;
+                margin-bottom: 60px;
+            }
+            .product__analogs .product__tab-panel-title {
+                font-size: 24px;
+                font-weight: 700;
+                color: #1a1a1a;
+                margin-bottom: 25px;
+                text-transform: uppercase;
+            }
+            .product__analogs-info {
+                font-size: 16px;
+                line-height: 1.6;
+                color: #666666;
+                margin-bottom: 1rem;
+            }
+            .product__analogs-table-wrap {
+                overflow-x: auto;
+                overflow-y: auto;
+                max-height: 320px;
+                margin: 0.75rem 0;
+            }
+            .product__analogs-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-family: "Oswald", sans-serif;
+                font-size: 16px;
+            }
+            .product__analogs-table th,
+            .product__analogs-table td {
+                padding: 0.6rem 1rem 0.6rem 0;
+                text-align: left;
+                border: none;
+                vertical-align: top;
+            }
+            .product__analogs-table th {
+                font-weight: 700;
+                font-size: 14px;
+                color: #1a1a1a;
+                padding-bottom: 0.5rem;
+                text-transform: uppercase;
+            }
+            .product__analogs-table tbody tr {
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .product__analogs-table tbody tr:last-child {
+                border-bottom: none;
+            }
+            .product__analogs-table td {
+                color: #1a1a1a;
+                font-weight: 500;
+            }
+            .product__analogs-table td a.product__analogs-link {
+                color: #595959;
+                text-decoration: none;
+            }
+            .product__analogs-table td a.product__analogs-link:hover {
+                text-decoration: underline;
+            }
+            .product__analogs-table tbody tr.product__analogs-row:hover td {
+                background: #f5f5f5;
+            }
+            .product__analogs-table tbody tr.product__analogs-row:hover td a.product__analogs-link {
+                color: #282828;
+            }
+            .product__analogs-table tbody tr.product__analogs-row td {
+                display: table-cell;
+            }
+            .product__analogs-table tbody tr.product__analogs-row td a {
+                display: block;
+            }
+            .product__analogs-count {
+                margin-top: 0.5rem;
+                font-size: 14px;
+                color: #666666;
+                font-family: "Oswald", sans-serif;
+                text-transform: uppercase;
+            }
+            /* Строка: заголовок слева */
+            .product__title-row {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 1rem;
+                margin-bottom: 0;
+            }
+            .product__title-row .product__title {
+                flex: 1;
+                min-width: 0;
+                margin: 0;
+            }
+            .product__brand-about {
+                flex-shrink: 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                color: #595959;
+                text-decoration: none;
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+            .product__brand-about:hover {
+                color: #282828;
+                text-decoration: underline;
+            }
+            .product__brand-about-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.1rem;
+                height: 1.1rem;
+                border: 1px solid currentColor;
+                border-radius: 50%;
+                font-size: 0.75rem;
+                font-style: italic;
+                font-weight: 600;
+            }
+            /* Вкладки: Описание и характеристики / Кросс-номера */
+            .product__tabs {
+                margin-top: 1.5rem;
+            }
+            .product__tabs-head {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            .product__tab-btn {
+                padding: 0.6rem 1rem;
+                font-family: "Oswald", sans-serif;
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #595959;
+                background: none;
+                border: none;
+                border-bottom: 3px solid transparent;
+                cursor: pointer;
+                margin-bottom: -1px;
+            }
+            .product__tab-btn:hover {
+                color: #282828;
+            }
+            .product__tab-btn.product__tab-btn--active {
+                color: #282828;
+                border-bottom-color: #3CC14E;
+            }
+            .product__tab-panel {
+                display: none;
+            }
+            .product__tab-panel.product__tab-panel--active {
+                display: block;
+            }
+            .product__tab-panel-title {
+                margin-top: 0;
+                font-size: 1.1rem;
+            }
+            /* Модалка «О бренде» */
+            .modal__content--brand {
+                max-width: 520px;
+            }
+            .brand-modal__logo {
+                margin-bottom: 1rem;
+            }
+            .brand-modal__logo img {
+                max-width: 120px;
+                max-height: 80px;
+                object-fit: contain;
+            }
+            .brand-modal__description {
+                font-size: 16px;
+                line-height: 1.6;
+                color: #333;
+            }
+            .brand-modal__description p {
+                margin-bottom: 0.75rem;
+            }
+            .brand-modal__description p:last-child {
+                margin-bottom: 0;
+            }
         </style>
     </head>
     <body>
@@ -143,15 +325,23 @@
                             <div class="product__badge">{{ product.discount_percent }}% АКЦИЯ</div>
                             {% endif %}
                             <div class="product__code">{{ product.code }}</div>
-                            <h1 class="product__title">{{ product.name }}</h1>
+                            <div class="product__title-row">
+                                <h1 class="product__title">{{ product.name }}</h1>
+                                {% if product.brand %}
+                                <a href="javascript:void(0)" class="product__brand-about" id="product-brand-about-link" aria-label="О бренде {{ product.brand.name }}">
+                                    <span class="product__brand-about-icon" aria-hidden="true">i</span>
+                                    О бренде {{ product.brand.name }}
+                                </a>
+                                {% endif %}
+                            </div>
                             <div class="product__status">
-                                {% if product.in_stock %}
-                                <span class="product__availability">Есть в наличии</span>
+                                {% if product.stock_quantity > 0 %}
+                                <span class="product__availability">В наличии: {{ product.stock_quantity }} шт.</span>
                                 {% else %}
                                 <span class="product__availability product__availability--out">Нет в наличии</span>
                                 {% endif %}
                             </div>
-                            
+
                             <div class="product__specs">
                                 <div class="product__spec">
                                     <span class="spec-label">Бренд</span>
@@ -177,58 +367,92 @@
                             <button class="product__price-inquiry" onclick="openModal('priceInquiryModal')">Узнать цену и наличие</button>
                         </div>
                     </div>
-                    
-                    <div class="product__description">
-                        <h2>ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</h2>
-                        {% if product.description %}
-                        {{ product.description|linebreaks }}
-                        {% else %}
-                        <p>Подробное описание товара будет добавлено позже.</p>
-                        {% endif %}
-                        
-                        <h3>ТЕХНИЧЕСКИЕ ДАННЫЕ</h3>
-                        <div class="product__tech-specs">
-                            <div class="tech-spec">
-                                <span class="tech-label">Код товара:</span>
-                                <span class="tech-value">{{ product.code }}</span>
+
+                    <div class="product__tabs" id="product-tabs">
+                        <div class="product__tabs-head">
+                            <button type="button" class="product__tab-btn product__tab-btn--active" data-tab="description" aria-selected="true">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</button>
+                            {% if product.oe_analogs.exists %}
+                            <button type="button" class="product__tab-btn" data-tab="cross" aria-selected="false">КРОСС-НОМЕРА</button>
+                            {% endif %}
+                        </div>
+                        <div class="product__tabs-panels">
+                            <div class="product__tab-panel product__tab-panel--active" id="product-tab-description" role="tabpanel">
+                                <div class="product__description">
+                                    <h2 class="product__tab-panel-title">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</h2>
+                                    {% if product.description %}
+                                    {{ product.description|linebreaks }}
+                                    {% else %}
+                                    <p>Подробное описание товара будет добавлено позже.</p>
+                                    {% endif %}
+
+                                    <h3>ТЕХНИЧЕСКИЕ ДАННЫЕ</h3>
+                                    <div class="product__tech-specs">
+                                        <div class="tech-spec">
+                                            <span class="tech-label">Код товара:</span>
+                                            <span class="tech-value">{{ product.code }}</span>
+                                        </div>
+                                        <div class="tech-spec">
+                                            <span class="tech-label">Каталожный номер:</span>
+                                            <span class="tech-value">{{ product.catalog_number }}</span>
+                                        </div>
+                                        <div class="tech-spec">
+                                            <span class="tech-label">Бренд:</span>
+                                            <span class="tech-value">{{ product.brand.name }}</span>
+                                        </div>
+                                        <div class="tech-spec">
+                                            <span class="tech-label">Категория:</span>
+                                            <span class="tech-value">{{ product.category.name }}</span>
+                                        </div>
+                                        {% if product.applicability %}
+                                        <div class="tech-spec">
+                                            <span class="tech-label">Применяемость:</span>
+                                            <span class="tech-value">{{ product.applicability }}</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
-                            <div class="tech-spec">
-                                <span class="tech-label">Каталожный номер:</span>
-                                <span class="tech-value">{{ product.catalog_number }}</span>
+
+                            {% if product.oe_analogs.exists %}
+                            <div class="product__tab-panel" id="product-tab-cross" role="tabpanel" aria-hidden="true">
+                                <div class="product__analogs">
+                                    <h2 class="product__tab-panel-title">КРОСС-НОМЕРА</h2>
+                                    <p class="product__analogs-info">Аналоги от других производителей:</p>
+                            <div class="product__analogs-table-wrap">
+                                <table class="product__analogs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>БРЕНД</th>
+                                            <th>АРТИКУЛ</th>
+                                            <th>НАИМЕНОВАНИЕ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in oe_analogs_with_url %}
+                                        {% with analog=item.analog url=item.url %}
+                                        <tr class="product__analogs-row">
+                                            {% if url %}
+                                            <td><a href="{{ url }}" class="product__analogs-link">{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}</a></td>
+                                            <td><a href="{{ url }}" class="product__analogs-link">{{ analog.oe_kod }}</a></td>
+                                            <td><a href="{{ url }}" class="product__analogs-link">{{ product.name }}</a></td>
+                                            {% else %}
+                                            <td>{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}</td>
+                                            <td>{{ analog.oe_kod }}</td>
+                                            <td>{{ product.name }}</td>
+                                            {% endif %}
+                                        </tr>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div class="tech-spec">
-                                <span class="tech-label">Бренд:</span>
-                                <span class="tech-value">{{ product.brand.name }}</span>
-                            </div>
-                            <div class="tech-spec">
-                                <span class="tech-label">Категория:</span>
-                                <span class="tech-value">{{ product.category.name }}</span>
-                            </div>
-                            {% if product.applicability %}
-                            <div class="tech-spec">
-                                <span class="tech-label">Применяемость:</span>
-                                <span class="tech-value">{{ product.applicability }}</span>
+                            <p class="product__analogs-count">ВСЕГО: {{ product.oe_analogs.count }}</p>
+                                </div>
                             </div>
                             {% endif %}
                         </div>
                     </div>
-                    
-                    {% if product.oe_analogs.exists %}
-                    <div class="product__analogs">
-                        <h2>АНАЛОГИ (OE НОМЕРА)</h2>
-                        <p class="product__analogs-info">Данный товар имеет следующие аналоги от других производителей:</p>
-                        <div class="product__analogs-list">
-                            {% for analog in product.oe_analogs.all %}
-                            <div class="analog-item">
-                                <span class="analog-brand">{% if analog.brand %}{{ analog.brand.name }}{% else %}Без бренда{% endif %}</span>
-                                <span class="analog-code">{{ analog.oe_kod }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <p class="product__analogs-count">Всего аналогов: {{ product.oe_analogs.count }}</p>
-                    </div>
-                    {% endif %}
-                    
+
                     <div class="product__related">
                         <h2>ПОХОЖИЕ ТОВАРЫ</h2>
                         <div class="swiper products-slider-related">
@@ -330,6 +554,34 @@
             </div>
         </footer>
         
+        {% if product.brand %}
+        <!-- Модальное окно «О бренде» -->
+        <div class="modal" id="brandAboutModal">
+            <div class="modal__overlay">
+                <div class="modal__content modal__content--brand">
+                    <div class="modal__header">
+                        <h3 class="modal__title">О бренде {{ product.brand.name }}</h3>
+                        <button class="modal__close" type="button" aria-label="Закрыть">&times;</button>
+                    </div>
+                    <div class="modal__body">
+                        {% if product.brand.logo %}
+                        <div class="brand-modal__logo">
+                            <img src="{{ product.brand.logo.url }}" alt="{{ product.brand.name }}">
+                        </div>
+                        {% endif %}
+                        <div class="brand-modal__description">
+                            {% if product.brand.description %}
+                            {{ product.brand.description|linebreaks }}
+                            {% else %}
+                            <p>Описание бренда пока не добавлено.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Модальное окно для узнать цену и наличие -->
         <div class="modal" id="priceInquiryModal">
             <div class="modal__overlay">
@@ -409,7 +661,35 @@
                     });
                 });
             });
-            
+
+            // Вкладки: Описание и характеристики / Кросс-номера
+            (function() {
+                var tabs = document.getElementById('product-tabs');
+                if (!tabs) return;
+                var btns = tabs.querySelectorAll('.product__tab-btn');
+                var panels = tabs.querySelectorAll('.product__tab-panel');
+                btns.forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var tabId = this.getAttribute('data-tab');
+                        btns.forEach(function(b) {
+                            b.classList.remove('product__tab-btn--active');
+                            b.setAttribute('aria-selected', 'false');
+                        });
+                        panels.forEach(function(p) {
+                            p.classList.remove('product__tab-panel--active');
+                            p.setAttribute('aria-hidden', 'true');
+                        });
+                        this.classList.add('product__tab-btn--active');
+                        this.setAttribute('aria-selected', 'true');
+                        var panel = tabs.querySelector('#product-tab-' + tabId);
+                        if (panel) {
+                            panel.classList.add('product__tab-panel--active');
+                            panel.setAttribute('aria-hidden', 'false');
+                        }
+                    });
+                });
+            })();
+
             // Корзина
             function addToCart(productId, productName, productPrice) {
                 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -468,21 +748,11 @@
                     prevEl: '.swiper-button-prev',
                 },
                 breakpoints: {
-                    768: {
-                        slidesPerView: 2,
-                        spaceBetween: 15,
-                    },
-                    1024: {
-                        slidesPerView: 3,
-                        spaceBetween: 20,
-                    },
-                    1200: {
-                        slidesPerView: 4,
-                        spaceBetween: 20,
-                    },
+                    768: { slidesPerView: 2, spaceBetween: 15 },
+                    1024: { slidesPerView: 3, spaceBetween: 20 },
+                    1200: { slidesPerView: 4, spaceBetween: 20 },
                 },
             });
-
             // Обработка формы
             document.addEventListener('DOMContentLoaded', function() {
                 setPhoneMask();
@@ -565,10 +835,21 @@
                     }
                 });
                 
-                closeBtn.addEventListener('click', function() {
-                    closeModal(modal.id);
-                });
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        closeModal(modal.id);
+                    });
+                }
             });
+
+            // Открытие модалки «О бренде» по клику на ссылку
+            var brandAboutLink = document.getElementById('product-brand-about-link');
+            if (brandAboutLink) {
+                brandAboutLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openModal('brandAboutModal');
+                });
+            }
 
             // Закрытие по ESC
             document.addEventListener('keydown', function(e) {

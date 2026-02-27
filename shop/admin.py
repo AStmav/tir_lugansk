@@ -136,16 +136,17 @@ class CategoryAdmin(admin.ModelAdmin):
 class BrandAdmin(admin.ModelAdmin):
     list_display = ['code', 'name', 'slug']
     search_fields = ['name', 'code']
+    fields = ['code', 'name', 'slug', 'description', 'logo', 'meta_title', 'meta_description', 'meta_keywords']
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number', 'price', 'in_stock']
+    list_display = ['name', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number', 'price', 'stock_quantity', 'in_stock']
     list_filter = ['category', 'brand', 'in_stock', 'is_featured', 'is_new', 'created_at']
     search_fields = ['name', 'code', 'tmp_id', 'catalog_number', 'artikyl_number', 'cross_number']
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
-    list_editable = ['price', 'in_stock']
+    list_editable = ['price', 'stock_quantity', 'in_stock']
     actions = ['update_clean_numbers', 'link_product_images']
     
     def link_product_images(self, request, queryset):
