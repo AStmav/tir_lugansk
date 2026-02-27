@@ -13,6 +13,7 @@ import threading
 import traceback
 import logging
 from .models import Category, SubCategory, Brand, Product, ProductImage, ProductAnalog, OeKod, ImportFile
+from .audit_log import log_audit
 
 # Глобальный logger для всего модуля
 logger = logging.getLogger(__name__)
@@ -212,6 +213,18 @@ class ProductAdmin(admin.ModelAdmin):
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
         return queryset, use_distinct
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        action = 'product_updated' if change else 'product_created'
+        detail = f'{getattr(obj, "name", "") or obj.pk} ({getattr(obj, "catalog_number", "")})'
+        log_audit(action, user=request.user, detail=detail.strip(), object_id=obj.pk)
+
+    def delete_model(self, request, obj):
+        detail = f'{getattr(obj, "name", "") or obj.pk} ({getattr(obj, "catalog_number", "")})'
+        object_id = obj.pk
+        super().delete_model(request, obj)
+        log_audit('product_deleted', user=request.user, detail=detail.strip(), object_id=object_id)
 
 
 @admin.register(ProductAnalog)
@@ -750,6 +763,7 @@ class ImportFileAdmin(admin.ModelAdmin):
                     import_file_obj.save()
                 
                 file_type = "DBF" if import_file.name.lower().endswith('.dbf') else "CSV"
+                log_audit('import_file_uploaded', user=request.user, detail=import_file.name, file_type=file_type, file_size=getattr(import_file, 'size', None), import_file_id=import_file_obj.id)
                 messages.success(request, f'{file_type} файл "{import_file.name}" успешно загружен на сервер! Всего записей: {import_file_obj.total_rows or "неизвестно"}. Теперь можно запустить импорт.')
                 return HttpResponseRedirect('../')
                 
@@ -824,6 +838,9 @@ class ImportFileAdmin(admin.ModelAdmin):
                             'message': f'❌ Файл не прошел валидацию:\n{import_file.validation_message}'
                         })
                 # ==================== КОНЕЦ ПРОВЕРКИ ====================
+                
+                audit_user_repr = str(request.user) if request.user else '—'
+                log_audit('import_started', user=request.user, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), file_type=getattr(import_file, 'file_type', None) or '—', import_file_id=import_file.id)
                 
                 # Запускаем импорт в отдельном потоке
                 def run_import():
@@ -912,11 +929,13 @@ class ImportFileAdmin(admin.ModelAdmin):
                         from django.utils import timezone
                         import_file.processed_at = timezone.now()
                         import_file.save()
+                        log_audit('import_completed', user_repr=audit_user_repr, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), import_file_id=import_file.id)
                         
                     except Exception as e:
                         import_file.status = 'failed'
                         import_file.error_log = traceback.format_exc()
                         import_file.save()
+                        log_audit('import_failed', user_repr=audit_user_repr, detail=str(e)[:300], import_file_id=import_file.id)
                 
                 thread = threading.Thread(target=run_import)
                 thread.daemon = True
@@ -955,6 +974,7 @@ class ImportFileAdmin(admin.ModelAdmin):
                 import_file.cancelled_at = timezone.now()
                 import_file.status = 'cancelled'
                 import_file.save()
+                log_audit('import_cancelled', user=request.user, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), import_file_id=import_file.id)
                 
                 return JsonResponse({
                     'success': True,
