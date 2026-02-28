@@ -38,10 +38,12 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost',
 ]
 
-# HTTPS (раскомментировать после настройки SSL)
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# HTTPS. Редирект HTTP→HTTPS делается в AllowHttpForAdminHostsMiddleware только для домена;
+# по IP (45.130.42.65) админка доступна по HTTP, чтобы не требовать SSL для IP.
+SECURE_SSL_REDIRECT = False
+# Без Secure cookies админка по http://45.130.42.65/admin/ сможет сохранять сессию и CSRF.
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'

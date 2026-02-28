@@ -73,6 +73,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'tir_lugansk.middleware.AllowHttpForAdminHostsMiddleware',  # HTTP для админки по IP (редирект HTTPS только для домена)
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Добавляем whitenoise
     'django.contrib.sessions.middleware.SessionMiddleware',
