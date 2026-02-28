@@ -222,9 +222,22 @@
                 margin-top: 0;
                 font-size: 1.1rem;
             }
-            /* Модалка «О бренде» */
+            /* Модалка «О бренде»: фиксированная высота, скролл внутри */
             .modal__content--brand {
                 max-width: 520px;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .modal__content--brand .modal__header {
+                flex-shrink: 0;
+            }
+            .modal__content--brand .modal__body {
+                flex: 1;
+                min-height: 0;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
             .brand-modal__logo {
                 margin-bottom: 1rem;
