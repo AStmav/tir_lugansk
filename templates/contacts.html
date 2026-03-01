@@ -23,6 +23,16 @@
                                 <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="Tir Lugansk"></a>
                             </div>
                         </div>
+                        <div class="menu__links navbar__menu">
+                            <nav>
+                                <ul>
+                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент запчастей</a></li>
+                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                    <li class="menu__links-active"><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                </ul>
+                            </nav>
+                        </div>
                         <div class="navbar__block">
                             <div class="navbar__block-contact">
                                 <div class="navbar__block-contact-item">
@@ -41,16 +51,6 @@
                         </div>
                     </div>
                     <div class="menu__content">
-                        <div class="menu__links">
-                            <nav>
-                                <ul>
-                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
-                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент запчастей</a></li>
-                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
-                                    <li class="menu__links-active"><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
-                                </ul>
-                            </nav>
-                        </div>
                         {% include "includes/header_search.html" %}
                     </div>
                 </div>
