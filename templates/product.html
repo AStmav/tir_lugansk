@@ -269,6 +269,9 @@
                             <div class="navbar__block-brand">
                                 <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="Tir Lugansk"></a>
                             </div>
+                            <button type="button" class="navbar__burger" aria-label="Меню" aria-expanded="false">
+                                <span></span><span></span><span></span>
+                            </button>
                         </div>
                         <div class="menu__links navbar__menu">
                             <nav>
@@ -990,6 +993,7 @@
                 });
             }
         </script>
+        <script src="{% static 'js/navbar-burger.js' %}"></script>
         {% include "includes/cookie_consent.html" %}
     </body>
 </html> 
