@@ -312,6 +312,11 @@ header:not(.header) + main {
   z-index: 1;
 }
 
+/* Только страница товара: меньше пустого блока под шапкой */
+.page-product header:not(.header) + main {
+  padding-top: 150px;
+}
+
 /* Главная: фиксируем только верхнюю полосу (.navbar), блок .info остаётся в потоке */
 .header > .navbar {
   position: fixed;
@@ -1721,6 +1726,9 @@ header:not(.header) + main {
   header:not(.header) + main {
     padding-top: 340px;
   }
+  .page-product header:not(.header) + main {
+    padding-top: 190px;
+  }
   .header {
     padding-top: 340px;
   }
@@ -2097,6 +2105,9 @@ header:not(.header) + main {
 @media (max-width: 480px) {
   header:not(.header) + main {
     padding-top: 400px;
+  }
+  .page-product header:not(.header) + main {
+    padding-top: 220px;
   }
   .header {
     padding-top: 400px;
