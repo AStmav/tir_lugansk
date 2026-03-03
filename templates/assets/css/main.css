@@ -1215,6 +1215,18 @@ header:not(.header) + main {
   margin-bottom: 12px;
   text-transform: uppercase;
 }
+/* Выпадающие блоки: на десктопе выглядят как обычные блоки (только на мобильных — аккордеон) */
+.filter-group--accordion .filter-group__summary {
+  list-style: none;
+  cursor: default;
+}
+.filter-group--accordion .filter-group__summary::-webkit-details-marker,
+.filter-group--accordion .filter-group__summary::marker {
+  display: none;
+}
+.filter-group--accordion .filter-group__summary h4 {
+  margin-bottom: 12px;
+}
 
 .filter-options {
   display: flex;
@@ -2211,11 +2223,69 @@ header:not(.header) + main {
   }
   .catalog__filters {
     margin-bottom: 0;
-    padding: 0;
+    padding: 24px 0 0 0;
   }
   .catalog__filters h3 {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    margin-top: 0;
+    padding-top: 0;
     text-align: center;
+  }
+  /* Мобильный аккордеон: КАТЕГОРИИ и БРЕНДЫ — выпадающие блоки */
+  .filter-group--accordion {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .catalog__filters h3 + .filter-group--accordion {
+    margin-top: 16px;
+  }
+  .catalog__filters .filter-group:not(.filter-group--accordion) {
+    padding-left: 16px;
+  }
+  .filter-group--accordion .filter-group__summary {
+    padding: 14px 16px;
+    background: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .filter-group--accordion .filter-group__summary:hover {
+    background: #f0f2f5;
+  }
+  .filter-group--accordion .filter-group__summary h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+  .filter-group--accordion .filter-group__summary::after {
+    content: "";
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    margin-left: 8px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #666;
+    transition: transform 0.25s ease;
+  }
+  .filter-group--accordion[open] .filter-group__summary::after {
+    transform: rotate(180deg);
+  }
+  .filter-group--accordion .filter-options {
+    padding: 12px 16px 16px;
+    border-top: 1px solid #e9ecef;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .filter-group--accordion .show-more-btn {
+    margin: 0 16px 12px;
   }
   .catalog__main {
     width: 100%;
@@ -2712,11 +2782,14 @@ header:not(.header) + main {
   }
   .catalog__filters {
     margin-bottom: 0;
-    padding: 0;
+    padding: 20px 0 0 0;
   }
   .catalog__filters h3 {
     margin-bottom: 12px;
     text-align: center;
+  }
+  .catalog__filters .filter-group:not(.filter-group--accordion) {
+    padding-left: 16px;
   }
   .catalog__main {
     width: 100%;

@@ -343,8 +343,8 @@
                                     
                                     <h3>ФИЛЬТРЫ</h3>
                                     
-                                    <div class="filter-group">
-                                        <h4>КАТЕГОРИИ</h4>
+                                    <details class="filter-group filter-group--accordion filter-group--categories" open>
+                                        <summary class="filter-group__summary"><h4>КАТЕГОРИИ</h4></summary>
                                         <div class="filter-options">
                                             {% for category in main_categories %}
                                             <div class="category-group{% if forloop.counter > 20 %} category-hidden{% endif %}">
@@ -379,10 +379,10 @@
                                             <span class="hide-text" style="display: none;">Скрыть</span>
                                         </button>
                                         {% endif %}
-                                    </div>
+                                    </details>
                                     
-                                    <div class="filter-group">
-                                        <h4>БРЕНДЫ</h4>
+                                    <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details">
+                                        <summary class="filter-group__summary"><h4>БРЕНДЫ</h4></summary>
                                         <div class="filter-options">
                                             {% for brand in brands %}
                                             <label class="filter-option{% if forloop.counter > 30 %} brand-hidden{% endif %}">
@@ -398,7 +398,7 @@
                                             </button>
                                             {% endif %}
                                         </div>
-                                    </div>
+                                    </details>
                                     
                                     <div class="filter-group">
                                         <h4>ЦЕНА</h4>
@@ -674,6 +674,32 @@
             modal.classList.remove('modal--active');
             document.body.style.overflow = '';
         }
+
+        // Аккордеон фильтров только на мобильных: на десктопе блоки всегда открыты, клик по заголовку не сворачивает
+        function applyCatalogAccordionMode() {
+            var isMobile = window.matchMedia('(max-width: 768px)').matches;
+            var categoriesDetails = document.querySelector('.filter-group--categories');
+            var brandsDetails = document.getElementById('filter-brands-details');
+            if (categoriesDetails && brandsDetails) {
+                if (isMobile) {
+                    brandsDetails.removeAttribute('open');
+                } else {
+                    categoriesDetails.setAttribute('open', '');
+                    brandsDetails.setAttribute('open', '');
+                }
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            applyCatalogAccordionMode();
+            window.addEventListener('resize', applyCatalogAccordionMode);
+            document.addEventListener('click', function(e) {
+                var summary = e.target && e.target.closest('.filter-group__summary');
+                if (summary && window.matchMedia('(min-width: 769px)').matches) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }, true);
+        });
 
         // Открытие модального окна заказа звонка
         document.addEventListener('DOMContentLoaded', function() {
