@@ -1794,46 +1794,42 @@ header:not(.header) + main {
   .navbar {
     padding: 8px 0;
   }
-  /* Верхняя строка: слева логотип+гамбургер, справа контакты */
+  /* До 768px: слева лого, под ним гамбургер; справа контакты */
   .navbar__content {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 6px 10px;
+    gap: 8px 12px;
     margin: 0;
   }
   .navbar__content > .navbar__block:first-child {
     order: 1;
     flex: 0 1 auto;
     min-width: 0;
-    margin: 0;
+    margin: 0 0 0 36px;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
   }
   .navbar__content > .navbar__block:last-child {
     order: 2;
     flex: 0 1 auto;
     min-width: 0;
-    margin: 0;
+    margin: 0 16px 0 0;
     width: auto;
     align-items: center;
-  }
-  /* Слева: логотип и меню по центру блока */
-  .navbar__content > .navbar__block:first-child {
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 6px;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
     width: auto;
     max-width: none;
     margin: 0;
-    text-align: center;
+    flex-shrink: 0;
     justify-content: center;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand a {
     display: flex;
-    justify-content: center;
+    align-items: center;
   }
   .navbar__burger {
     display: flex;
@@ -1858,33 +1854,31 @@ header:not(.header) + main {
     display: block;
   }
   .navbar__block {
-    flex-direction: column;
-    gap: 15px;
+    gap: 10px;
     margin: 0;
   }
-  .navbar__content > .navbar__block:first-child {
+  .navbar__content > .navbar__block:last-child {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
   }
   .navbar__block-brand {
     width: auto;
     max-width: 200px;
-    text-align: center;
     margin: 0;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
-    max-width: 145px;
+    max-width: 130px;
     width: auto;
-    text-align: center;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand a {
     display: flex;
-    justify-content: center;
+    align-items: center;
   }
   .navbar__block-brand a img {
-    max-width: 120px;
+    max-width: 100%;
     height: auto;
+    max-height: 44px;
   }
   .navbar__block-brand p {
     font-size: 17px;
