@@ -272,7 +272,7 @@
             }
         </style>
     </head>
-    <body>
+    <body class="page-catalog">
         <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
             <div class="navbar">
                 <div class="container">
@@ -329,6 +329,14 @@
                         
                         <div class="catalog__layout">
                             <aside class="catalog__sidebar">
+                                <div class="catalog__filter-toggle">
+                                    <button type="button" class="catalog__filter-toggle-btn" aria-label="Открыть фильтры" aria-expanded="false">
+                                        <span class="catalog__filter-icon" aria-hidden="true"></span>
+                                        <span class="catalog__filter-toggle-label">ФИЛЬТРЫ{% if active_filters_count %}<span class="catalog__filter-count"> ({{ active_filters_count }})</span>{% endif %}</span>
+                                        <span class="catalog__filter-chevron" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="catalog__filter-dropdown">
                                 <form method="get" id="filterForm" class="catalog__filters">
                                     <!-- Скрытое поле для сохранения поискового запроса -->
                                     {% if search_query %}
@@ -435,9 +443,8 @@
                                     
                                     <button type="button" class="filters-reset" onclick="resetFilters()">СБРОСИТЬ ФИЛЬТРЫ</button>
                                 </form>
-                            </aside>
-                            
-                            <div class="catalog__main">
+                                </div>
+                            </aside><div class="catalog__main">
                                 <div class="catalog__toolbar">
                                     <div class="catalog__count">
                                         {% if is_paginated %}
@@ -975,6 +982,19 @@
         });
     </script>
     <script src="{% static 'js/navbar-burger.js' %}"></script>
+    <script>
+    (function() {
+        var sidebar = document.querySelector('.catalog__sidebar');
+        var burger = document.querySelector('.catalog__filter-toggle-btn');
+        if (!sidebar || !burger) return;
+        burger.addEventListener('click', function() {
+            sidebar.classList.toggle('filter-open');
+            var open = sidebar.classList.contains('filter-open');
+            burger.setAttribute('aria-expanded', open);
+            burger.setAttribute('aria-label', open ? 'Свернуть фильтры' : 'Открыть фильтры');
+        });
+    })();
+    </script>
     {% include "includes/cookie_consent.html" %}
 </body>
 </html> 

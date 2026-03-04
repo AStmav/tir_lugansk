@@ -1182,6 +1182,9 @@ header:not(.header) + main {
   border-radius: 12px;
   padding: 20px;
 }
+.catalog__filter-toggle {
+  display: none;
+}
 .catalog__filters h3 {
   font-size: 18px;
   font-weight: 700;
@@ -1811,6 +1814,9 @@ header:not(.header) + main {
   header:not(.header) + main {
     padding-top: 340px;
   }
+  body.page-catalog header:not(.header) + main {
+    padding-top: 180px;
+  }
   .page-product header:not(.header) + main {
     padding-top: 190px;
   }
@@ -1825,7 +1831,7 @@ header:not(.header) + main {
     flex-direction: column !important;
   }
   .navbar {
-    padding: 8px 0;
+    padding: 8px 0 0 0;
   }
   /* До 768px: выравнивание по верху — убирает перекос (левый и правый блок одной линии) */
   .navbar__content {
@@ -1948,9 +1954,9 @@ header:not(.header) + main {
     font-size: 14px;
     justify-content: flex-end;
   }
-  /* Поиск в шапке: удобный размер для мобильных */
+  /* Поиск в шапке: без отступов сверху/снизу — фильтр вплотную к поиску */
   .header__search {
-    margin: 14px 0 18px;
+    margin: 14px 0 0;
   }
   .header__search-input {
     padding: 12px 16px;
@@ -2228,6 +2234,7 @@ header:not(.header) + main {
   }
   .catalog {
     margin: 0 0 40px;
+    padding-top: 0;
   }
   .catalog__header {
     margin-bottom: 28px;
@@ -2243,12 +2250,129 @@ header:not(.header) + main {
   }
   .catalog__layout {
     flex-direction: column;
-    gap: 20px;
+    gap: 0 !important;
+    row-gap: 0 !important;
     padding: 0 10px;
+  }
+  .catalog__layout > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
   .catalog__sidebar {
     width: 100%;
     padding: 0;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    background: transparent;
+  }
+  /* Блок «сворачивание фильтра»: иконка воронки + ФИЛЬТРЫ (N) + стрелка, по клику раскрывается контент */
+  .catalog__filter-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0;
+    margin-bottom: 0 !important;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+  }
+  .catalog__filter-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  /* Иконка воронки (фильтр) — визуально отличается от бургер-меню */
+  .catalog__filter-icon {
+    display: block;
+    width: 20px;
+    height: 18px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .catalog__filter-icon::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0;
+    width: 16px;
+    height: 4px;
+    background: #1a1a1a;
+    border-radius: 1px;
+  }
+  .catalog__filter-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 12px solid #1a1a1a;
+  }
+  .catalog__filter-toggle-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    letter-spacing: 0.02em;
+  }
+  .catalog__filter-count {
+    font-weight: 500;
+    color: #666;
+  }
+  /* Стрелка вниз/вверх — понятная подсказка «раскрыть/свернуть» */
+  .catalog__filter-chevron {
+    display: block;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #1a1a1a;
+    flex-shrink: 0;
+    transition: transform 0.25s ease;
+  }
+  .catalog__sidebar.filter-open .catalog__filter-chevron {
+    transform: rotate(180deg);
+  }
+  .catalog__filter-dropdown {
+    overflow: hidden;
+    max-height: 0;
+    min-height: 0 !important;
+    opacity: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+  }
+  .catalog__sidebar:not(.filter-open) .catalog__filter-dropdown .catalog__filters {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .catalog__sidebar.filter-open .catalog__filter-dropdown {
+    max-height: 2000px;
+    opacity: 1;
+    border: 1px solid #e9ecef;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    padding: 0 16px 16px;
+    background: #fff;
+  }
+  .catalog__sidebar.filter-open .catalog__filter-toggle {
+    border-radius: 10px 10px 0 0;
+    border-bottom-color: transparent;
+  }
+  .catalog__filter-dropdown .catalog__filters h3 {
+    display: none;
   }
   .catalog__filters {
     margin-bottom: 0;
@@ -2318,16 +2442,35 @@ header:not(.header) + main {
   }
   .catalog__main {
     width: 100%;
+    margin: 0;
+    padding-top: 0;
+    flex: 0 0 auto;
   }
   .catalog__layout {
-    gap: 18px;
+    gap: 0;
+  }
+  /* Убираем зазор между фильтром и контентом только когда фильтр свёрнут */
+  .catalog .catalog__layout .catalog__sidebar {
+    margin-bottom: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__sidebar:not(.filter-open) + .catalog__main {
+    margin-top: -140px !important;
+    padding-top: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__sidebar.filter-open + .catalog__main {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__main > .catalog__toolbar {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   .catalog__toolbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 18px;
-    padding: 10px 0;
+    margin: 0 0 8px 0;
+    padding: 0;
     border-bottom: none;
   }
   .catalog__count {
@@ -2374,6 +2517,9 @@ header:not(.header) + main {
   header:not(.header) + main {
     padding-top: 400px;
   }
+  body.page-catalog header:not(.header) + main {
+    padding-top: 200px;
+  }
   .page-product header:not(.header) + main {
     padding-top: 220px;
   }
@@ -2392,7 +2538,7 @@ header:not(.header) + main {
     padding: 0 5px;
   }
   .navbar {
-    padding: 5px 0;
+    padding: 5px 0 0 0;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
     max-width: 125px;
@@ -2427,7 +2573,7 @@ header:not(.header) + main {
     width: 22px;
   }
   .header__search {
-    margin: 12px 0 16px;
+    margin: 12px 0 0;
   }
   .header__search-input,
   .header__search-btn {
@@ -2802,12 +2948,19 @@ header:not(.header) + main {
   }
   .catalog__layout {
     flex-direction: column;
-    gap: 16px;
+    gap: 0 !important;
+    row-gap: 0 !important;
     padding: 0 10px;
+  }
+  .catalog__layout > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
   .catalog__sidebar {
     width: 100%;
     padding: 0;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
   }
   .catalog__filters {
     margin-bottom: 0;
@@ -2822,13 +2975,30 @@ header:not(.header) + main {
   }
   .catalog__main {
     width: 100%;
+    margin: 0;
+    padding-top: 0;
+  }
+  .catalog .catalog__layout .catalog__sidebar {
+    margin-bottom: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__sidebar:not(.filter-open) + .catalog__main {
+    margin-top: -215px !important;
+    padding-top: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__sidebar.filter-open + .catalog__main {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .catalog .catalog__layout .catalog__main > .catalog__toolbar {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   .catalog__toolbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 16px;
-    padding: 8px 0;
+    margin: 0 0 8px 0;
+    padding: 0;
     border-bottom: none;
   }
   .catalog__count {

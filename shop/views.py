@@ -756,6 +756,13 @@ class CatalogView(CategorySEOMixin, ListView):
         # Выбранные фильтры для template
         context['selected_categories'] = self.request.GET.getlist('category')
         context['selected_brands'] = self.request.GET.getlist('brand')
+        # Количество активных фильтров (для мобильной кнопки «ФИЛЬТРЫ (N)»)
+        n = len(context['selected_categories']) + len(context['selected_brands'])
+        if self.request.GET.get('min_price') or self.request.GET.get('max_price'):
+            n += 1
+        if self.request.GET.get('sort') and self.request.GET.get('sort') != 'newest':
+            n += 1
+        context['active_filters_count'] = n
         logger.info(f"Выбранные категории: {context['selected_categories']}")
         logger.info(f"Выбранные бренды: {context['selected_brands']}")
         
