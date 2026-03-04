@@ -480,6 +480,36 @@ header:not(.header) + main {
   border-radius: 20px;
   box-shadow: 0px 0px 30px 0px rgba(169, 175, 180, 0.5882352941);
 }
+/* Десктоп: овал точно по центру страницы (равные отступы от краёв) */
+@media (min-width: 769px) {
+  .navbar__content {
+    gap: 12px;
+  }
+  .navbar__content > .navbar__block:first-child {
+    flex: 1 1 0%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  .navbar__content .navbar__menu.menu__links {
+    flex: 0 0 auto;
+    padding: 0 6px;
+  }
+  .navbar__content .navbar__menu.menu__links nav {
+    width: auto;
+  }
+  .navbar__content .navbar__menu.menu__links nav ul {
+    width: auto;
+    max-width: 800px;
+    margin: 20px auto;
+  }
+  .navbar__content > .navbar__block:last-child {
+    flex: 1 1 0%;
+    min-width: 0;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+}
+
 .menu__links nav ul li {
   list-style: none;
 }
