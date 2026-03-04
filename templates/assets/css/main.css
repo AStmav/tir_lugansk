@@ -497,10 +497,13 @@ header:not(.header) + main {
   .navbar__content .navbar__menu.menu__links nav {
     width: auto;
   }
+  
   .navbar__content .navbar__menu.menu__links nav ul {
     width: auto;
     max-width: 800px;
     margin: 20px auto;
+    gap: 32px;
+    padding: 15px 90px;
   }
   .navbar__content > .navbar__block:last-child {
     flex: 1 1 0%;
