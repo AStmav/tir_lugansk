@@ -1827,12 +1827,12 @@ header:not(.header) + main {
   .navbar {
     padding: 8px 0;
   }
-  /* До 768px: слева лого, под ним гамбургер; справа контакты */
+  /* До 768px: выравнивание по верху — убирает перекос (левый и правый блок одной линии) */
   .navbar__content {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px 12px;
     margin: 0;
   }
@@ -1840,25 +1840,26 @@ header:not(.header) + main {
     order: 1;
     flex: 0 1 auto;
     min-width: 0;
-    margin: 0 0 0 36px;
-    flex-direction: column;
+    margin: 0 0 0 20px;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
   }
   .navbar__content > .navbar__block:last-child {
     order: 2;
     flex: 0 1 auto;
     min-width: 0;
-    margin: 0 16px 0 0;
+    margin: 0 0 0 auto;
+    padding-top: 0;
     width: auto;
-    align-items: center;
+    align-items: flex-end;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
     width: auto;
     max-width: none;
     margin: 0;
     flex-shrink: 0;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand a {
     display: flex;
@@ -1916,20 +1917,21 @@ header:not(.header) + main {
   .navbar__block-brand p {
     font-size: 17px;
   }
-  /* Справа: контакты по центру блока */
+  /* Справа: контакты прижаты к правому краю, без отступа сверху (убирает перекос) */
   .navbar__block-contact {
     width: auto;
     max-width: none;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     justify-content: flex-start;
     gap: 10px;
-    text-align: center;
+    text-align: right;
     margin: 0;
+    margin-top: 0;
   }
   .navbar__block-contact .navbar__block-contact-item {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     gap: 2px;
   }
   .navbar__block-contact .navbar__block-contact-item a.navbar__block-contact-item-link {
@@ -1944,7 +1946,7 @@ header:not(.header) + main {
   }
   .navbar__block-contact .navbar__block-contact-item a:not(.navbar__block-contact-item-link) {
     font-size: 14px;
-    justify-content: center;
+    justify-content: flex-end;
   }
   /* Поиск в шапке: удобный размер для мобильных */
   .header__search {
@@ -1978,11 +1980,11 @@ header:not(.header) + main {
     justify-content: center;
   }
   .navbar__block-contact-item {
-    align-items: center;
-    text-align: center;
+    align-items: flex-end;
+    text-align: right;
   }
   .navbar__block-contact .navbar__block-contact-item a {
-    justify-content: center;
+    justify-content: flex-end;
   }
   .info {
     padding: 30px 0;
@@ -2450,11 +2452,11 @@ header:not(.header) + main {
     justify-content: center;
   }
   .navbar__block-contact-item {
-    align-items: center;
-    text-align: center;
+    align-items: flex-end;
+    text-align: right;
   }
   .navbar__block-contact .navbar__block-contact-item a {
-    justify-content: center;
+    justify-content: flex-end;
   }
   .info {
     padding: 20px 0;
