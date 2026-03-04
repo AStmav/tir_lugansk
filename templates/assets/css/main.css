@@ -1820,8 +1820,20 @@ header:not(.header) + main {
   .page-product header:not(.header) + main {
     padding-top: 190px;
   }
+  /* При свёрнутом меню: отступ гарантирует, что .info ниже фиксированной шапки (поиск не перекрывает контент) */
   .header {
-    padding-top: 340px;
+    padding-top: 620px !important;
+  }
+  .header .info {
+    margin-top: 0 !important;
+    padding-top: 40px;
+  }
+  /* Когда бургер раскрыт — отступ больше, контент не перекрывается меню */
+  .header:has(.navbar.menu-open) {
+    padding-top: 750px !important;
+  }
+  .header:has(.navbar.menu-open) .info {
+    padding-top: 40px;
   }
   header {
     background-size: cover;
@@ -1833,39 +1845,40 @@ header:not(.header) + main {
   .navbar {
     padding: 8px 0 0 0;
   }
-  /* До 768px: выравнивание по верху — убирает перекос (левый и правый блок одной линии) */
+  /* До 768px: логотип, бургер и контакты — столбиком по центру страницы */
   .navbar__content {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px 12px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
     margin: 0;
   }
   .navbar__content > .navbar__block:first-child {
     order: 1;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
-    margin: 0 0 0 20px;
-    flex-direction: row;
+    margin: 0;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
   .navbar__content > .navbar__block:last-child {
     order: 2;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
-    margin: 0 0 0 auto;
-    padding-top: 0;
-    width: auto;
-    align-items: flex-end;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    align-items: center;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
     width: auto;
     max-width: none;
     margin: 0;
     flex-shrink: 0;
-    justify-content: flex-start;
+    justify-content: center;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand a {
     display: flex;
@@ -1898,8 +1911,9 @@ header:not(.header) + main {
     margin: 0;
   }
   .navbar__content > .navbar__block:last-child {
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
   }
   .navbar__block-brand {
     width: auto;
@@ -1909,7 +1923,7 @@ header:not(.header) + main {
   .navbar__content > .navbar__block:first-child .navbar__block-brand {
     max-width: 130px;
     width: auto;
-    justify-content: flex-start;
+    justify-content: center;
   }
   .navbar__content > .navbar__block:first-child .navbar__block-brand a {
     display: flex;
@@ -1923,22 +1937,22 @@ header:not(.header) + main {
   .navbar__block-brand p {
     font-size: 17px;
   }
-  /* Справа: контакты прижаты к правому краю, без отступа сверху (убирает перекос) */
+  /* Блок контактов под бургером: номер телефона сверху, «Заказать звонок» под ним, по центру */
   .navbar__block-contact {
     width: auto;
     max-width: none;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: center;
     justify-content: flex-start;
-    gap: 10px;
-    text-align: right;
+    gap: 4px;
+    text-align: center;
     margin: 0;
-    margin-top: 0;
+    padding: 0;
   }
   .navbar__block-contact .navbar__block-contact-item {
     flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
+    align-items: center;
+    gap: 4px;
   }
   .navbar__block-contact .navbar__block-contact-item a.navbar__block-contact-item-link {
     font-size: 16px;
@@ -1952,7 +1966,6 @@ header:not(.header) + main {
   }
   .navbar__block-contact .navbar__block-contact-item a:not(.navbar__block-contact-item-link) {
     font-size: 14px;
-    justify-content: flex-end;
   }
   /* Поиск в шапке: без отступов сверху/снизу — фильтр вплотную к поиску */
   .header__search {
@@ -1986,11 +1999,11 @@ header:not(.header) + main {
     justify-content: center;
   }
   .navbar__block-contact-item {
-    align-items: flex-end;
-    text-align: right;
+    align-items: center;
+    text-align: center;
   }
   .navbar__block-contact .navbar__block-contact-item a {
-    justify-content: flex-end;
+    justify-content: center;
   }
   .info {
     padding: 30px 0;
@@ -2524,7 +2537,13 @@ header:not(.header) + main {
     padding-top: 220px;
   }
   .header {
-    padding-top: 400px;
+    padding-top: 640px !important;
+  }
+  .header .info {
+    padding-top: 30px;
+  }
+  .header:has(.navbar.menu-open) {
+    padding-top: 780px !important;
   }
   .container {
     padding: 0 8px;
@@ -2535,7 +2554,7 @@ header:not(.header) + main {
   }
   .header {
     min-height: 70vh;
-    padding: 0 5px;
+    padding: 640px 5px 0 5px !important;
   }
   .navbar {
     padding: 5px 0 0 0;
@@ -2598,11 +2617,11 @@ header:not(.header) + main {
     justify-content: center;
   }
   .navbar__block-contact-item {
-    align-items: flex-end;
-    text-align: right;
+    align-items: center;
+    text-align: center;
   }
   .navbar__block-contact .navbar__block-contact-item a {
-    justify-content: flex-end;
+    justify-content: center;
   }
   .info {
     padding: 20px 0;
