@@ -81,60 +81,31 @@
                 color: #666666;
                 margin-bottom: 1rem;
             }
-            .product__analogs-table-wrap {
-                overflow-x: auto;
-                overflow-y: auto;
-                max-height: 320px;
-                margin: 0.75rem 0;
+            /* Кросс-номера: оформление как в блоке «Описание и характеристики» — подпись слева, значение справа */
+            .product__analogs-specs {
+                margin-top: 20px;
             }
-            .product__analogs-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-family: "Oswald", sans-serif;
-                font-size: 16px;
-            }
-            .product__analogs-table th,
-            .product__analogs-table td {
-                padding: 0.6rem 1rem 0.6rem 0;
-                text-align: left;
-                border: none;
-                vertical-align: top;
-            }
-            .product__analogs-table th {
-                font-weight: 700;
-                font-size: 14px;
-                color: #1a1a1a;
-                padding-bottom: 0.5rem;
-                text-transform: uppercase;
-            }
-            .product__analogs-table tbody tr {
+            .product__analog-item {
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
                 border-bottom: 1px solid #f0f0f0;
             }
-            .product__analogs-table tbody tr:last-child {
+            .product__analog-item:last-child {
+                margin-bottom: 0;
+                padding-bottom: 0;
                 border-bottom: none;
             }
-            .product__analogs-table td {
+            .product__analogs-specs .tech-spec {
+                font-family: "Oswald", sans-serif;
+            }
+            .product__analogs-specs a.product__analogs-link {
                 color: #1a1a1a;
+                text-decoration: none;
                 font-weight: 500;
             }
-            .product__analogs-table td a.product__analogs-link {
-                color: #595959;
-                text-decoration: none;
-            }
-            .product__analogs-table td a.product__analogs-link:hover {
+            .product__analogs-specs a.product__analogs-link:hover {
                 text-decoration: underline;
-            }
-            .product__analogs-table tbody tr.product__analogs-row:hover td {
-                background: #f5f5f5;
-            }
-            .product__analogs-table tbody tr.product__analogs-row:hover td a.product__analogs-link {
-                color: #282828;
-            }
-            .product__analogs-table tbody tr.product__analogs-row td {
-                display: table-cell;
-            }
-            .product__analogs-table tbody tr.product__analogs-row td a {
-                display: block;
+                color: #3CC14E;
             }
             .product__analogs-count {
                 margin-top: 0.5rem;
@@ -428,35 +399,23 @@
                                 <div class="product__analogs">
                                     <h2 class="product__tab-panel-title">КРОСС-НОМЕРА</h2>
                                     <p class="product__analogs-info">Аналоги от других производителей:</p>
-                            <div class="product__analogs-table-wrap">
-                                <table class="product__analogs-table">
-                                    <thead>
-                                        <tr>
-                                            <th>БРЕНД</th>
-                                            <th>АРТИКУЛ</th>
-                                            <th>НАИМЕНОВАНИЕ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
+                                    <div class="product__analogs-specs">
                                         {% for item in oe_analogs_with_url %}
                                         {% with analog=item.analog url=item.url %}
-                                        <tr class="product__analogs-row">
-                                            {% if url %}
-                                            <td><a href="{{ url }}" class="product__analogs-link">{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}</a></td>
-                                            <td><a href="{{ url }}" class="product__analogs-link">{{ analog.oe_kod }}</a></td>
-                                            <td><a href="{{ url }}" class="product__analogs-link">{{ product.name }}</a></td>
-                                            {% else %}
-                                            <td>{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}</td>
-                                            <td>{{ analog.oe_kod }}</td>
-                                            <td>{{ product.name }}</td>
-                                            {% endif %}
-                                        </tr>
+                                        <div class="product__analog-item">
+                                            <div class="tech-spec">
+                                                <span class="tech-label">Бренд</span>
+                                                <span class="tech-value">{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</span>
+                                            </div>
+                                            <div class="tech-spec">
+                                                <span class="tech-label">Артикул</span>
+                                                <span class="tech-value">{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{{ analog.oe_kod }}{% if url %}</a>{% endif %}</span>
+                                            </div>
+                                        </div>
                                         {% endwith %}
                                         {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <p class="product__analogs-count">ВСЕГО: {{ product.oe_analogs.count }}</p>
+                                    </div>
+                                    <p class="product__analogs-count">ВСЕГО: {{ product.oe_analogs.count }}</p>
                                 </div>
                             </div>
                             {% endif %}

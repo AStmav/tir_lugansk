@@ -238,9 +238,12 @@ class ProductAnalogAdmin(admin.ModelAdmin):
 
 @admin.register(OeKod)
 class OeKodAdmin(admin.ModelAdmin):
-    list_display = ['product', 'oe_kod', 'created_at']
+    list_display = ['product', 'oe_kod', 'oe_kod_clean', 'id_tovar', 'brand', 'created_at']
     list_filter = ['created_at']
-    search_fields = ['product__name', 'oe_kod', 'product__catalog_number', 'product__artikyl_number']
+    search_fields = [
+        'product__name', 'oe_kod', 'oe_kod_clean', 'id_tovar',
+        'product__catalog_number', 'product__artikyl_number', 'product__code'
+    ]
     autocomplete_fields = ['product']
     ordering = ['-created_at']
 
