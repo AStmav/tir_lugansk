@@ -127,12 +127,14 @@ class Command(BaseCommand):
         self.stdout.write('📥 Загружаем товары и бренды в кэш...')
         
         products_by_tmp_id = {}
-        for product in Product.objects.only('id', 'tmp_id').iterator(chunk_size=5000):
+        products_by_code = {}
+        for product in Product.objects.only('id', 'tmp_id', 'code').iterator(chunk_size=5000):
             if product.tmp_id:
-                # ИСПРАВЛЕНО: Убираем суффикс -dupN из tmp_id для корректного поиска
-                # В базе: "000171383-dup1", в файле: "000171383"
                 clean_tmp_id = re.sub(r'-dup\d+$', '', product.tmp_id)
                 products_by_tmp_id[clean_tmp_id] = product.id
+                products_by_tmp_id[product.tmp_id] = product.id  # точное совпадение
+            if product.code:
+                products_by_code[(product.code or '').strip()] = product.id
         
         brands_by_code = {}
         for brand in Brand.objects.only('id', 'code').iterator(chunk_size=1000):
@@ -160,13 +162,26 @@ class Command(BaseCommand):
                     self.stdout.write(f'🔬 Достигнут лимит: {test_records}')
                     break
                 
-                # Извлекаем поля (пробуем разные варианты названий)
-                id_oe = str(record.get('ID_oe', '') or record.get('ID_OE', '') or '').strip()
-                name = str(record.get('NAME', '') or record.get('Name', '') or '').strip()
-                name_str = str(record.get('NAME_STR', '') or record.get('Name_STR', '') or '').strip()
-                # ИСПРАВЛЕНО: В файле поле называется ID_BRENB, а не ID_BREND!
-                id_brend = str(record.get('ID_BRENB', '') or record.get('ID_brenb', '') or record.get('ID_BREND', '') or record.get('ID_brend', '') or '').strip()
-                id_tovar = str(record.get('ID_TOVAR', '') or record.get('ID_tovar', '') or '').strip()
+                # Извлекаем поля (пробуем разные варианты названий колонок DBF)
+                def get_val(record, *keys):
+                    for k in keys:
+                        v = record.get(k, None)
+                        if v is not None and str(v).strip():
+                            return str(v).strip()
+                    # Поиск по регистронезависимому совпадению (на случай другого написания в файле)
+                    keys_lower = [k.lower() for k in keys]
+                    for rk, rv in record.items():
+                        if rk and rv is not None and str(rv).strip() and rk.lower() in keys_lower:
+                            return str(rv).strip()
+                    return ''
+                id_oe = get_val(record, 'ID_oe', 'ID_OE', 'Id_oe', 'id_oe')
+                name = get_val(record, 'NAME', 'Name', 'name')
+                name_str = get_val(record, 'NAME_STR', 'Name_STR', 'name_str', 'NAME_CLEAN', 'CleanNumber')
+                # Если NAME пустой — берём номер из NAME_STR (часто в файле номер только в NAME_STR)
+                if not name and name_str:
+                    name = name_str
+                id_brend = get_val(record, 'ID_BRENB', 'ID_brenb', 'ID_BREND', 'ID_brend', 'id_brend')
+                id_tovar = get_val(record, 'ID_TOVAR', 'ID_tovar', 'Id_tovar', 'id_tovar')
                 
                 # Логируем первые записи
                 if record_num <= 5:
@@ -175,25 +190,33 @@ class Command(BaseCommand):
                     self.stdout.write(f'   ID_BREND={id_brend}, ID_TOVAR={id_tovar}')
                     logger.info(f"Запись {record_num}: id_oe={id_oe}, id_tovar={id_tovar}")
                 
-                # Валидация обязательных полей
-                if not id_oe or not name or not id_tovar:
+                # Валидация: нужны id_oe, id_tovar и хотя бы один номер (NAME или NAME_STR)
+                if not id_oe or not id_tovar:
                     skipped_empty += 1
                     if skipped_empty <= 10:
-                        self.stdout.write(f'⚠️ Пропуск {record_num}: пустые поля')
+                        self.stdout.write(f'⚠️ Пропуск {record_num}: пустые ID_oe или ID_TOVAR')
+                    continue
+                if not name:
+                    skipped_empty += 1
+                    if skipped_empty <= 10:
+                        self.stdout.write(f'⚠️ Пропуск {record_num}: пустые NAME и NAME_STR (нет номера аналога)')
                     continue
                 
                 # Пропускаем служебные записи (заголовки)
                 if id_oe.lower() in ['id_oe', 'id_oe', 'character']:
                     continue
                 
-                # Ищем товар по ID_TOVAR
+                # Ищем товар по ID_TOVAR (tmp_id, затем code — для макс. покрытия)
                 product_id = products_by_tmp_id.get(id_tovar)
+                if not product_id:
+                    clean_id = re.sub(r'-dup\d+$', '', id_tovar)
+                    product_id = products_by_tmp_id.get(clean_id)
+                if not product_id:
+                    product_id = products_by_code.get(id_tovar)
                 if not product_id:
                     skipped_no_product += 1
                     if skipped_no_product <= 10:
                         self.stdout.write(f'⚠️ Товар не найден: ID_TOVAR={id_tovar} (аналог будет импортирован БЕЗ товара)')
-                    # ИЗМЕНЕНО: Импортируем аналог БЕЗ товара (product=None)
-                    # Товар можно будет связать позже через команду link_oe_to_products
                     product_id = None
                 
                 # Ищем бренд по ID_BREND (может быть пустым)

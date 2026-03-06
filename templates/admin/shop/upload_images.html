@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url 'admin:shop_product_changelist' %}">Товары</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="module aligned">
+    <h1>{{ title }}</h1>
+
+    <div class="upload-info-box">
+        <h3 style="margin-top: 0; color: #0056b3;">Как это работает</h3>
+        <p>Скопируйте на сервер папки с изображениями в ту же структуру, что и в <code>images/</code>: подпапка = код категории (<strong>section_id</strong>), имя файла = код товара (<strong>tmp_id</strong> в 1С).</p>
+        <ul>
+            <li><code>000017919/000171878.jpg</code> → категория 000017919, товар 000171878</li>
+            <li><code>000017919/000171878_1.jpg</code>, <code>000171878_2.png</code> → несколько фото одного товара</li>
+        </ul>
+        <p>По кнопке система <strong>скопирует</strong> файлы в <code>images/{section_id}/</code>, привяжет к товарам и удалит исходные из входящей папки. При импорте проверяются: <strong>дубликаты</strong> (файл уже есть в images/ — не перезаписываем) и <strong>битые файлы</strong> (пропускаются). Лимитов по размеру и количеству нет.</p>
+    </div>
+
+    <div class="upload-server-box">
+        <p><strong>Папка на сервере:</strong> <code>{{ incoming_dir }}</code></p>
+        <form method="post" style="margin-top: 12px;">
+            {% csrf_token %}
+            <input type="submit" value="Сканировать папку и привязать к товарам" class="default">
+            <a href="{% url 'admin:shop_product_changelist' %}" class="button cancel-link">Отмена</a>
+        </form>
+    </div>
+</div>
+
+<style>
+.upload-info-box {
+    background: #e7f3ff; border: 1px solid #b8daff; padding: 15px; margin-bottom: 20px; border-radius: 5px;
+}
+.upload-server-box {
+    background: #d4edda; border: 1px solid #28a745; padding: 15px; margin-bottom: 20px; border-radius: 5px;
+}
+.upload-server-box code { word-break: break-all; }
+.cancel-link { margin-left: 10px; text-decoration: none; color: #666; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; }
+.cancel-link:hover { background: #f5f5f5; }
+code { background: #f8f9fa; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+</style>
+{% endblock %}

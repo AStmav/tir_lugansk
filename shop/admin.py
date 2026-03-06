@@ -148,6 +148,7 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'stock_quantity', 'in_stock']
     actions = ['update_clean_numbers', 'link_product_images']
+    change_list_template = 'admin/shop/product/change_list.html'
     
     def link_product_images(self, request, queryset):
         """
@@ -226,6 +227,77 @@ class ProductAdmin(admin.ModelAdmin):
         object_id = obj.pk
         super().delete_model(request, obj)
         log_audit('product_deleted', user=request.user, detail=detail.strip(), object_id=object_id)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('upload_images/', self.admin_site.admin_view(self.upload_images_view), name='shop_product_upload_images'),
+        ]
+        return custom_urls + urls
+
+    def upload_images_view(self, request):
+        """Импорт изображений из папки: структура как в images ({section_id}/{filename}), проверка дубликатов и битых файлов."""
+        from shop.utils.bulk_image_import import (
+            process_bulk_image_items,
+            _extract_tmp_id_and_ext,
+            IMAGE_EXTENSIONS,
+        )
+
+        incoming_dir = getattr(settings, 'INCOMING_IMAGES_DIR', None) or (settings.BASE_DIR / 'incoming_images')
+        incoming_str = str(incoming_dir)
+
+        if request.method == 'POST':
+            dir_exists = (incoming_dir.exists() if hasattr(incoming_dir, 'exists') else os.path.exists(incoming_dir))
+            if not dir_exists:
+                messages.error(
+                    request,
+                    f'Папка не найдена: {incoming_dir}. Создайте её и скопируйте туда файлы по SFTP/rsync.'
+                )
+                return HttpResponseRedirect(request.path)
+            items = []
+            for root, _dirs, files in os.walk(incoming_str):
+                rel = os.path.relpath(root, incoming_str)
+                section_id = '_imported' if rel == '.' else rel.replace('\\', '/')
+                for filename in files:
+                    _, ext = _extract_tmp_id_and_ext(filename)
+                    if ext not in IMAGE_EXTENSIONS:
+                        continue
+                    path = os.path.join(root, filename)
+                    if os.path.isfile(path):
+                        items.append((section_id, filename, path))
+            linked_count, not_found, errors, skipped_duplicates, invalid_files, restored_count = process_bulk_image_items(
+                items, remove_source_if_path=True
+            )
+
+            if linked_count > 0:
+                messages.success(request, f'Привязано изображений: {linked_count}.')
+            if restored_count > 0:
+                messages.success(request, f'Восстановлено файлов на диске (запись в БД уже была): {restored_count}.')
+            if skipped_duplicates > 0:
+                messages.info(request, f'Пропущено (файл уже есть в images/): {skipped_duplicates}.')
+            if invalid_files > 0:
+                messages.warning(request, f'Пропущено битых или пустых файлов: {invalid_files}.')
+            if not_found:
+                samples = ', '.join(not_found[:10]) + ('…' if len(not_found) > 10 else '')
+                messages.warning(request, f'Товар не найден для {len(not_found)} файлов (имя = tmp_id). Примеры: {samples}')
+            if errors > 0:
+                messages.warning(request, f'Ошибок при обработке файлов: {errors}.')
+            if linked_count == 0 and restored_count == 0 and not not_found and errors == 0 and skipped_duplicates == 0 and invalid_files == 0:
+                messages.info(request, 'В папке нет подходящих файлов или все уже импортированы. Структура: как в images — подпапки по section_id, имена файлов = tmp_id товара.')
+
+            return HttpResponseRedirect(request.path)
+
+        try:
+            incoming_dir.mkdir(parents=True, exist_ok=True)
+        except (AttributeError, OSError):
+            pass
+        incoming_path = str(incoming_dir.resolve() if hasattr(incoming_dir, 'resolve') else incoming_dir)
+
+        return render(request, 'admin/shop/upload_images.html', {
+            'title': 'Импорт изображений из папки',
+            'opts': self.model._meta,
+            'incoming_dir': incoming_path,
+        })
 
 
 @admin.register(ProductAnalog)

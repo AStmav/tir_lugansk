@@ -36,21 +36,22 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✅ Все аналоги уже связаны с товарами!'))
             return
         
-        # Загружаем все товары в кэш
+        # Загружаем все товары в кэш (tmp_id, code, clean tmp_id для макс. связывания)
         self.stdout.write('📥 Загружаем товары в кэш...')
         products_by_tmp_id = {}
         products_by_clean_tmp_id = {}
+        products_by_code = {}
         
-        for product in Product.objects.only('id', 'tmp_id').iterator(chunk_size=5000):
+        for product in Product.objects.only('id', 'tmp_id', 'code').iterator(chunk_size=5000):
             if product.tmp_id:
-                # Сохраняем оригинальный tmp_id
                 products_by_tmp_id[product.tmp_id] = product.id
-                # Убираем суффикс -dupN для поиска
                 clean_tmp_id = re.sub(r'-dup\d+$', '', product.tmp_id)
                 if clean_tmp_id != product.tmp_id:
                     products_by_clean_tmp_id[clean_tmp_id] = product.id
+            if product.code:
+                products_by_code[product.code.strip()] = product.id
         
-        self.stdout.write(f'✅ Загружено товаров: {len(products_by_tmp_id):,}')
+        self.stdout.write(f'✅ Загружено товаров: {len(products_by_tmp_id):,} (по code: {len(products_by_code):,})')
         
         # Связываем аналоги
         linked_count = 0
@@ -63,13 +64,16 @@ class Command(BaseCommand):
                 not_found_count += 1
                 continue
             
-            # Ищем товар по id_tovar (сначала точное совпадение, потом без суффикса)
-            product_id = products_by_tmp_id.get(analog.id_tovar)
-            
+            id_tovar = (analog.id_tovar or '').strip()
+            clean_id_tovar = re.sub(r'-dup\d+$', '', id_tovar)
+            # 1) Точное совпадение с tmp_id
+            product_id = products_by_tmp_id.get(id_tovar)
             if not product_id:
-                # Пробуем без суффикса -dupN
-                clean_id_tovar = re.sub(r'-dup\d+$', '', analog.id_tovar)
+                # 2) tmp_id без суффикса -dupN
                 product_id = products_by_clean_tmp_id.get(clean_id_tovar)
+            if not product_id:
+                # 3) ID_TOVAR может совпадать с полем code товара
+                product_id = products_by_code.get(id_tovar) or products_by_code.get(clean_id_tovar)
             
             if product_id:
                 if not dry_run:

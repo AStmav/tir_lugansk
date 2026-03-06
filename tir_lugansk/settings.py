@@ -183,6 +183,10 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Папка, куда администратор копирует файлы по SFTP/rsync для импорта изображений.
+# Локально: проект/incoming_images. На сервере: задайте свой путь через переменную окружения INCOMING_IMAGES_DIR.
+INCOMING_IMAGES_DIR = Path(os.environ.get('INCOMING_IMAGES_DIR', str(BASE_DIR / 'incoming_images')))
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
