@@ -3,6 +3,7 @@
 
 # Большие файлы и папки
 images/
+incoming_images/
 images.zip
 *.zip
 1CEXP_SITE(29.07.25).csv
