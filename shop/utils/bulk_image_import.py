@@ -32,20 +32,15 @@ def _is_valid_image(file_path):
         return False
 
 
-def process_bulk_image_items(items, remove_source_if_path=False):
+def process_bulk_image_items(items, remove_source_if_path=False, overwrite_existing=False):
     """
     Копирует изображения в images/{section_id}/{filename}, сохраняя структуру. Привязывает к товарам по tmp_id.
 
     items: список кортежей (section_id, filename, source_path).
-      section_id — имя подпапки во входящей (как в images);
-      filename — имя файла (tmp_id.jpg, tmp_id_1.jpg и т.д.);
-      source_path — полный путь к файлу на диске.
     remove_source_if_path: после успешного копирования удалить исходный файл.
-
-    Проверки: не перезаписывать существующий файл в images/{section_id}/; пропускать битые файлы (PIL).
+    overwrite_existing: если True — перезаписывать файл в images/, если он уже есть.
 
     Возвращает: (linked_count, not_found_list, errors_count, skipped_duplicates_count, invalid_files_count, restored_count).
-    restored_count — файл скопирован на диск, запись ProductImage уже была (файл восстановлен).
     """
     from shop.models import Product, ProductImage
 
@@ -92,11 +87,10 @@ def process_bulk_image_items(items, remove_source_if_path=False):
             not_found.append(f"{section_id}/{filename}")
             continue
 
-        # Не перезаписывать существующий файл и папку (дубликат)
         section_dir = images_base / section_id
         dest_path = section_dir / filename
         rel_path = f"images/{section_id}/{filename}"
-        if dest_path.exists():
+        if dest_path.exists() and not overwrite_existing:
             skipped_duplicates += 1
             if ProductImage.objects.filter(product=product, image=rel_path).exists():
                 if remove_source_if_path:

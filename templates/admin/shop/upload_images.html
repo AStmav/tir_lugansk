@@ -23,13 +23,19 @@
             <li><code>000017919/000171878.jpg</code> → категория 000017919, товар 000171878</li>
             <li><code>000017919/000171878_1.jpg</code>, <code>000171878_2.png</code> → несколько фото одного товара</li>
         </ul>
-        <p>По кнопке система <strong>скопирует</strong> файлы в <code>images/{section_id}/</code>, привяжет к товарам и удалит исходные из входящей папки. При импорте проверяются: <strong>дубликаты</strong> (файл уже есть в images/ — не перезаписываем) и <strong>битые файлы</strong> (пропускаются). Лимитов по размеру и количеству нет.</p>
+        <p>По кнопке система <strong>скопирует</strong> файлы в <code>images/{section_id}/</code>, привяжет к товарам и удалит исходные из входящей папки. По умолчанию существующие файлы не перезаписываются; при необходимости включите «Перезаписывать существующие файлы». Битые файлы пропускаются. Лимитов нет.</p>
     </div>
 
     <div class="upload-server-box">
         <p><strong>Папка на сервере:</strong> <code>{{ incoming_dir }}</code></p>
         <form method="post" style="margin-top: 12px;">
             {% csrf_token %}
+            <p>
+                <label>
+                    <input type="checkbox" name="overwrite" value="on">
+                    Перезаписывать существующие файлы
+                </label>
+            </p>
             <input type="submit" value="Сканировать папку и привязать к товарам" class="default">
             <a href="{% url 'admin:shop_product_changelist' %}" class="button cancel-link">Отмена</a>
         </form>

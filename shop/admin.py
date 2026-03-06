@@ -147,7 +147,7 @@ class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'stock_quantity', 'in_stock']
-    actions = ['update_clean_numbers', 'link_product_images']
+    actions = ['update_clean_numbers', 'link_product_images', 'delete_product_images']
     change_list_template = 'admin/shop/product/change_list.html'
     
     def link_product_images(self, request, queryset):
@@ -173,7 +173,32 @@ class ProductAdmin(admin.ModelAdmin):
             )
     
     link_product_images.short_description = '🖼️ Связать изображения с товарами'
-    
+
+    def delete_product_images(self, request, queryset):
+        """У выбранных товаров удалить все изображения (привязки и файлы в images/)."""
+        from pathlib import Path
+        base = Path(settings.BASE_DIR)
+        deleted_count = 0
+        for product in queryset:
+            for pi in product.images.all():
+                path_str = getattr(pi.image, 'name', None) or str(pi.image)
+                if path_str and path_str.startswith('images/'):
+                    full_path = base / path_str
+                    if full_path.is_file():
+                        try:
+                            os.remove(full_path)
+                        except OSError:
+                            pass
+                pi.delete()
+                deleted_count += 1
+        self.message_user(
+            request,
+            f'Удалено изображений: {deleted_count}.',
+            level=messages.SUCCESS
+        )
+
+    delete_product_images.short_description = '🗑️ У выбранных товаров удалить все изображения'
+
     def update_clean_numbers(self, request, queryset):
         """
         Массовое действие для обновления очищенных номеров у выбранных товаров
@@ -265,8 +290,9 @@ class ProductAdmin(admin.ModelAdmin):
                     path = os.path.join(root, filename)
                     if os.path.isfile(path):
                         items.append((section_id, filename, path))
+            overwrite = request.POST.get('overwrite') == 'on'
             linked_count, not_found, errors, skipped_duplicates, invalid_files, restored_count = process_bulk_image_items(
-                items, remove_source_if_path=True
+                items, remove_source_if_path=True, overwrite_existing=overwrite
             )
 
             if linked_count > 0:

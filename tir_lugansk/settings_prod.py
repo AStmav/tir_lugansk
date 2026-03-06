@@ -3,7 +3,7 @@ Production settings for tir_lugansk.
 Использование: DJANGO_SETTINGS_MODULE=tir_lugansk.settings_prod
 
 Путь к папке импорта изображений берётся из settings.py (INCOMING_IMAGES_DIR).
-На сервере задайте свой каталог через .env: INCOMING_IMAGES_DIR=/home/user/tir-lugansk/incoming_images
+На сервере задайте свой каталог через .env: INCOMING_IMAGES_DIR=/var/www/tir-lugansk/incoming_images
 """
 import os
 
