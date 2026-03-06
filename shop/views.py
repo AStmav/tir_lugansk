@@ -42,33 +42,58 @@ def normalize_latin_to_cyrillic(text):
     return ''.join(result)
 
 
+def _parse_search_mode(query):
+    """
+    Для подсказок: без % — только по началу (prefix), с % — и в середине (contains).
+    Возвращает (строка_без_процента, разрешить_поиск_в_середине).
+    """
+    if not query:
+        return query, False
+    allow_contains = '%' in query
+    stripped = query.replace('%', '').strip()
+    return stripped, allow_contains
+
+
 @require_GET
 def search_autocomplete(request):
     """
     Асинхронные подсказки для поиска (autocomplete).
     GET-параметр q — строка запроса (минимум 2 символа).
-    Возвращает JSON: список { "text": "отображаемый текст", "value": "значение для поиска" }.
+    По номерам: по умолчанию только по началу; с % в запросе — и в середине.
     """
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
         return JsonResponse({'suggestions': []})
 
-    q_normalized = normalize_latin_to_cyrillic(q)
-    q_clean = Product.clean_number(q)
+    q_work, allow_contains = _parse_search_mode(q)
+    q_normalized = normalize_latin_to_cyrillic(q_work)
+    q_clean = Product.clean_number(q_work)
     q_clean_norm = Product.clean_number(q_normalized)
     suggestions = []
     seen_values = set()
     max_items = 10
 
-    # Подсказки по товарам: название, каталожный номер, артикул
-    product_q = (
-        Q(name__icontains=q_normalized) |
-        Q(catalog_number__icontains=q_normalized) |
+    # Подсказки: название — по подстроке; номера — по началу, с % в запросе ещё и в середине
+    number_q = (
         Q(catalog_number_clean__istartswith=q_clean) |
         Q(catalog_number_clean__istartswith=q_clean_norm) |
         Q(artikyl_number_clean__istartswith=q_clean) |
-        Q(artikyl_number_clean__istartswith=q_clean_norm)
+        Q(artikyl_number_clean__istartswith=q_clean_norm) |
+        Q(catalog_number__iexact=q_work) |
+        Q(catalog_number__iexact=q_normalized) |
+        Q(artikyl_number__iexact=q_work) |
+        Q(artikyl_number__iexact=q_normalized) |
+        Q(catalog_number_clean__iexact=q_clean) |
+        Q(artikyl_number_clean__iexact=q_clean_norm)
     )
+    if allow_contains:
+        number_q |= (
+            Q(catalog_number__icontains=q_normalized) |
+            Q(catalog_number_clean__icontains=q_clean) |
+            Q(artikyl_number__icontains=q_work) |
+            Q(artikyl_number_clean__icontains=q_clean)
+        )
+    product_q = Q(name__icontains=q_normalized) | number_q
     products = (
         Product.objects.filter(in_stock=True)
         .filter(product_q)
