@@ -3,7 +3,6 @@ from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q
 from django.db import models
 from django.core.cache import cache
-from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -863,40 +862,10 @@ class ProductView(ProductSEOMixin, DetailView):
         else:  # -article
             oe_analogs_with_url.sort(key=lambda x: (x['analog'].oe_kod or '', x['analog'].brand.name if x['analog'].brand else ''), reverse=True)
 
-        per_page = 20
-        paginator = Paginator(oe_analogs_with_url, per_page)
-        try:
-            cross_page_num = int(self.request.GET.get('cross_page', 1))
-            cross_page_num = max(1, min(cross_page_num, paginator.num_pages))
-        except (ValueError, TypeError):
-            cross_page_num = 1
-        cross_page = paginator.get_page(cross_page_num)
-        # Диапазон страниц для пагинации (1 2 3 ... 13)
-        if hasattr(paginator, 'get_elided_page_range'):
-            context['cross_page_range'] = list(paginator.get_elided_page_range(cross_page_num, on_each_side=2, on_ends=1))
-        else:
-            n = paginator.num_pages
-            p = cross_page_num
-            if n <= 9:
-                context['cross_page_range'] = list(range(1, n + 1))
-            else:
-                context['cross_page_range'] = [1]
-                if p > 3:
-                    context['cross_page_range'].append('...')
-                for i in range(max(2, p - 2), min(n, p + 2) + 1):
-                    if i not in context['cross_page_range']:
-                        context['cross_page_range'].append(i)
-                if p < n - 2:
-                    context['cross_page_range'].append('...')
-                if n > 1 and n not in context['cross_page_range']:
-                    context['cross_page_range'].append(n)
-        context['oe_analogs_with_url'] = cross_page.object_list
-        context['cross_page'] = cross_page
+        context['oe_analogs_with_url'] = oe_analogs_with_url
         context['cross_sort'] = cross_sort
-        # При переходе по пагинации/сортировке оставлять открытой вкладку «Кросс-номера»
         context['open_cross_tab'] = bool(
-            product.oe_analogs.exists()
-            and (self.request.GET.get('cross_page') or self.request.GET.get('cross_sort'))
+            product.oe_analogs.exists() and self.request.GET.get('cross_sort')
         )
 
         # Похожие товары (из той же категории)

@@ -181,6 +181,24 @@
                 font-size: 0.85em;
                 color: #3CC14E;
             }
+            .product__analogs-toggle {
+                margin-top: 1rem;
+            }
+            .product__analogs-btn {
+                background: #3CC14E;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: "Oswald", sans-serif;
+                cursor: pointer;
+                transition: background 0.3s ease;
+            }
+            .product__analogs-btn:hover {
+                background: #2ea83e;
+            }
             /* Строка: заголовок слева */
             .product__title-row {
                 display: flex;
@@ -471,12 +489,12 @@
                                             <thead>
                                                 <tr>
                                                     <th class="product__analogs-th--sortable">
-                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == 'brand' %}-brand{% else %}brand{% endif %}&cross_page=1" class="product__analogs-sort-link">
+                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == 'brand' %}-brand{% else %}brand{% endif %}" class="product__analogs-sort-link">
                                                             Бренд {% if cross_sort == 'brand' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↑</span>{% elif cross_sort == '-brand' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↓</span>{% endif %}
                                                         </a>
                                                     </th>
                                                     <th class="product__analogs-th--sortable">
-                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == '-article' %}article{% else %}-article{% endif %}&cross_page=1" class="product__analogs-sort-link">
+                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == '-article' %}article{% else %}-article{% endif %}" class="product__analogs-sort-link">
                                                             Артикул {% if cross_sort == 'article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↑</span>{% elif cross_sort == '-article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↓</span>{% endif %}
                                                         </a>
                                                     </th>
@@ -485,7 +503,7 @@
                                             <tbody>
                                                 {% for item in oe_analogs_with_url %}
                                                 {% with analog=item.analog url=item.url %}
-                                                <tr>
+                                                <tr class="product__analogs-row" data-cross-index="{{ forloop.counter0 }}"{% if forloop.counter0 >= 10 %} style="display: none;"{% endif %}>
                                                     <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</td>
                                                     <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{{ analog.oe_kod }}{% if url %}</a>{% endif %}</td>
                                                 </tr>
@@ -494,24 +512,13 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div class="product__analogs-footer">
-                                        <p class="product__analogs-count">Показано {{ cross_page.start_index }}{% if cross_page.end_index != cross_page.start_index %}–{{ cross_page.end_index }}{% endif %} из {{ cross_page.paginator.count }}</p>
-                                        <nav class="product__analogs-pagination" aria-label="Страницы кросс-номеров">
-                                            {% if cross_page.has_previous %}
-                                            <a href="{{ product.get_absolute_url }}?cross_page={{ cross_page.previous_page_number }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link product__analogs-page-link--prev">‹</a>
-                                            {% endif %}
-                                            {% for p in cross_page_range %}
-                                                {% if p == '...' %}
-                                                <span class="product__analogs-page-ellipsis">…</span>
-                                                {% else %}
-                                                <a href="{{ product.get_absolute_url }}?cross_page={{ p }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link {% if p == cross_page.number %}product__analogs-page-link--current{% endif %}">{{ p }}</a>
-                                                {% endif %}
-                                            {% endfor %}
-                                            {% if cross_page.has_next %}
-                                            <a href="{{ product.get_absolute_url }}?cross_page={{ cross_page.next_page_number }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link product__analogs-page-link--next">›</a>
-                                            {% endif %}
-                                        </nav>
+                                    {% if product.oe_analogs.count > 10 %}
+                                    <div class="product__analogs-toggle" id="product-cross-toggle">
+                                        <button type="button" class="product__analogs-btn product__analogs-btn--expand" id="product-cross-expand">Все кроссы</button>
+                                        <button type="button" class="product__analogs-btn product__analogs-btn--collapse" id="product-cross-collapse" style="display: none;">Свернуть</button>
                                     </div>
+                                    {% endif %}
+                                    <p class="product__analogs-count">Всего: {{ product.oe_analogs.count }}</p>
                                 </div>
                             </div>
                             {% endif %}
@@ -753,6 +760,31 @@
                             panel.setAttribute('aria-hidden', 'false');
                         }
                     });
+                });
+            })();
+
+            // Кросс-номера: «Все кроссы» / «Свернуть»
+            (function() {
+                var toggle = document.getElementById('product-cross-toggle');
+                if (!toggle) return;
+                var expandBtn = document.getElementById('product-cross-expand');
+                var collapseBtn = document.getElementById('product-cross-collapse');
+                var rows = document.querySelectorAll('.product__analogs-row[data-cross-index]');
+                if (!expandBtn || !collapseBtn || rows.length === 0) return;
+                expandBtn.addEventListener('click', function() {
+                    rows.forEach(function(r) {
+                        r.style.display = '';
+                    });
+                    expandBtn.style.display = 'none';
+                    collapseBtn.style.display = '';
+                });
+                collapseBtn.addEventListener('click', function() {
+                    rows.forEach(function(r) {
+                        var idx = parseInt(r.getAttribute('data-cross-index'), 10);
+                        r.style.display = idx >= 10 ? 'none' : '';
+                    });
+                    expandBtn.style.display = '';
+                    collapseBtn.style.display = 'none';
                 });
             })();
 
