@@ -60,9 +60,23 @@
     var activeIndex = -1;
     var autocompleteBase = catalogUrl.replace(/\/catalog\/?$/, '');
 
+    function getCatalogParams() {
+        var params = [];
+        try {
+            var s = window.location.search.slice(1).split('&');
+            for (var i = 0; i < s.length; i++) {
+                var p = s[i].split('=');
+                if (p[0] === 'brand' || p[0] === 'category') params.push(p[0] + '=' + encodeURIComponent(p[1] || ''));
+            }
+        } catch (e) {}
+        return params.join('&');
+    }
     function fetchSuggestions(q, callback) {
+        var url = autocompleteBase + '/search-autocomplete/?q=' + encodeURIComponent(q);
+        var extra = getCatalogParams();
+        if (extra) url += '&' + extra;
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', autocompleteBase + '/search-autocomplete/?q=' + encodeURIComponent(q));
+        xhr.open('GET', url);
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
                 try {
@@ -97,7 +111,10 @@
         ac.style.display = 'none';
         ac.setAttribute('aria-hidden', 'true');
         var sep = catalogUrl.indexOf('?') >= 0 ? '&' : '?';
-        window.location.href = catalogUrl + sep + 'search=' + encodeURIComponent(item.value);
+        var extra = getCatalogParams();
+        var target = catalogUrl + sep + 'search=' + encodeURIComponent(item.value);
+        if (extra) target += '&' + extra;
+        window.location.href = target;
     }
 
     function onInput() {

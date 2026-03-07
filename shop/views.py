@@ -45,8 +45,8 @@ def normalize_latin_to_cyrillic(text):
 
 def _parse_search_mode(query):
     """
-    Для подсказок: без % — только по началу (prefix), с % — и в середине (contains).
-    Возвращает (строка_без_процента, разрешить_поиск_в_середине).
+    Единая логика для подсказок и каталога: без % — только по началу (prefix),
+    с % — и в середине (contains). Возвращает (строка_без_процента, разрешить_поиск_в_середине).
     """
     if not query:
         return query, False
@@ -95,12 +95,12 @@ def search_autocomplete(request):
             Q(artikyl_number_clean__icontains=q_clean)
         )
     product_q = Q(name__icontains=q_normalized) | number_q
-    products = (
-        Product.objects.filter(in_stock=True)
-        .filter(product_q)
-        .select_related('brand')
-        .distinct()[:max_items]
-    )
+    products = Product.objects.filter(in_stock=True).filter(product_q)
+    # Если передан бренд (напр. с каталога с выбранным фильтром) — ищем только в нём
+    brand_slug = request.GET.get('brand', '').strip()
+    if brand_slug:
+        products = products.filter(brand__slug=brand_slug)
+    products = products.select_related('brand').distinct()[:max_items]
     for p in products:
         val = (p.catalog_number or p.artikyl_number or p.name or '').strip()
         if not val or val in seen_values:
@@ -172,7 +172,9 @@ class CatalogView(CategorySEOMixin, ListView):
         search = self.request.GET.get('search')
         if search:
             search = search.strip()
-            logger.info(f"Поисковый запрос: '{search}'")
+            # Без % — только по началу номера; с % — и в середине (как в подсказках)
+            search, allow_contains = _parse_search_mode(search)
+            logger.info(f"Поисковый запрос: '{search}' (поиск в середине: {allow_contains})")
             
             # Определяем является ли запрос поиском по номеру
             if OeKod.is_number_search(search):
@@ -196,116 +198,109 @@ class CatalogView(CategorySEOMixin, ListView):
                 else:
                     logger.info(f"Нормализация не требуется (нет латиницы)")
                 
-                # Для коротких номеров (менее 4 символов) используем точное совпадение + содержит
-                # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                # Для коротких номеров: по умолчанию только точное; с % в запросе — и в середине
                 if len(search_clean) < 4:
-                    logger.info(f"Короткий номер, точное совпадение + содержит")
+                    logger.info(f"Короткий номер, точное + {'содержит' if allow_contains else 'только по началу'}")
                     number_search_query = (
-                        Q(code__iexact=search) |                       # TMP_ID точное совпадение
-                        Q(tmp_id__iexact=search) |                     # TMP_ID точное совпадение
-                        # Оригинальные поля - точное и содержит
-                        Q(catalog_number__iexact=search) |             # Оригинальный каталожный номер точное
-                        Q(catalog_number__icontains=search) |          # Оригинальный каталожный номер содержит (НОВОЕ)
-                        Q(artikyl_number__iexact=search) |              # Оригинальный дополнительный номер точное
-                        Q(artikyl_number__icontains=search) |           # Оригинальный дополнительный номер содержит (НОВОЕ)
-                        # Очищенные поля - точное и содержит
-                        Q(catalog_number_clean__iexact=search_clean) |  # ОЧИЩЕННЫЙ каталожный номер точное
-                        Q(artikyl_number_clean__iexact=search_clean) |  # ОЧИЩЕННЫЙ дополнительный номер точное
-                        Q(catalog_number_clean__icontains=search_clean) | # ОЧИЩЕННЫЙ каталожный номер содержит (НОВОЕ)
-                        Q(artikyl_number_clean__icontains=search_clean)  # ОЧИЩЕННЫЙ дополнительный номер содержит (НОВОЕ)
+                        Q(code__iexact=search) |
+                        Q(tmp_id__iexact=search) |
+                        Q(catalog_number__iexact=search) |
+                        Q(artikyl_number__iexact=search) |
+                        Q(catalog_number_clean__iexact=search_clean) |
+                        Q(artikyl_number_clean__iexact=search_clean)
                     )
-                    
-                    # Добавляем нормализованные версии только если они отличаются
+                    if allow_contains:
+                        number_search_query |= (
+                            Q(catalog_number__icontains=search) |
+                            Q(artikyl_number__icontains=search) |
+                            Q(catalog_number_clean__icontains=search_clean) |
+                            Q(artikyl_number_clean__icontains=search_clean)
+                        )
                     if needs_normalization:
                         number_search_query |= (
                             Q(catalog_number__iexact=search_normalized) |
-                            Q(catalog_number__icontains=search_normalized) |  # НОВОЕ
                             Q(artikyl_number__iexact=search_normalized) |
-                            Q(artikyl_number__icontains=search_normalized) |  # НОВОЕ
                             Q(catalog_number_clean__iexact=search_clean_normalized) |
-                            Q(artikyl_number_clean__iexact=search_clean_normalized) |
-                            Q(catalog_number_clean__icontains=search_clean_normalized) |  # НОВОЕ
-                            Q(artikyl_number_clean__icontains=search_clean_normalized)    # НОВОЕ
+                            Q(artikyl_number_clean__iexact=search_clean_normalized)
                         )
+                        if allow_contains:
+                            number_search_query |= (
+                                Q(catalog_number__icontains=search_normalized) |
+                                Q(artikyl_number__icontains=search_normalized) |
+                                Q(catalog_number_clean__icontains=search_clean_normalized) |
+                                Q(artikyl_number_clean__icontains=search_clean_normalized)
+                            )
                     
-                    # Поиск по OE аналогам (очищенное поле) - точное + содержит
-                    # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
-                    oe_search_query = (
-                        Q(oe_analogs__oe_kod_clean__iexact=search_clean) |
-                        Q(oe_analogs__oe_kod_clean__icontains=search_clean)  # НОВОЕ
-                    )
-                    
+                    oe_search_query = Q(oe_analogs__oe_kod_clean__iexact=search_clean)
+                    if allow_contains:
+                        oe_search_query |= Q(oe_analogs__oe_kod_clean__icontains=search_clean)
                     if needs_normalization:
-                        oe_search_query |= (
-                            Q(oe_analogs__oe_kod_clean__iexact=search_clean_normalized) |
-                            Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
-                        )
+                        oe_search_query |= Q(oe_analogs__oe_kod_clean__iexact=search_clean_normalized)
+                        if allow_contains:
+                            oe_search_query |= Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)
                 else:
-                    # Для длинных номеров используем точное совпадение + начинается с + содержит
-                    # ИСПРАВЛЕНО: Добавлен icontains для очищенных полей, чтобы находить номера независимо от символов
-                    # ИСПРАВЛЕНО: Добавлен поиск по cross_number (Majorsell/CEI)
-                    # НОВОЕ: Добавлен поиск по названию товара (может содержать номер, например "WABCO 412 352 922 2")
-                    logger.info(f"Длинный номер, точное + частичное совпадение")
+                    # Длинный номер: по умолчанию только точное + начинается с; с % — и в середине
+                    logger.info(f"Длинный номер, точное + по началу + {'содержит' if allow_contains else 'без поиска в середине'}")
                     number_search_query = (
-                        Q(code__iexact=search) |                           # TMP_ID точное
-                        Q(tmp_id__iexact=search) |                         # TMP_ID точное
-                        # Оригинальные поля - точное и содержит (независимо от регистра)
-                        Q(catalog_number__iexact=search) |                # Оригинальный каталожный номер точное
-                        Q(catalog_number__icontains=search) |              # Оригинальный каталожный номер содержит
-                        Q(artikyl_number__iexact=search) |                  # Оригинальный дополнительный номер точное
-                        Q(artikyl_number__icontains=search) |               # Оригинальный дополнительный номер содержит
-                        # НОВОЕ: Поиск по кросс-коду (Majorsell/CEI) - например "220169" и "220.169"
-                        Q(cross_number__iexact=search) |                    # Кросс-код точное
-                        Q(cross_number__icontains=search) |                # Кросс-код содержит
-                        Q(cross_number__icontains=search_clean) |           # Кросс-код содержит (очищенный)
-                        # НОВОЕ: Поиск по названию товара (может содержать номер, например "WABCO 412 352 922 2")
-                        Q(name__icontains=search) |                          # Название содержит (для случаев типа "WABCO 412 352 922 2")
-                        Q(name__icontains=search_clean) |                    # Название содержит (очищенный)
-                        # Очищенные поля - точное, начинается с И содержит (для поиска без символов)
-                        Q(catalog_number_clean__iexact=search_clean) |      # ОЧИЩЕННЫЙ каталожный номер точное
-                        Q(artikyl_number_clean__iexact=search_clean) |     # ОЧИЩЕННЫЙ дополнительный номер точное
-                        Q(catalog_number_clean__istartswith=search_clean) | # ОЧИЩЕННЫЙ каталожный номер начинается
-                        Q(artikyl_number_clean__istartswith=search_clean) | # ОЧИЩЕННЫЙ дополнительный номер начинается
-                        Q(catalog_number_clean__icontains=search_clean) |   # ОЧИЩЕННЫЙ каталожный номер содержит (НОВОЕ)
-                        Q(artikyl_number_clean__icontains=search_clean)      # ОЧИЩЕННЫЙ дополнительный номер содержит (НОВОЕ)
+                        Q(code__iexact=search) |
+                        Q(tmp_id__iexact=search) |
+                        Q(catalog_number__iexact=search) |
+                        Q(artikyl_number__iexact=search) |
+                        Q(cross_number__iexact=search) |
+                        Q(name__icontains=search) |
+                        Q(name__icontains=search_clean) |
+                        Q(catalog_number_clean__iexact=search_clean) |
+                        Q(artikyl_number_clean__iexact=search_clean) |
+                        Q(catalog_number_clean__istartswith=search_clean) |
+                        Q(artikyl_number_clean__istartswith=search_clean)
                     )
-                    
-                    # Добавляем нормализованные версии только если они отличаются
+                    if allow_contains:
+                        number_search_query |= (
+                            Q(catalog_number__icontains=search) |
+                            Q(artikyl_number__icontains=search) |
+                            Q(cross_number__icontains=search) |
+                            Q(cross_number__icontains=search_clean) |
+                            Q(catalog_number_clean__icontains=search_clean) |
+                            Q(artikyl_number_clean__icontains=search_clean)
+                        )
                     if needs_normalization:
                         number_search_query |= (
                             Q(catalog_number__iexact=search_normalized) |
-                            Q(catalog_number__icontains=search_normalized) |
                             Q(artikyl_number__iexact=search_normalized) |
-                            Q(artikyl_number__icontains=search_normalized) |
-                            Q(cross_number__iexact=search_normalized) |        # НОВОЕ: Кросс-код нормализованный
-                            Q(cross_number__icontains=search_normalized) |       # НОВОЕ: Кросс-код нормализованный
+                            Q(cross_number__iexact=search_normalized) |
                             Q(catalog_number_clean__iexact=search_clean_normalized) |
                             Q(artikyl_number_clean__iexact=search_clean_normalized) |
                             Q(catalog_number_clean__istartswith=search_clean_normalized) |
-                            Q(artikyl_number_clean__istartswith=search_clean_normalized) |
-                            Q(catalog_number_clean__icontains=search_clean_normalized) |  # НОВОЕ
-                            Q(artikyl_number_clean__icontains=search_clean_normalized)      # НОВОЕ
+                            Q(artikyl_number_clean__istartswith=search_clean_normalized)
                         )
+                        if allow_contains:
+                            number_search_query |= (
+                                Q(catalog_number__icontains=search_normalized) |
+                                Q(artikyl_number__icontains=search_normalized) |
+                                Q(cross_number__icontains=search_normalized) |
+                                Q(catalog_number_clean__icontains=search_clean_normalized) |
+                                Q(artikyl_number_clean__icontains=search_clean_normalized)
+                            )
                     
-                    # Поиск по OE аналогам (оригинальное И очищенное поле) - точное + начинается + содержит
-                    # ИСПРАВЛЕНО: Добавлен поиск по оригинальному полю oe_kod (может содержать пробелы)
-                    # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
                     oe_search_query = (
-                        # Поиск по оригинальному полю (может содержать пробелы, например "412 352 922 2")
-                        Q(oe_analogs__oe_kod__iexact=search) |              # НОВОЕ: Оригинальный OE код точное
-                        Q(oe_analogs__oe_kod__icontains=search) |            # НОВОЕ: Оригинальный OE код содержит
-                        # Поиск по очищенному полю
+                        Q(oe_analogs__oe_kod__iexact=search) |
                         Q(oe_analogs__oe_kod_clean__iexact=search_clean) |
-                        Q(oe_analogs__oe_kod_clean__istartswith=search_clean) |
-                        Q(oe_analogs__oe_kod_clean__icontains=search_clean)  # НОВОЕ
+                        Q(oe_analogs__oe_kod_clean__istartswith=search_clean)
                     )
-                    
+                    if allow_contains:
+                        oe_search_query |= (
+                            Q(oe_analogs__oe_kod__icontains=search) |
+                            Q(oe_analogs__oe_kod_clean__icontains=search_clean)
+                        )
                     if needs_normalization:
                         oe_search_query |= (
                             Q(oe_analogs__oe_kod_clean__iexact=search_clean_normalized) |
-                            Q(oe_analogs__oe_kod_clean__istartswith=search_clean_normalized) |
-                            Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
+                            Q(oe_analogs__oe_kod_clean__istartswith=search_clean_normalized)
                         )
+                        if allow_contains:
+                            oe_search_query |= (
+                                Q(oe_analogs__oe_kod_clean__icontains=search_clean_normalized)
+                            )
                 
                 # Находим товары по номерам + по OE аналогам в одном запросе
                 found_products = base_queryset.filter(
@@ -314,34 +309,26 @@ class CatalogView(CategorySEOMixin, ListView):
                 
                 logger.info(f"Найдено товаров напрямую (по номерам/названию/cross_number): {found_products.count()}")
                 
-                # НОВОЕ: Ищем ВСЕ аналогов (с товарами и без), которые соответствуют поисковому запросу
-                # Это нужно для нахождения родительских товаров через id_tovar
-                # Создаем запрос для прямого поиска в OeKod (не через связь)
-                # ИСПРАВЛЕНО: Добавлен поиск по оригинальному полю oe_kod (может содержать пробелы)
-                # ИСПРАВЛЕНО: Добавлен icontains для поиска независимо от символов
+                # Ищем все OE-аналоги по запросу (для id_tovar); без % — только начало, с % — и в середине
                 oe_direct_query = (
-                    # Поиск по оригинальному полю (может содержать пробелы, например "412 352 922 2")
-                    Q(oe_kod__iexact=search) |                              # НОВОЕ: Оригинальный OE код точное
-                    Q(oe_kod__icontains=search) |                           # НОВОЕ: Оригинальный OE код содержит
-                    # Поиск по очищенному полю
+                    Q(oe_kod__iexact=search) |
                     Q(oe_kod_clean__iexact=search_clean)
                 )
                 if len(search_clean) >= 4:
-                    oe_direct_query |= (
-                        Q(oe_kod_clean__istartswith=search_clean) |
-                        Q(oe_kod_clean__icontains=search_clean)  # НОВОЕ
-                    )
-                
+                    oe_direct_query |= Q(oe_kod_clean__istartswith=search_clean)
+                if allow_contains:
+                    oe_direct_query |= Q(oe_kod__icontains=search) | Q(oe_kod_clean__icontains=search_clean)
                 if needs_normalization:
                     oe_direct_query |= (
-                        Q(oe_kod__iexact=search_normalized) |               # НОВОЕ
-                        Q(oe_kod__icontains=search_normalized) |            # НОВОЕ
+                        Q(oe_kod__iexact=search_normalized) |
                         Q(oe_kod_clean__iexact=search_clean_normalized)
                     )
                     if len(search_clean_normalized) >= 4:
+                        oe_direct_query |= Q(oe_kod_clean__istartswith=search_clean_normalized)
+                    if allow_contains:
                         oe_direct_query |= (
-                            Q(oe_kod_clean__istartswith=search_clean_normalized) |
-                            Q(oe_kod_clean__icontains=search_clean_normalized)  # НОВОЕ
+                            Q(oe_kod__icontains=search_normalized) |
+                            Q(oe_kod_clean__icontains=search_clean_normalized)
                         )
                 
                 # ИСПРАВЛЕНО: Ищем ВСЕ аналогов (не только без товаров), которые соответствуют поисковому запросу
