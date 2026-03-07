@@ -81,38 +81,105 @@
                 color: #666666;
                 margin-bottom: 1rem;
             }
-            /* Кросс-номера: оформление как в блоке «Описание и характеристики» — подпись слева, значение справа */
-            .product__analogs-specs {
-                margin-top: 20px;
+            /* Кросс-номера: компактная таблица, навигация только пагинацией (без скролла) */
+            .product__analogs-table-wrap {
+                margin-top: 12px;
             }
-            .product__analog-item {
-                margin-bottom: 1rem;
-                padding-bottom: 1rem;
-                border-bottom: 1px solid #f0f0f0;
+            .product__analogs-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-family: "Oswald", sans-serif;
+                font-size: 14px;
             }
-            .product__analog-item:last-child {
-                margin-bottom: 0;
-                padding-bottom: 0;
+            .product__analogs-table th,
+            .product__analogs-table td {
+                padding: 6px 12px 6px 0;
+                text-align: left;
+                border-bottom: 1px solid #eee;
+                vertical-align: middle;
+            }
+            .product__analogs-table th {
+                color: #666;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            .product__analogs-table td {
+                color: #1a1a1a;
+            }
+            .product__analogs-table tbody tr:last-child td {
                 border-bottom: none;
             }
-            .product__analogs-specs .tech-spec {
-                font-family: "Oswald", sans-serif;
-            }
-            .product__analogs-specs a.product__analogs-link {
+            .product__analogs-table a.product__analogs-link {
                 color: #1a1a1a;
                 text-decoration: none;
                 font-weight: 500;
             }
-            .product__analogs-specs a.product__analogs-link:hover {
+            .product__analogs-table a.product__analogs-link:hover {
                 text-decoration: underline;
                 color: #3CC14E;
             }
+            .product__analogs-footer {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                margin-top: 1rem;
+            }
             .product__analogs-count {
-                margin-top: 0.5rem;
+                margin: 0;
                 font-size: 14px;
                 color: #666666;
                 font-family: "Oswald", sans-serif;
-                text-transform: uppercase;
+            }
+            .product__analogs-pagination {
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+                flex-wrap: wrap;
+            }
+            .product__analogs-page-link,
+            .product__analogs-page-ellipsis {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 2rem;
+                padding: 0.35rem 0.5rem;
+                font-size: 14px;
+                font-family: "Oswald", sans-serif;
+                color: #1a1a1a;
+                text-decoration: none;
+                border-radius: 2px;
+            }
+            .product__analogs-page-link:hover {
+                background: #f0f0f0;
+                color: #3CC14E;
+            }
+            .product__analogs-page-link--current {
+                background: #3CC14E;
+                color: #fff;
+                font-weight: 500;
+            }
+            .product__analogs-page-link--current:hover {
+                background: #35ad45;
+                color: #fff;
+            }
+            .product__analogs-page-ellipsis {
+                color: #999;
+            }
+            .product__analogs-th--sortable .product__analogs-sort-link {
+                color: inherit;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.2rem;
+            }
+            .product__analogs-th--sortable .product__analogs-sort-link:hover {
+                color: #3CC14E;
+            }
+            .product__analogs-sort-arrow {
+                font-size: 0.85em;
+                color: #3CC14E;
             }
             /* Строка: заголовок слева */
             .product__title-row {
@@ -399,23 +466,52 @@
                                 <div class="product__analogs">
                                     <h2 class="product__tab-panel-title">КРОСС-НОМЕРА</h2>
                                     <p class="product__analogs-info">Аналоги от других производителей:</p>
-                                    <div class="product__analogs-specs">
-                                        {% for item in oe_analogs_with_url %}
-                                        {% with analog=item.analog url=item.url %}
-                                        <div class="product__analog-item">
-                                            <div class="tech-spec">
-                                                <span class="tech-label">Бренд</span>
-                                                <span class="tech-value">{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</span>
-                                            </div>
-                                            <div class="tech-spec">
-                                                <span class="tech-label">Артикул</span>
-                                                <span class="tech-value">{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{{ analog.oe_kod }}{% if url %}</a>{% endif %}</span>
-                                            </div>
-                                        </div>
-                                        {% endwith %}
-                                        {% endfor %}
+                                    <div class="product__analogs-table-wrap">
+                                        <table class="product__analogs-table">
+                                            <thead>
+                                                <tr>
+                                                    <th class="product__analogs-th--sortable">
+                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == 'brand' %}-brand{% else %}brand{% endif %}&cross_page=1" class="product__analogs-sort-link">
+                                                            Бренд {% if cross_sort == 'brand' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↑</span>{% elif cross_sort == '-brand' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↓</span>{% endif %}
+                                                        </a>
+                                                    </th>
+                                                    <th class="product__analogs-th--sortable">
+                                                        <a href="{{ product.get_absolute_url }}?cross_sort={% if cross_sort == '-article' %}article{% else %}-article{% endif %}&cross_page=1" class="product__analogs-sort-link">
+                                                            Артикул {% if cross_sort == 'article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↑</span>{% elif cross_sort == '-article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↓</span>{% endif %}
+                                                        </a>
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in oe_analogs_with_url %}
+                                                {% with analog=item.analog url=item.url %}
+                                                <tr>
+                                                    <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</td>
+                                                    <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{{ analog.oe_kod }}{% if url %}</a>{% endif %}</td>
+                                                </tr>
+                                                {% endwith %}
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <p class="product__analogs-count">ВСЕГО: {{ product.oe_analogs.count }}</p>
+                                    <div class="product__analogs-footer">
+                                        <p class="product__analogs-count">Показано {{ cross_page.start_index }}{% if cross_page.end_index != cross_page.start_index %}–{{ cross_page.end_index }}{% endif %} из {{ cross_page.paginator.count }}</p>
+                                        <nav class="product__analogs-pagination" aria-label="Страницы кросс-номеров">
+                                            {% if cross_page.has_previous %}
+                                            <a href="{{ product.get_absolute_url }}?cross_page={{ cross_page.previous_page_number }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link product__analogs-page-link--prev">‹</a>
+                                            {% endif %}
+                                            {% for p in cross_page_range %}
+                                                {% if p == '...' %}
+                                                <span class="product__analogs-page-ellipsis">…</span>
+                                                {% else %}
+                                                <a href="{{ product.get_absolute_url }}?cross_page={{ p }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link {% if p == cross_page.number %}product__analogs-page-link--current{% endif %}">{{ p }}</a>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if cross_page.has_next %}
+                                            <a href="{{ product.get_absolute_url }}?cross_page={{ cross_page.next_page_number }}&cross_sort={{ cross_sort }}" class="product__analogs-page-link product__analogs-page-link--next">›</a>
+                                            {% endif %}
+                                        </nav>
+                                    </div>
                                 </div>
                             </div>
                             {% endif %}
