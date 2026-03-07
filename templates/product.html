@@ -418,13 +418,13 @@
 
                     <div class="product__tabs" id="product-tabs">
                         <div class="product__tabs-head">
-                            <button type="button" class="product__tab-btn product__tab-btn--active" data-tab="description" aria-selected="true">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</button>
+                            <button type="button" class="product__tab-btn {% if not open_cross_tab %}product__tab-btn--active{% endif %}" data-tab="description" aria-selected="{% if open_cross_tab %}false{% else %}true{% endif %}">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</button>
                             {% if product.oe_analogs.exists %}
-                            <button type="button" class="product__tab-btn" data-tab="cross" aria-selected="false">КРОСС-НОМЕРА</button>
+                            <button type="button" class="product__tab-btn {% if open_cross_tab %}product__tab-btn--active{% endif %}" data-tab="cross" aria-selected="{% if open_cross_tab %}true{% else %}false{% endif %}">КРОСС-НОМЕРА</button>
                             {% endif %}
                         </div>
                         <div class="product__tabs-panels">
-                            <div class="product__tab-panel product__tab-panel--active" id="product-tab-description" role="tabpanel">
+                            <div class="product__tab-panel {% if not open_cross_tab %}product__tab-panel--active{% endif %}" id="product-tab-description" role="tabpanel" aria-hidden="{% if open_cross_tab %}true{% else %}false{% endif %}">
                                 <div class="product__description">
                                     <h2 class="product__tab-panel-title">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</h2>
                                     {% if product.description %}
@@ -462,7 +462,7 @@
                             </div>
 
                             {% if product.oe_analogs.exists %}
-                            <div class="product__tab-panel" id="product-tab-cross" role="tabpanel" aria-hidden="true">
+                            <div class="product__tab-panel {% if open_cross_tab %}product__tab-panel--active{% endif %}" id="product-tab-cross" role="tabpanel" aria-hidden="{% if open_cross_tab %}false{% else %}true{% endif %}">
                                 <div class="product__analogs">
                                     <h2 class="product__tab-panel-title">КРОСС-НОМЕРА</h2>
                                     <p class="product__analogs-info">Аналоги от других производителей:</p>

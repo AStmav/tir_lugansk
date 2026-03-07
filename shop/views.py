@@ -906,6 +906,11 @@ class ProductView(ProductSEOMixin, DetailView):
         context['oe_analogs_with_url'] = cross_page.object_list
         context['cross_page'] = cross_page
         context['cross_sort'] = cross_sort
+        # При переходе по пагинации/сортировке оставлять открытой вкладку «Кросс-номера»
+        context['open_cross_tab'] = bool(
+            product.oe_analogs.exists()
+            and (self.request.GET.get('cross_page') or self.request.GET.get('cross_sort'))
+        )
 
         # Похожие товары (из той же категории)
         related_products = Product.objects.filter(
