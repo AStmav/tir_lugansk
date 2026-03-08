@@ -146,6 +146,12 @@ class Command(BaseCommand):
             
             logger.info(f"Загружено данных: товары={len(existing_tmp_ids)}, категории={len(all_categories)}, бренды={len(all_brands)}")
 
+        # Бренд по умолчанию для товаров без производителя (PROPERTY_P) — чтобы такие товары тоже импортировались
+        default_brand, _ = Brand.objects.get_or_create(
+            slug='bez-brenda',
+            defaults={'name': 'Без бренда', 'code': '__NO_BRAND__'}
+        )
+
         # Пытаемся открыть DBF файл
         try:
             table = DBF(dbf_file, encoding=encoding)
@@ -279,6 +285,9 @@ class Command(BaseCommand):
                                     logger.info(f"Создан новый бренд: {brand.name} (ID: {brand_id})")
                         else:
                             brand = brands_cache[brand_id]
+
+                    if brand is None:
+                        brand = default_brand
 
                     # Создаем/получаем категорию
                     category = None
