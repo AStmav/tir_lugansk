@@ -37,7 +37,8 @@
             <title>{{ product.name }} - Tir Lugansk</title>
         {% endif %}
         
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" media="print" onload="this.media='all'"/>
+        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/></noscript>
         <link rel="stylesheet" href="{% static 'css/main.css' %}">
     
         <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon_io/apple-touch-icon.png' %}">
@@ -374,13 +375,13 @@
                                 {% endif %}
                             </div>
                             <div class="product__thumbnails">
-                                {% for image in product.images.all %}
+                                {% for image in product.images.all|slice:":10" %}
                                 <div class="product__thumbnail {% if forloop.first %}product__thumbnail--active{% endif %}">
-                                    <img src="{{ image.url }}" alt="{{ product.name }}">
+                                    <img src="{{ image.url }}" alt="{{ product.name }}" loading="lazy">
                                 </div>
                                 {% empty %}
                                 <div class="product__thumbnail product__thumbnail--active">
-                                    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
+                                    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}" loading="lazy">
                                 </div>
                                 {% endfor %}
                             </div>
@@ -401,14 +402,15 @@
                                 {% endif %}
                             </div>
                             <div class="product__status">
-                                {% if product.stock_quantity > 0 %}
-                                <span class="product__availability">В наличии: {{ product.stock_quantity }} шт.</span>
+                                {% if product.in_stock %}
+                                <span class="product__availability">Есть в наличии</span>
                                 {% else %}
                                 <span class="product__availability product__availability--out">Нет в наличии</span>
                                 {% endif %}
                             </div>
 
-                            <div class="product__specs">
+                            <div class="product__price-quantity-form">
+                                <div class="product__specs">
                                 <div class="product__spec">
                                     <span class="spec-label">Бренд</span>
                                     <span class="spec-value">{{ product.brand.name }}</span>
@@ -429,8 +431,43 @@
                                 </div>
                                 {% endif %}
                             </div>
+
+                            <div class="product__price-block">
+                                <table class="product__price-table" aria-label="Цена и наличие">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Срок</th>
+                                            <th scope="col">Наличие</th>
+                                            <th scope="col">Цена</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>{% if product.in_stock %}На складе{% else %}Под заказ{% endif %}</td>
+                                            <td>
+                                                {% if product.in_stock %}
+                                                    {% if product.stock_quantity > 0 %}{{ product.stock_quantity }} шт.{% else %}+{% endif %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if product.price and product.price > 0 %}
+                                                    {% if product.old_price and product.old_price > product.price %}
+                                                        <span class="product__price-old">{{ product.old_price|price_space }} ₽</span>
+                                                    {% endif %}
+                                                    <span class="product__price-value">{{ product.price|price_space }} ₽</span>
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                             
                             <button class="product__price-inquiry" onclick="openModal('priceInquiryModal')">Узнать цену и наличие</button>
+                            </div>
                         </div>
                     </div>
 
@@ -540,11 +577,11 @@
                                         {% endif %}
                                         <div class="product-image">
                                             {% if related_product.has_main_image %}
-                                            <img src="{{ related_product.main_image_url }}" alt="{{ related_product.name }}">
-                                            {% elif related_product.images.first %}
-                                            <img src="{{ related_product.images.first.url }}" alt="{{ related_product.name }}">
-                                            {% else %}
-                                            <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ related_product.name }}">
+                                            <img src="{{ related_product.main_image_url }}" alt="{{ related_product.name }}" loading="lazy">
+                                        {% elif related_product.images.first %}
+                                            <img src="{{ related_product.images.first.url }}" alt="{{ related_product.name }}" loading="lazy">
+                                        {% else %}
+                                            <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ related_product.name }}" loading="lazy">
                                             {% endif %}
                                         </div>
                                         <div class="product-content">
@@ -714,7 +751,40 @@
             </div>
         </div>
         
-        <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js" async></script>
+        <script>
+            // Инициализация Swiper после загрузки скрипта (отложенная загрузка — п. 3.2)
+            (function() {
+                function initRelatedSwiper() {
+                    if (typeof Swiper === 'undefined') {
+                        setTimeout(initRelatedSwiper, 50);
+                        return;
+                    }
+                    var el = document.querySelector('.products-slider-related');
+                    if (el) {
+                        new Swiper('.products-slider-related', {
+                            slidesPerView: 1,
+                            spaceBetween: 15,
+                            loop: true,
+                            navigation: {
+                                nextEl: '.swiper-button-next',
+                                prevEl: '.swiper-button-prev',
+                            },
+                            breakpoints: {
+                                768: { slidesPerView: 2, spaceBetween: 15 },
+                                1024: { slidesPerView: 3, spaceBetween: 20 },
+                                1200: { slidesPerView: 4, spaceBetween: 20 },
+                            },
+                        });
+                    }
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initRelatedSwiper);
+                } else {
+                    initRelatedSwiper();
+                }
+            })();
+        </script>
         <script>
             // Галерея изображений
             document.addEventListener('DOMContentLoaded', function() {
@@ -723,14 +793,13 @@
                 
                 thumbnails.forEach(thumbnail => {
                     thumbnail.addEventListener('click', function() {
-                        // Убираем активный класс у всех миниатюр
                         thumbnails.forEach(t => t.classList.remove('product__thumbnail--active'));
-                        // Добавляем активный класс к текущей миниатюре
                         this.classList.add('product__thumbnail--active');
-                        // Меняем главное изображение
                         const thumbnailImg = this.querySelector('img');
-                        mainImage.src = thumbnailImg.src;
-                        mainImage.alt = thumbnailImg.alt;
+                        if (thumbnailImg && mainImage) {
+                            mainImage.src = thumbnailImg.src;
+                            mainImage.alt = thumbnailImg.alt;
+                        }
                     });
                 });
             });

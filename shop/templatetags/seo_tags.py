@@ -142,3 +142,17 @@ def truncate_description(text, length=160):
     truncated = text[:length].rsplit(' ', 1)[0]
     return f"{truncated}..."
 
+
+@register.filter
+def price_space(value):
+    """
+    Цена с пробелом как разделителем тысяч: 1400 → "1 400" (как на макете заказчика).
+    """
+    if value is None:
+        return ''
+    try:
+        num = int(float(value))
+        return f'{num:,}'.replace(',', ' ')
+    except (ValueError, TypeError):
+        return str(value)
+

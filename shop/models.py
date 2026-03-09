@@ -150,6 +150,7 @@ class Product(models.Model):
             models.Index(fields=['catalog_number_clean']),
             models.Index(fields=['artikyl_number_clean']),
             models.Index(fields=['tmp_id']),
+            models.Index(fields=['in_stock', 'catalog_number_clean'], name='shop_prod_stock_cat_idx'),
         ]
     
     def __str__(self):

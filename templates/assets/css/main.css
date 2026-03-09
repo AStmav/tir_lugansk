@@ -1467,6 +1467,7 @@ header:not(.header) + main {
 .product__info {
   flex: 1;
   position: relative;
+  padding-right: 28px;
 }
 .product__badge {
   position: absolute;
@@ -1486,6 +1487,7 @@ header:not(.header) + main {
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-align: right;
 }
 .product__title {
   font-size: 28px;
@@ -1511,6 +1513,92 @@ header:not(.header) + main {
   height: 8px;
   background: #3CC14E;
   border-radius: 50%;
+}
+.product__availability--out {
+  color: #999;
+}
+.product__availability--out::before {
+  background: #999;
+}
+.product__price-block {
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.product__price-quantity-form {
+  margin-bottom: 24px;
+  padding: 28px 40px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+}
+.product__price-quantity-form .product__specs {
+  margin-bottom: 20px;
+  padding: 0;
+  background: transparent;
+}
+.product__price-quantity-form .product__spec {
+  gap: 24px;
+}
+.product__price-quantity-form .product__spec .spec-label {
+  min-width: 160px;
+  flex-shrink: 0;
+}
+.product__price-quantity-form .product__price-block {
+  margin-bottom: 20px;
+}
+.product__price-quantity-form .product__price-inquiry {
+  margin-top: 0;
+}
+.product__price-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #fff;
+  border-radius: 0;
+  overflow: hidden;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+}
+.product__price-table th {
+  text-align: left;
+  padding: 8px 0 10px 0;
+  background: transparent;
+  font-weight: 500;
+  font-size: 12px;
+  color: #9ca3af;
+  border-bottom: 1px solid #e5e7eb;
+}
+.product__price-table th:first-child,
+.product__price-table td:first-child {
+  padding-left: 16px;
+}
+.product__price-table th:last-child,
+.product__price-table td:last-child {
+  padding-right: 16px;
+}
+.product__price-table th:nth-child(3),
+.product__price-table td:nth-child(3) {
+  text-align: right;
+}
+.product__price-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 15px;
+}
+.product__price-table tbody tr:last-child td {
+  border-bottom: 1px solid #e5e7eb;
+}
+.product__price-table .product__price-value {
+  font-weight: 700;
+  color: #374151;
+  font-size: 15px;
+}
+.product__price-table .product__price-old {
+  font-size: 14px;
+  color: #9ca3af;
+  text-decoration: line-through;
+  margin-right: 6px;
 }
 .product__pricing {
   margin-bottom: 30px;

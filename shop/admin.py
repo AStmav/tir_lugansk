@@ -147,8 +147,39 @@ class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'stock_quantity', 'in_stock']
-    actions = ['update_clean_numbers', 'link_product_images', 'delete_product_images']
+    actions = ['update_clean_numbers', 'link_product_images', 'delete_product_images', 'set_in_stock', 'set_out_of_stock']
     change_list_template = 'admin/shop/product/change_list.html'
+
+    fieldsets = [
+        ('Цена и наличие', {
+            'fields': ['price', 'old_price', 'stock_quantity', 'in_stock'],
+            'description': 'Управление ценой и остатками товара. Эти же поля можно менять прямо в списке товаров.',
+        }),
+        ('Основные данные', {
+            'fields': ['name', 'slug', 'code', 'tmp_id', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number'],
+        }),
+        ('Очищенные номера (для поиска)', {
+            'fields': ['catalog_number_clean', 'artikyl_number_clean'],
+            'classes': ['collapse'],
+            'description': 'Заполняются автоматически при сохранении. Можно обновить массово через действие «Обновить поисковые индексы».',
+        }),
+        ('Описание и применяемость', {
+            'fields': ['description', 'applicability'],
+        }),
+        ('Пометки', {
+            'fields': ['is_featured', 'is_new'],
+        }),
+        ('SEO', {
+            'fields': ['meta_title', 'meta_description', 'meta_keywords'],
+            'classes': ['collapse'],
+        }),
+        ('Служебные', {
+            'fields': ['created_at', 'updated_at'],
+            'classes': ['collapse'],
+        }),
+    ]
+
+    readonly_fields = ['created_at', 'updated_at']
     
     def link_product_images(self, request, queryset):
         """
@@ -198,6 +229,18 @@ class ProductAdmin(admin.ModelAdmin):
         )
 
     delete_product_images.short_description = '🗑️ У выбранных товаров удалить все изображения'
+
+    def set_in_stock(self, request, queryset):
+        """Отметить выбранные товары как «В наличии»."""
+        updated = queryset.update(in_stock=True)
+        self.message_user(request, f'Отмечено «В наличии»: {updated} товаров.', level=messages.SUCCESS)
+    set_in_stock.short_description = '✅ Отметить «В наличии»'
+
+    def set_out_of_stock(self, request, queryset):
+        """Отметить выбранные товары как «Нет в наличии»."""
+        updated = queryset.update(in_stock=False, stock_quantity=0)
+        self.message_user(request, f'Отмечено «Нет в наличии»: {updated} товаров. Остаток обнулён.', level=messages.SUCCESS)
+    set_out_of_stock.short_description = '❌ Отметить «Нет в наличии»'
 
     def update_clean_numbers(self, request, queryset):
         """

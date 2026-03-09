@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import TemplateView, ListView, DetailView
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
@@ -165,7 +165,9 @@ class CatalogView(CategorySEOMixin, ListView):
             'oe_analogs', 'oe_analogs__brand'
         )
         
-        logger.info(f"Базовый queryset: {base_queryset.count()} товаров")
+        # Не вызываем .count() в проде — лишний тяжёлый запрос (оптимизация)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Базовый queryset: {base_queryset.count()} товаров")
         
         # Поиск согласно ТЗ (приоритет поиска выше фильтров)
         search = self.request.GET.get('search')
@@ -818,16 +820,29 @@ class ProductView(ProductSEOMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.object
+        cross_sort_param = self.request.GET.get('cross_sort', '').strip() or 'brand'
+        cache_key = f'product:context:{product.slug}:{cross_sort_param}'
+        cached = cache.get(cache_key)
+        if cached:
+            context.update(cached)
+            return context
 
         # Для каждой строки кросс-номеров — ссылка на один конкретный товар-аналог (страница товара, не поиск)
         oe_analogs_with_url = []
         if product.oe_analogs.exists():
             oe_cleans = list({o.oe_kod_clean for o in product.oe_analogs.all() if o.oe_kod_clean})
             if oe_cleans:
+                # Prefetch только нужных аналогов по oe_cleans — меньше данных (п. 1.3)
+                prefetch_oe = Prefetch(
+                    'oe_analogs',
+                    queryset=OeKod.objects.filter(oe_kod_clean__in=oe_cleans).only(
+                        'id', 'oe_kod_clean', 'brand_id', 'product_id'
+                    ),
+                )
                 candidates = Product.objects.filter(
                     in_stock=True,
                     oe_analogs__oe_kod_clean__in=oe_cleans,
-                ).exclude(id=product.id).distinct().prefetch_related('oe_analogs')
+                ).exclude(id=product.id).only('id', 'slug').distinct().prefetch_related(prefetch_oe)[:300]
                 by_oe_brand = {}
                 for p in candidates:
                     for o in p.oe_analogs.filter(oe_kod_clean__in=oe_cleans):
@@ -874,5 +889,13 @@ class ProductView(ProductSEOMixin, DetailView):
             in_stock=True
         ).exclude(id=product.id).select_related('brand').prefetch_related('images')[:6]
         context['related_products'] = related_products
+
+        # Кеш контекста на 5–10 мин (п. 1.2)
+        cache.set(cache_key, {
+            'oe_analogs_with_url': context['oe_analogs_with_url'],
+            'cross_sort': context['cross_sort'],
+            'open_cross_tab': context['open_cross_tab'],
+            'related_products': context['related_products'],
+        }, getattr(settings, 'PRODUCT_CACHE_TIMEOUT', 300))
 
         return context

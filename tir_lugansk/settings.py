@@ -178,6 +178,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Whitenoise settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Кеширование статики в браузере (п. 3.3, 5.1). Для медиа — настраивать Cache-Control в nginx/прокси.
+WHITENOISE_MAX_AGE = 86400  # 1 день; при collectstatic с хешами в именах файлов можно увеличить
 
 # Media files
 MEDIA_URL = '/media/'
