@@ -107,15 +107,20 @@ WSGI_APPLICATION = 'tir_lugansk.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+#
+# PostgreSQL. Параметры в .env: DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT (см. env.example).
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME', ''),
+        'USER': os.environ.get('DB_USER', ''),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {'sslmode': 'disable'},
     }
 }
-
-
 # Cache Configuration
 # Используем локальную память (для продакшена рекомендуется Redis/Memcached)
 CACHES = {

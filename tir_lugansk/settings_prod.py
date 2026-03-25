@@ -104,28 +104,18 @@ LOGGING = {
     },
 }
 
-# --- Кеш (опционально: Redis) ---
-# Раскомментировать после установки Redis и pip install redis:
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-#         'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
-#         'TIMEOUT': 300,
-#         'OPTIONS': {'MAX_ENTRIES': 1000},
-#     }
-# }
+# --- Кеш (Redis через REDIS_URL) ---
+# Если REDIS_URL задан, используем Redis как общий кэш для всех процессов.
+# Если переменная не задана, остаётся кэш из settings.py (LocMem) — безопасный fallback.
+_redis_url = os.environ.get('REDIS_URL', '').strip()
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+            'TIMEOUT': 300,
+        }
+    }
 
-# --- БД PostgreSQL (опционально) ---
-# Раскомментировать при переходе с SQLite:
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.environ.get('DB_NAME', 'tir_lugansk'),
-#         'USER': os.environ.get('DB_USER', 'tir_db'),
-#         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-#         'HOST': os.environ.get('DB_HOST', 'localhost'),
-#         'PORT': os.environ.get('DB_PORT', '5432'),
-#         'CONN_MAX_AGE': 60,
-#         'OPTIONS': {'sslmode': 'disable'},
-#     }
-# }
+# --- БД ---
+# DATABASES задаётся в settings.py (только PostgreSQL, переменные DB_* в .env).

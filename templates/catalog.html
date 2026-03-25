@@ -358,16 +358,14 @@
                                                 </label>
                                                 
                                                 <!-- Подкатегории (дочерние категории) -->
-                                                {% if category.children.exists %}
+                                                {% if category.active_children %}
                                                 <div class="subcategory-list">
-                                                    {% for subcategory in category.children.all %}
-                                                    {% if subcategory.is_active %}
+                                                    {% for subcategory in category.active_children %}
                                                     <label class="filter-option subcategory-option">
                                                         <input type="checkbox" name="category" value="{{ subcategory.slug }}"
                                                                {% if subcategory.slug in selected_categories %}checked{% endif %}>
                                                         <span>{{ subcategory.name }}</span>
                                                     </label>
-                                                    {% endif %}
                                                     {% endfor %}
                                                 </div>
                                                 {% endif %}

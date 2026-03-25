@@ -978,30 +978,34 @@
                 });
             });
             
-            // Функции модальных окон
+            // Функции модальных окон (глобально для onclick в разметке)
             function openModal(modalId) {
                 const modal = document.getElementById(modalId);
+                if (!modal) return;
                 modal.classList.add('modal--active');
                 document.body.style.overflow = 'hidden';
             }
 
             function closeModal(modalId) {
                 const modal = document.getElementById(modalId);
+                if (!modal) return;
                 modal.classList.remove('modal--active');
                 document.body.style.overflow = '';
             }
+            window.openModal = openModal;
+            window.closeModal = closeModal;
 
             // Закрытие модального окна по клику на overlay или кнопку закрытия
             document.querySelectorAll('.modal').forEach(modal => {
                 const overlay = modal.querySelector('.modal__overlay');
                 const closeBtn = modal.querySelector('.modal__close');
-                
-                overlay.addEventListener('click', function(e) {
-                    if (e.target === overlay) {
-                        closeModal(modal.id);
-                    }
-                });
-                
+                if (overlay) {
+                    overlay.addEventListener('click', function(e) {
+                        if (e.target === overlay) {
+                            closeModal(modal.id);
+                        }
+                    });
+                }
                 if (closeBtn) {
                     closeBtn.addEventListener('click', function() {
                         closeModal(modal.id);
@@ -1009,14 +1013,14 @@
                 }
             });
 
-            // Открытие модалки «О бренде» по клику на ссылку
-            var brandAboutLink = document.getElementById('product-brand-about-link');
-            if (brandAboutLink) {
-                brandAboutLink.addEventListener('click', function(e) {
+            // Открытие модалки «О бренде» — делегирование, чтобы срабатывало гарантированно
+            document.addEventListener('click', function(e) {
+                var link = e.target.closest('#product-brand-about-link');
+                if (link) {
                     e.preventDefault();
                     openModal('brandAboutModal');
-                });
-            }
+                }
+            });
 
             // Закрытие по ESC
             document.addEventListener('keydown', function(e) {

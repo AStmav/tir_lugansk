@@ -10,6 +10,7 @@ from .models import Product, Category, Brand, OeKod
 from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
 import logging
 import re
+import hashlib
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -64,6 +65,11 @@ def search_autocomplete(request):
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
         return JsonResponse({'suggestions': []})
+    brand_slug = (request.GET.get('brand') or '').strip()
+    cache_key = f'autocomplete:{q}:{brand_slug or "-"}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse({'suggestions': cached})
 
     q_work, allow_contains = _parse_search_mode(q)
     q_normalized = normalize_latin_to_cyrillic(q_work)
@@ -96,7 +102,6 @@ def search_autocomplete(request):
     product_q = Q(name__icontains=q_normalized) | number_q
     products = Product.objects.filter(in_stock=True).filter(product_q)
     # Если передан бренд (напр. с каталога с выбранным фильтром) — ищем только в нём
-    brand_slug = request.GET.get('brand', '').strip()
     if brand_slug:
         products = products.filter(brand__slug=brand_slug)
     products = products.select_related('brand').distinct()[:max_items]
@@ -129,6 +134,7 @@ def search_autocomplete(request):
                 if len(suggestions) >= max_items:
                     break
 
+    cache.set(cache_key, suggestions, 90)
     return JsonResponse({'suggestions': suggestions})
 
 
@@ -140,6 +146,28 @@ class CatalogView(CategorySEOMixin, ListView):
     template_name = 'catalog.html'
     context_object_name = 'products'
     paginate_by = 100
+
+    def _build_catalog_cache_key(self):
+        """
+        Кэшируем только листинг без search (иначе рискуем затронуть сложную логику found_analogs).
+        Ключ строим из стабильного набора фильтров/сортировки.
+        """
+        if (self.request.GET.get('search') or '').strip():
+            return None
+
+        category_slugs = sorted(self.request.GET.getlist('category'))
+        brand_slugs = sorted(self.request.GET.getlist('brand'))
+        min_price = (self.request.GET.get('min_price') or '').strip()
+        max_price = (self.request.GET.get('max_price') or '').strip()
+        sort = (self.request.GET.get('sort') or 'newest').strip()
+
+        # Для «чистого каталога без фильтров» кэш id не нужен — список может быть очень большой.
+        if not (category_slugs or brand_slugs or min_price or max_price or sort != 'newest'):
+            return None
+
+        payload = f"cat={','.join(category_slugs)}|brand={','.join(brand_slugs)}|min={min_price}|max={max_price}|sort={sort}"
+        digest = hashlib.sha1(payload.encode('utf-8')).hexdigest()
+        return f"catalog:ids:{digest}"
     
     def get_queryset(self):
         """
@@ -153,16 +181,39 @@ class CatalogView(CategorySEOMixin, ListView):
         if getattr(self, '_queryset_cache', None) is not None:
             return self._queryset_cache
 
+        # Этап 4 Redis: быстрый путь для фильтрованного каталога (без search)
+        ids_cache_key = self._build_catalog_cache_key()
+        if ids_cache_key:
+            cached_ids = cache.get(ids_cache_key)
+            if cached_ids:
+                self._found_analogs = OeKod.objects.none()
+                sort = (self.request.GET.get('sort') or 'newest').strip()
+                self._queryset_cache = Product.objects.filter(id__in=cached_ids).select_related(
+                    'category', 'brand'
+                ).prefetch_related('images')
+                if sort == 'price_asc':
+                    self._queryset_cache = self._queryset_cache.order_by('price')
+                elif sort == 'price_desc':
+                    self._queryset_cache = self._queryset_cache.order_by('-price')
+                elif sort == 'name':
+                    self._queryset_cache = self._queryset_cache.order_by('name')
+                else:
+                    self._queryset_cache = self._queryset_cache.order_by('-created_at')
+                logger.info("Каталог: использован Redis-кэш id для фильтрованного листинга")
+                return self._queryset_cache
+
         # Инициализируем список найденных аналогов
         self._found_analogs = OeKod.objects.none()
         
-        # Начинаем с базового queryset с оптимизацией
+        # Начинаем с базового queryset с оптимизацией.
+        # Для каталога нам нужны brand/category и изображения карточек.
+        # Тяжёлый prefetch oe_analogs убираем из базового пути: он не нужен для рендера карточек.
         base_queryset = Product.objects.filter(
             in_stock=True
         ).select_related(
             'category', 'brand'
         ).prefetch_related(
-            'oe_analogs', 'oe_analogs__brand'
+            'images'
         )
         
         # Не вызываем .count() в проде — лишний тяжёлый запрос (оптимизация)
@@ -307,8 +358,9 @@ class CatalogView(CategorySEOMixin, ListView):
                 found_products = base_queryset.filter(
                     number_search_query | oe_search_query
                 ).distinct()
+                found_product_ids_set = set(found_products.values_list('id', flat=True))
                 
-                logger.info(f"Найдено товаров напрямую (по номерам/названию/cross_number): {found_products.count()}")
+                logger.info("Найдены товары напрямую (по номерам/названию/cross_number)")
                 
                 # Ищем все OE-аналоги по запросу (для id_tovar); без % — только начало, с % — и в середине
                 oe_direct_query = (
@@ -337,11 +389,12 @@ class CatalogView(CategorySEOMixin, ListView):
                 all_matching_oe_analogs = OeKod.objects.filter(oe_direct_query)
                 
                 products_by_id_tovar = base_queryset.none()  # Инициализируем пустым
+                has_products_by_id_tovar = False
                 all_oe_codes_from_owners = set()  # НОВОЕ: Собираем все OE коды от владельцев аналогов
                 
-                if all_matching_oe_analogs.exists():
-                    # Получаем id_tovar из всех найденных аналогов
-                    id_tovar_list = list(all_matching_oe_analogs.values_list('id_tovar', flat=True).distinct())
+                # Получаем id_tovar из всех найденных аналогов одним запросом
+                id_tovar_list = list(all_matching_oe_analogs.values_list('id_tovar', flat=True).distinct())
+                if id_tovar_list:
                     # Убираем суффиксы -dupN для поиска
                     import re
                     clean_id_tovar_list = [re.sub(r'-dup\d+$', '', tid) for tid in id_tovar_list if tid]
@@ -352,9 +405,10 @@ class CatalogView(CategorySEOMixin, ListView):
                         Q(tmp_id__in=clean_id_tovar_list)
                     ).distinct()
                     
-                    if products_by_id_tovar.exists():
-                        logger.info(f"Найдено {products_by_id_tovar.count()} товаров через OE аналоги (по id_tovar)")
-                        found_products = (found_products | products_by_id_tovar).distinct()
+                    has_products_by_id_tovar = products_by_id_tovar.exists()
+                    if has_products_by_id_tovar:
+                        logger.info("Найдены товары через OE аналоги (по id_tovar)")
+                        found_product_ids_set.update(products_by_id_tovar.values_list('id', flat=True))
                         
                         # НОВОЕ: Находим ВСЕ OE аналоги, связанные с найденными товарами (через id_tovar)
                         # Это нужно для поиска товаров по artikyl_number_clean, которые совпадают с oe_kod_clean этих аналогов
@@ -384,21 +438,20 @@ class CatalogView(CategorySEOMixin, ListView):
                                     artikyl_number_clean__in=oe_codes_for_search
                                 ).distinct()
                                 
-                                if products_by_oe_codes.exists():
-                                    logger.info(f"Найдено {products_by_oe_codes.count()} товаров по artikyl_number_clean, совпадающим с OE кодами владельцев (исключая сам запрос)")
-                                    found_products = (found_products | products_by_oe_codes).distinct()
+                                logger.info("Найдены товары по artikyl_number_clean, совпадающим с OE кодами владельцев (исключая сам запрос)")
+                                found_product_ids_set.update(products_by_oe_codes.values_list('id', flat=True))
                 
                 # Уникальных товаров до группировки (без дублей по разным путям поиска)
-                if found_products.exists():
-                    logger.info(f"Уникальных товаров до группировки (напрямую/OE/id_tovar): {found_products.count()}")
+                has_found_products = bool(found_product_ids_set)
+                if has_found_products:
+                    logger.info("Получены уникальные товары до группировки (напрямую/OE/id_tovar)")
                 
                 # НОВОЕ: Находим ВСЕ аналоги найденных товаров для отображения отдельными карточками
                 # Это аналоги, которые принадлежат найденным товарам
                 found_analogs = OeKod.objects.none()
-                if found_products.exists():
-                    found_product_ids = found_products.values_list('id', flat=True)
+                if has_found_products:
                     found_analogs = OeKod.objects.filter(
-                        product_id__in=found_product_ids
+                        product_id__in=found_product_ids_set
                     ).select_related(
                         'product', 'brand', 'product__brand', 'product__category'
                     ).distinct()
@@ -409,7 +462,7 @@ class CatalogView(CategorySEOMixin, ListView):
                 # 2. Найти владельцев аналогов (id_tovar)
                 # 3. По кодам владельцев (catalog_number_clean/PROPERTY_T и artikyl_number_clean/PROPERTY_A) найти товары
                 # 4. По cross_number (PROPERTY_C) найти все товары с одинаковыми значениями
-                if found_products.exists():
+                if has_found_products:
                     # Собираем коды из ВСЕХ найденных товаров (напрямую + через OE аналоги + через id_tovar)
                     found_artikyl_clean_values = set()
                     found_catalog_clean_values = set()  # НОВОЕ: Для поиска по catalog_number_clean (PROPERTY_T)
@@ -417,12 +470,13 @@ class CatalogView(CategorySEOMixin, ListView):
                     found_cross_numbers = set()  # НОВОЕ: Для поиска по cross_number (PROPERTY_C)
                     
                     # Используем ВСЕ найденные товары для группировки
-                    all_found_for_grouping = found_products
-                    if products_by_id_tovar.exists():
+                    all_found_for_grouping_ids = set(found_product_ids_set)
+                    if has_products_by_id_tovar:
                         # Добавляем товары, найденные через id_tovar, если они еще не включены
-                        all_found_for_grouping = (all_found_for_grouping | products_by_id_tovar).distinct()
+                        all_found_for_grouping_ids.update(products_by_id_tovar.values_list('id', flat=True))
                     
                     # Собираем artikyl_number_clean (PROPERTY_A) из всех найденных товаров
+                    all_found_for_grouping = base_queryset.filter(id__in=all_found_for_grouping_ids)
                     artikyl_clean_data = all_found_for_grouping.values_list('artikyl_number_clean', flat=True)
                     for artikyl_number_clean in artikyl_clean_data:
                         if artikyl_number_clean:
@@ -456,8 +510,7 @@ class CatalogView(CategorySEOMixin, ListView):
                         products_by_catalog_clean = base_queryset.filter(
                             catalog_number_clean__in=found_catalog_clean_values
                         ).distinct()
-                        if products_by_catalog_clean.exists():
-                            logger.info(f"Найдено {products_by_catalog_clean.count()} товаров по catalog_number_clean (PROPERTY_T) владельцев аналогов")
+                        logger.info("Найдены товары по catalog_number_clean (PROPERTY_T) владельцев аналогов")
                     
                     # НОВОЕ: Находим товары с такими же catalog_number (Majorsell/CEI)
                     # Например, "220169" и "220.169" считаются одинаковыми
@@ -482,8 +535,7 @@ class CatalogView(CategorySEOMixin, ListView):
                                     catalog_query |= Q(catalog_number__iexact=cat_num_with_dot)
                         
                         products_by_catalog = base_queryset.filter(catalog_query).distinct()
-                        if products_by_catalog.exists():
-                            logger.info(f"Найдено {products_by_catalog.count()} товаров с такими же catalog_number (Majorsell/CEI группировка)")
+                        logger.info("Найдены товары с такими же catalog_number (Majorsell/CEI группировка)")
                     
                     # НОВОЕ: Находим товары по cross_number (PROPERTY_C) владельцев аналогов
                     # Согласно ТЗ: по cross_number найти все товары с одинаковыми значениями
@@ -492,8 +544,7 @@ class CatalogView(CategorySEOMixin, ListView):
                         products_by_cross = base_queryset.filter(
                             cross_number__in=found_cross_numbers
                         ).exclude(cross_number='').distinct()
-                        if products_by_cross.exists():
-                            logger.info(f"Найдено {products_by_cross.count()} товаров по cross_number (PROPERTY_C) владельцев аналогов")
+                        logger.info("Найдены товары по cross_number (PROPERTY_C) владельцев аналогов")
                     
                     # Если нашли товары с artikyl_number_clean, находим ВСЕ товары с такими же значениями
                     # ИСПРАВЛЕНО: Группировка по artikyl_number_clean применяется ТОЛЬКО к товарам, найденным напрямую или через OE аналоги
@@ -507,59 +558,37 @@ class CatalogView(CategorySEOMixin, ListView):
                             artikyl_number_clean__in=found_artikyl_clean_values
                         ).distinct()
                         
-                        if products_by_artikyl.exists():
-                            logger.info(f"Найдено {products_by_artikyl.count()} товаров с такими же artikyl_number_clean (группировка по PROPERTY_A)")
-                            
-                            # ИСПРАВЛЕНО: Объединяем товары, найденные напрямую/OE + группировку по artikyl_number_clean + 
-                            # группировку по catalog_number_clean (PROPERTY_T) + группировку по catalog_number (Majorsell/CEI) + группировку по cross_number (PROPERTY_C)
-                            found_products = (
-                                all_found_for_grouping | 
-                                products_by_artikyl | 
-                                products_by_catalog_clean | 
-                                products_by_catalog | 
-                                products_by_cross
-                            ).distinct()
-                            initial_count = all_found_for_grouping.count()
-                            artikyl_count = products_by_artikyl.count()
-                            catalog_clean_count = products_by_catalog_clean.count() if products_by_catalog_clean.exists() else 0
-                            catalog_count = products_by_catalog.count() if products_by_catalog.exists() else 0
-                            cross_count = products_by_cross.count() if products_by_cross.exists() else 0
-                            added_by_artikyl = artikyl_count - initial_count
-                            logger.info(f"Исходных результатов: {initial_count}, добавлено по artikyl_number: {added_by_artikyl}, по catalog_number_clean: {catalog_clean_count}, по catalog_number: {catalog_count}, по cross_number: {cross_count}, итого: {found_products.count()}")
-                        else:
-                            # Если нет группировки по artikyl_number_clean, добавляем товары по catalog_number_clean, catalog_number и cross_number
-                            found_products = (
-                                all_found_for_grouping | 
-                                products_by_catalog_clean | 
-                                products_by_catalog | 
-                                products_by_cross
-                            ).distinct()
+                        logger.info("Найдены товары с такими же artikyl_number_clean (группировка по PROPERTY_A)")
+                        
+                        # Объединяем результаты через id, чтобы избежать дорогих UNION/distinct queryset
+                        grouped_ids = set(all_found_for_grouping_ids)
+                        grouped_ids.update(products_by_artikyl.values_list('id', flat=True))
+                        grouped_ids.update(products_by_catalog_clean.values_list('id', flat=True))
+                        grouped_ids.update(products_by_catalog.values_list('id', flat=True))
+                        grouped_ids.update(products_by_cross.values_list('id', flat=True))
+                        found_product_ids_set = grouped_ids
+                        logger.info("Выполнена группировка результатов по PROPERTY_A / PROPERTY_T / PROPERTY_C")
                     else:
-                        # Если нет artikyl_number_clean для группировки, добавляем товары по catalog_number_clean, catalog_number и cross_number
-                        found_products = (
-                            all_found_for_grouping | 
-                            products_by_catalog_clean | 
-                            products_by_catalog | 
-                            products_by_cross
-                        ).distinct()
+                        grouped_ids = set(all_found_for_grouping_ids)
+                        grouped_ids.update(products_by_catalog_clean.values_list('id', flat=True))
+                        grouped_ids.update(products_by_catalog.values_list('id', flat=True))
+                        grouped_ids.update(products_by_cross.values_list('id', flat=True))
+                        found_product_ids_set = grouped_ids
                 
                 # Принудительная дедупликация по id: union в SQLite может давать дубликаты строк
-                found_product_ids = list(found_products.values_list('id', flat=True).distinct())
+                found_product_ids = list(found_product_ids_set)
                 unique_count = len(found_product_ids)
-                if unique_count != found_products.count():
-                    logger.info(f"Дедупликация по id: было {found_products.count()} строк, уникальных товаров: {unique_count}")
+                logger.info(f"Дедупликация по id завершена, уникальных товаров: {unique_count}")
                 found_products = base_queryset.filter(id__in=found_product_ids)
                 
-                products_count = found_products.count()
-                analogs_count = found_analogs.count()
-                logger.info(f"Найдено товаров: {products_count}, аналогов этих товаров: {analogs_count}")
+                logger.info("Результаты поиска и аналоги подготовлены")
                 
                 # Сохраняем найденные аналоги в атрибуте для использования в get_context_data
                 self._found_analogs = found_analogs
                 
-                if found_products.exists() or found_analogs.exists():
+                if unique_count > 0:
                     queryset = found_products
-                    logger.info(f"Финальный результат: {queryset.count()} товаров, {analogs_count} аналогов")
+                    logger.info("Финальный результат: сформирован queryset товаров с аналогами")
                 else:
                     # Если по номеру ничего не найдено, возвращаем пустой результат
                     logger.warning(f"По номеру '{search}' ничего не найдено")
@@ -568,46 +597,27 @@ class CatalogView(CategorySEOMixin, ListView):
             else:
                 logger.info(f"Поиск по тексту: '{search}'")
                 
-                # ИСПРАВЛЕНО: Для SQLite icontains может не работать корректно с кириллицей
-                # Используем оба варианта: оригинальный и в нижнем регистре
-                search_lower = search.lower()
-                search_upper = search.upper()
-                search_capitalize = search.capitalize()
                 # НОВОЕ: Очищенная версия для поиска в очищенных полях
                 search_clean = Product.clean_number(search)
                 
                 # ПОИСК ПО НАЗВАНИЮ И БРЕНДУ - ищем по ВСЕМ товарам независимо от фильтров
                 # ИСПРАВЛЕНО: Добавлен поиск по artikyl_number и artikyl_number_clean (PROPERTY_A)
                 # ИСПРАВЛЕНО: Добавлен поиск по OE кодам в текстовой логике (для случаев типа "fynbktl")
-                # Пробуем все варианты регистра для надежности
+                # Для PostgreSQL icontains уже case-insensitive, поэтому без дублирования lower/upper.
                 text_search_query = (
                     Q(name__icontains=search) |
-                    Q(name__icontains=search_lower) |
-                    Q(name__icontains=search_upper) |
-                    Q(name__icontains=search_capitalize) |
                     Q(brand__name__icontains=search) |
-                    Q(brand__name__icontains=search_lower) |
-                    Q(brand__name__icontains=search_upper) |
-                    Q(brand__name__icontains=search_capitalize) |
                     Q(description__icontains=search) |
-                    Q(description__icontains=search_lower) |
                     Q(applicability__icontains=search) |
-                    Q(applicability__icontains=search_lower) |
                     # НОВОЕ: Поиск по дополнительному номеру (PROPERTY_A) - оригинальное поле
                     Q(artikyl_number__icontains=search) |
-                    Q(artikyl_number__icontains=search_lower) |
-                    Q(artikyl_number__icontains=search_upper) |
-                    Q(artikyl_number__icontains=search_capitalize) |
                     # НОВОЕ: Поиск по очищенному дополнительному номеру (без символов и регистра)
                     Q(artikyl_number_clean__icontains=search_clean) |
                     # НОВОЕ: Поиск по каталожному номеру (на случай если там текст)
                     Q(catalog_number__icontains=search) |
-                    Q(catalog_number__icontains=search_lower) |
                     Q(catalog_number_clean__icontains=search_clean) |
                     # НОВОЕ: Поиск по OE кодам (для случаев типа "fynbktl" - только буквы)
                     Q(oe_analogs__oe_kod__icontains=search) |
-                    Q(oe_analogs__oe_kod__icontains=search_lower) |
-                    Q(oe_analogs__oe_kod__icontains=search_upper) |
                     Q(oe_analogs__oe_kod_clean__icontains=search_clean)
                 )
                 
@@ -616,17 +626,8 @@ class CatalogView(CategorySEOMixin, ListView):
                 # и находим ВСЕ товары с такими же значениями artikyl_number/artikyl_number_clean
                 initial_results = base_queryset.filter(text_search_query).distinct()
                 
-                # ИСПРАВЛЕНО: Также находим товары через OE коды, если они не попали в initial_results
-                # Это нужно для случаев типа "fynbktl" - когда товар найден только через OE код
-                oe_products = base_queryset.filter(
-                    Q(oe_analogs__oe_kod__icontains=search) |
-                    Q(oe_analogs__oe_kod__icontains=search_lower) |
-                    Q(oe_analogs__oe_kod__icontains=search_upper) |
-                    Q(oe_analogs__oe_kod_clean__icontains=search_clean)
-                ).distinct()
-                
-                # Объединяем все найденные товары
-                all_found_products = (initial_results | oe_products).distinct()
+                # В text_search_query уже включён поиск по OE, поэтому повторный запрос не нужен.
+                all_found_products = initial_results
                 
                 # Находим уникальные значения artikyl_number и artikyl_number_clean из найденных товаров
                 # Это работает для товаров, найденных по названию, artikyl_number, OE кодам или любому другому полю
@@ -658,48 +659,45 @@ class CatalogView(CategorySEOMixin, ListView):
                     # Добавляем все товары с такими же artikyl_number
                     products_by_artikyl = base_queryset.filter(artikyl_query).distinct()
                     
-                    if products_by_artikyl.exists():
-                        logger.info(f"Найдено {products_by_artikyl.count()} товаров с такими же artikyl_number (группировка по PROPERTY_A)")
-                        # Объединяем результаты: исходные + все товары с такими же artikyl_number
-                        queryset = (all_found_products | products_by_artikyl).distinct()
-                    else:
-                        queryset = all_found_products
+                    logger.info("Найдены товары с такими же artikyl_number (группировка по PROPERTY_A)")
+                    # Объединяем результаты: исходные + все товары с такими же artikyl_number
+                    queryset = (all_found_products | products_by_artikyl).distinct()
                 else:
                     queryset = all_found_products
                 
-                logger.info(f"Результат поиска по тексту: {queryset.count()} товаров")
+                logger.info("Результат поиска по тексту сформирован")
         else:
             # Если поиска нет, применяем фильтры к базовому queryset
             queryset = base_queryset
             logger.info("Поисковый запрос отсутствует, применяем только фильтры")
         
-        # Применяем фильтры только если НЕ было поиска или поиск вернул результаты
-        if not search or (search and queryset.exists()):
-            # Фильтр по категории (множественный выбор)
-            category_slugs = self.request.GET.getlist('category')
-            if category_slugs:
-                logger.info(f"Применяем фильтр по категориям: {category_slugs}")
-                queryset = queryset.filter(category__slug__in=category_slugs)
-                logger.info(f"После фильтра по категориям: {queryset.count()} товаров")
-            
-            # Фильтр по бренду (множественный выбор)
-            brand_slugs = self.request.GET.getlist('brand')
-            if brand_slugs:
-                logger.info(f"Применяем фильтр по брендам: {brand_slugs}")
-                queryset = queryset.filter(brand__slug__in=brand_slugs)
-                logger.info(f"После фильтра по брендам: {queryset.count()} товаров")
-            
-            # Фильтр по цене
-            min_price = self.request.GET.get('min_price')
-            max_price = self.request.GET.get('max_price')
-            if min_price:
-                logger.info(f"Применяем фильтр по минимальной цене: {min_price}")
-                queryset = queryset.filter(price__gte=min_price)
-                logger.info(f"После фильтра по минимальной цене: {queryset.count()} товаров")
-            if max_price:
-                logger.info(f"Применяем фильтр по максимальной цене: {max_price}")
-                queryset = queryset.filter(price__lte=max_price)
-                logger.info(f"После фильтра по максимальной цене: {queryset.count()} товаров")
+        # Применяем фильтры поверх текущего queryset.
+        # Для пустого queryset это безопасно и не меняет результат, но избегает лишнего EXISTS().
+        # Фильтр по категории (множественный выбор)
+        category_slugs = self.request.GET.getlist('category')
+        if category_slugs:
+            logger.info(f"Применяем фильтр по категориям: {category_slugs}")
+            queryset = queryset.filter(category__slug__in=category_slugs)
+            logger.info("Применён фильтр по категориям")
+        
+        # Фильтр по бренду (множественный выбор)
+        brand_slugs = self.request.GET.getlist('brand')
+        if brand_slugs:
+            logger.info(f"Применяем фильтр по брендам: {brand_slugs}")
+            queryset = queryset.filter(brand__slug__in=brand_slugs)
+            logger.info("Применён фильтр по брендам")
+        
+        # Фильтр по цене
+        min_price = self.request.GET.get('min_price')
+        max_price = self.request.GET.get('max_price')
+        if min_price:
+            logger.info(f"Применяем фильтр по минимальной цене: {min_price}")
+            queryset = queryset.filter(price__gte=min_price)
+            logger.info("Применён фильтр по минимальной цене")
+        if max_price:
+            logger.info(f"Применяем фильтр по максимальной цене: {max_price}")
+            queryset = queryset.filter(price__lte=max_price)
+            logger.info("Применён фильтр по максимальной цене")
         
         # Сортировка
         sort = self.request.GET.get('sort', 'newest')
@@ -721,7 +719,11 @@ class CatalogView(CategorySEOMixin, ListView):
         # при JOIN с таблицей oe_analogs (если у товара несколько OE)
         queryset = queryset.distinct()
 
-        logger.info(f"Финальный результат: {queryset.count()} товаров")
+        if ids_cache_key:
+            # Кэшируем только id + короткий TTL, чтобы не получить протухшие данные надолго.
+            cache.set(ids_cache_key, list(queryset.values_list('id', flat=True)), 120)
+
+        logger.info("Финальный queryset каталога сформирован")
         self._queryset_cache = queryset
         return queryset
 
@@ -733,14 +735,19 @@ class CatalogView(CategorySEOMixin, ListView):
         # Добавляем найденные аналоги в контекст (если был поиск по номеру)
         if hasattr(self, '_found_analogs'):
             context['found_analogs'] = self._found_analogs
-            logger.info(f"Добавлено {self._found_analogs.count()} аналогов в контекст")
+            logger.info("Найденные аналоги добавлены в контекст")
         else:
             context['found_analogs'] = OeKod.objects.none()
         
         # КЕШИРОВАНИЕ: Основные категории (обновляются редко)
         main_categories = cache.get('main_categories')
         if main_categories is None:
-            main_categories = list(Category.objects.filter(parent=None, is_active=True).order_by('order', 'name'))
+            children_qs = Category.objects.filter(is_active=True).order_by('order', 'name')
+            main_categories = list(
+                Category.objects.filter(parent=None, is_active=True)
+                .prefetch_related(Prefetch('children', queryset=children_qs, to_attr='active_children'))
+                .order_by('order', 'name')
+            )
             cache.set('main_categories', main_categories, settings.CATEGORY_CACHE_TIMEOUT)
             logger.info(f"Основные категории загружены из БД: {len(main_categories)}")
         else:
@@ -791,7 +798,7 @@ class CatalogView(CategorySEOMixin, ListView):
             context['max_price'] = context['products'].aggregate(max_price=models.Max('price'))['max_price']
             logger.info(f"Диапазон цен: {context['min_price']} - {context['max_price']}")
         
-        logger.info(f"Контекст сформирован, товаров в контексте: {context['products'].count() if context['products'] else 0}")
+        logger.info("Контекст каталога сформирован")
         return context
 
 

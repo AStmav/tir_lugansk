@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.postgres.indexes import GinIndex
 from django.urls import reverse
 import re
 
@@ -93,6 +94,9 @@ class Brand(models.Model):
         verbose_name = 'Бренд'
         verbose_name_plural = 'Бренды'
         ordering = ['name']
+        indexes = [
+            GinIndex(fields=['name'], name='shop_brand_name_trgm_idx', opclasses=['gin_trgm_ops']),
+        ]
     
     def __str__(self):
         return self.name
@@ -151,6 +155,13 @@ class Product(models.Model):
             models.Index(fields=['artikyl_number_clean']),
             models.Index(fields=['tmp_id']),
             models.Index(fields=['in_stock', 'catalog_number_clean'], name='shop_prod_stock_cat_idx'),
+            models.Index(fields=['in_stock', 'category'], name='shop_prod_stock_catid_idx'),
+            models.Index(fields=['in_stock', 'brand'], name='shop_prod_stock_brid_idx'),
+            models.Index(fields=['in_stock', 'price'], name='shop_prod_stock_price_idx'),
+            GinIndex(fields=['name'], name='shop_prod_name_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['catalog_number_clean'], name='shop_prod_catcl_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['artikyl_number_clean'], name='shop_prod_artcl_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['cross_number'], name='shop_prod_cross_trgm_idx', opclasses=['gin_trgm_ops']),
         ]
     
     def __str__(self):
@@ -431,6 +442,8 @@ class OeKod(models.Model):
             models.Index(fields=['oe_kod']),
             models.Index(fields=['id_oe']),
             models.Index(fields=['id_tovar']),
+            GinIndex(fields=['oe_kod_clean'], name='shop_oekod_clean_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['oe_kod'], name='shop_oekod_kod_trgm_idx', opclasses=['gin_trgm_ops']),
         ]
     
     def __str__(self):
