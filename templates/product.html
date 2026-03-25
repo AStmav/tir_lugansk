@@ -589,7 +589,25 @@
                                             <div class="product-details">
                                                 <div class="product-detail">
                                                     <span class="detail-label">Код:</span>
-                                                    <span class="detail-value">{{ related_product.code }}</span>
+                                                    <span class="detail-value">{{ related_product.code|default:"—" }}</span>
+                                                </div>
+                                                <div class="product-detail">
+                                                    <span class="detail-label">Бренд:</span>
+                                                    <span class="detail-value">
+                                                        {% if related_product.brand %}{{ related_product.brand.name }}{% else %}—{% endif %}
+                                                    </span>
+                                                </div>
+                                                <div class="product-detail">
+                                                    <span class="detail-label">Номер:</span>
+                                                    <span class="detail-value">
+                                                        {% if related_product.catalog_number %}
+                                                            {{ related_product.catalog_number }}
+                                                        {% elif related_product.artikyl_number %}
+                                                            {{ related_product.artikyl_number }}
+                                                        {% else %}
+                                                            {{ related_product.code|default:"—" }}
+                                                        {% endif %}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div class="product-footer">
