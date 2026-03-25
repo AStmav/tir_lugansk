@@ -221,6 +221,10 @@ class CatalogView(CategorySEOMixin, ListView):
             logger.debug(f"Базовый queryset: {base_queryset.count()} товаров")
         
         # Поиск согласно ТЗ (приоритет поиска выше фильтров)
+        search_is_number = False
+        search_priority_raw = ''
+        search_priority_clean = ''
+        search_priority_clean_normalized = ''
         search = self.request.GET.get('search')
         if search:
             search = search.strip()
@@ -230,16 +234,20 @@ class CatalogView(CategorySEOMixin, ListView):
             
             # Определяем является ли запрос поиском по номеру
             if OeKod.is_number_search(search):
+                search_is_number = True
                 logger.info(f"Поиск по номеру: '{search}'")
                 
                 # КРИТИЧНО: Очищаем поисковый запрос от символов
                 search_clean = Product.clean_number(search)
+                search_priority_raw = search
+                search_priority_clean = search_clean
                 logger.info(f"Очищенный запрос: '{search_clean}'")
                 
                 # ИСПРАВЛЕНИЕ: Создаем нормализованную версию (Latin → Cyrillic)
                 # Для случаев типа "Яблоко M16/8" (Latin M) → "Яблоко М16/8" (Cyrillic М)
                 search_normalized = normalize_latin_to_cyrillic(search)
                 search_clean_normalized = Product.clean_number(search_normalized)
+                search_priority_clean_normalized = search_clean_normalized
                 
                 # Проверяем нужна ли нормализация (избегаем дублирования условий)
                 needs_normalization = (search_clean != search_clean_normalized)
@@ -698,20 +706,53 @@ class CatalogView(CategorySEOMixin, ListView):
             logger.info(f"Применяем фильтр по максимальной цене: {max_price}")
             queryset = queryset.filter(price__lte=max_price)
             logger.info("Применён фильтр по максимальной цене")
+
+        # Для поиска по номеру: искомый товар (точное совпадение каталожного номера) всегда первым.
+        # Остальные результаты (аналоги/группировки) сортируются после него.
+        if search and search_is_number and search_priority_clean:
+            priority_when = [
+                models.When(
+                    Q(catalog_number__iexact=search_priority_raw) | Q(catalog_number_clean__iexact=search_priority_clean),
+                    then=models.Value(0),
+                ),
+                models.When(
+                    Q(artikyl_number__iexact=search_priority_raw) | Q(artikyl_number_clean__iexact=search_priority_clean),
+                    then=models.Value(1),
+                ),
+            ]
+            if search_priority_clean_normalized and search_priority_clean_normalized != search_priority_clean:
+                priority_when.append(
+                    models.When(
+                        Q(catalog_number_clean__iexact=search_priority_clean_normalized) |
+                        Q(artikyl_number_clean__iexact=search_priority_clean_normalized),
+                        then=models.Value(2),
+                    )
+                )
+                default_priority = 3
+            else:
+                default_priority = 2
+            queryset = queryset.annotate(
+                _search_priority=models.Case(
+                    *priority_when,
+                    default=models.Value(default_priority),
+                    output_field=models.IntegerField(),
+                )
+            )
         
         # Сортировка
         sort = self.request.GET.get('sort', 'newest')
+        order_prefix = ['_search_priority'] if (search and search_is_number and search_priority_clean) else []
         if sort == 'price_asc':
-            queryset = queryset.order_by('price')
+            queryset = queryset.order_by(*order_prefix, 'price')
             logger.info("Сортировка по возрастанию цены")
         elif sort == 'price_desc':
-            queryset = queryset.order_by('-price')
+            queryset = queryset.order_by(*order_prefix, '-price')
             logger.info("Сортировка по убыванию цены")
         elif sort == 'name':
-            queryset = queryset.order_by('name')
+            queryset = queryset.order_by(*order_prefix, 'name')
             logger.info("Сортировка по названию")
         else:
-            queryset = queryset.order_by('-created_at')
+            queryset = queryset.order_by(*order_prefix, '-created_at')
             logger.info("Сортировка по дате создания (новые сначала)")
         
         # КРИТИЧНО: Применяем distinct() ПОСЛЕ сортировки
@@ -738,40 +779,74 @@ class CatalogView(CategorySEOMixin, ListView):
             logger.info("Найденные аналоги добавлены в контекст")
         else:
             context['found_analogs'] = OeKod.objects.none()
+
+        search_query = (self.request.GET.get('search') or '').strip()
+        result_qs = getattr(self, 'object_list', None) or context.get('object_list') or Product.objects.none()
+        category_ids_qs = result_qs.order_by().values_list('category_id', flat=True).distinct()
+        brand_ids_qs = result_qs.order_by().values_list('brand_id', flat=True).distinct()
         
         # КЕШИРОВАНИЕ: Основные категории (обновляются редко)
-        main_categories = cache.get('main_categories')
-        if main_categories is None:
+        if search_query:
+            # Для страницы поиска фильтры справа должны показывать только то, что есть в результатах.
+            # Категории строим в той же иерархии, но ограничиваем список только найденными id.
+            result_category_ids = set(category_ids_qs)
             children_qs = Category.objects.filter(is_active=True).order_by('order', 'name')
-            main_categories = list(
+            all_main_categories = list(
                 Category.objects.filter(parent=None, is_active=True)
                 .prefetch_related(Prefetch('children', queryset=children_qs, to_attr='active_children'))
                 .order_by('order', 'name')
             )
-            cache.set('main_categories', main_categories, settings.CATEGORY_CACHE_TIMEOUT)
-            logger.info(f"Основные категории загружены из БД: {len(main_categories)}")
+            main_categories = []
+            for parent in all_main_categories:
+                matched_children = [c for c in getattr(parent, 'active_children', []) if c.id in result_category_ids]
+                if parent.id in result_category_ids or matched_children:
+                    parent.active_children = matched_children
+                    main_categories.append(parent)
+            logger.info(f"Категории фильтра ограничены результатами поиска: {len(main_categories)} корневых")
         else:
-            logger.info(f"Основные категории загружены из кеша: {len(main_categories)}")
+            main_categories = cache.get('main_categories')
+            if main_categories is None:
+                children_qs = Category.objects.filter(is_active=True).order_by('order', 'name')
+                main_categories = list(
+                    Category.objects.filter(parent=None, is_active=True)
+                    .prefetch_related(Prefetch('children', queryset=children_qs, to_attr='active_children'))
+                    .order_by('order', 'name')
+                )
+                cache.set('main_categories', main_categories, settings.CATEGORY_CACHE_TIMEOUT)
+                logger.info(f"Основные категории загружены из БД: {len(main_categories)}")
+            else:
+                logger.info(f"Основные категории загружены из кеша: {len(main_categories)}")
         context['main_categories'] = main_categories
         
         # КЕШИРОВАНИЕ: Все категории для фильтра
-        all_categories = cache.get('all_categories')
-        if all_categories is None:
-            all_categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
-            cache.set('all_categories', all_categories, settings.CATEGORY_CACHE_TIMEOUT)
-            logger.info(f"Категории загружены из БД: {len(all_categories)}")
+        if search_query:
+            all_categories = Category.objects.filter(
+                is_active=True,
+                id__in=category_ids_qs,
+            ).order_by('order', 'name')
+            logger.info(f"Категории фильтра (по результатам поиска): {all_categories.count()}")
         else:
-            logger.info(f"Категории загружены из кеша: {len(all_categories)}")
+            all_categories = cache.get('all_categories')
+            if all_categories is None:
+                all_categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
+                cache.set('all_categories', all_categories, settings.CATEGORY_CACHE_TIMEOUT)
+                logger.info(f"Категории загружены из БД: {len(all_categories)}")
+            else:
+                logger.info(f"Категории загружены из кеша: {len(all_categories)}")
         context['categories'] = all_categories
         
         # КЕШИРОВАНИЕ: Все бренды для фильтра
-        all_brands = cache.get('all_brands')
-        if all_brands is None:
-            all_brands = list(Brand.objects.all().order_by('name'))
-            cache.set('all_brands', all_brands, settings.BRAND_CACHE_TIMEOUT)
-            logger.info(f"Бренды загружены из БД: {len(all_brands)}")
+        if search_query:
+            all_brands = list(Brand.objects.filter(id__in=brand_ids_qs).order_by('name'))
+            logger.info(f"Бренды фильтра (по результатам поиска): {len(all_brands)}")
         else:
-            logger.info(f"Бренды загружены из кеша: {len(all_brands)}")
+            all_brands = cache.get('all_brands')
+            if all_brands is None:
+                all_brands = list(Brand.objects.all().order_by('name'))
+                cache.set('all_brands', all_brands, settings.BRAND_CACHE_TIMEOUT)
+                logger.info(f"Бренды загружены из БД: {len(all_brands)}")
+            else:
+                logger.info(f"Бренды загружены из кеша: {len(all_brands)}")
         context['brands'] = all_brands
         
         # Выбранные фильтры для template
