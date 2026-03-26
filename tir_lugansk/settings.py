@@ -224,8 +224,8 @@ JAZZMIN_SETTINGS = {
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",
     "related_modal_active": True,
-    "custom_css": None,
-    "custom_js": None,
+    "custom_css": "admin/css/responsive_sidebar.css",
+    "custom_js": "admin/js/responsive_sidebar.js",
     "show_ui_builder": False,
     "changeform_format": "horizontal_tabs",
     "changeform_format_overrides": {

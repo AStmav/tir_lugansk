@@ -312,6 +312,9 @@ header:not(.header) + main {
   z-index: 1;
 }
 
+body.page-catalog header:not(.header) + main {
+  padding-top: 180px;
+}
 /* Только страница товара: меньше пустого блока под шапкой */
 .page-product header:not(.header) + main {
   padding-top: 150px;
