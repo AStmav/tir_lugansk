@@ -73,6 +73,21 @@ body.app-shop.model-product.change-list #result_list {
   border-collapse: separate;
 }
 
+/* Optional forced zoom for wide product table on narrower desktop screens. */
+@media (max-width: 1600px) {
+  body.app-shop.model-product.change-list #result_list {
+    zoom: 0.92;
+    min-width: 1500px;
+  }
+}
+
+@media (max-width: 1366px) {
+  body.app-shop.model-product.change-list #result_list {
+    zoom: 0.84;
+    min-width: 1450px;
+  }
+}
+
 /* Sticky first two columns: checkbox + product name. */
 body.app-shop.model-product.change-list #result_list th:nth-child(1),
 body.app-shop.model-product.change-list #result_list td:nth-child(1) {
