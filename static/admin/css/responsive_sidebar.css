@@ -88,6 +88,20 @@ body.app-shop.model-product.change-list #result_list td.field-stock_quantity {
   max-width: 90px;
 }
 
+body.app-shop.model-product.change-list #result_list th.column-cross_number,
+body.app-shop.model-product.change-list #result_list td.field-cross_number {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+body.app-shop.model-product.change-list #result_list th.column-artikyl_number,
+body.app-shop.model-product.change-list #result_list td.field-artikyl_number {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+}
+
 body.app-shop.model-product.change-list #result_list td.field-price input,
 body.app-shop.model-product.change-list #result_list td.field-stock_quantity input {
   width: 100% !important;
