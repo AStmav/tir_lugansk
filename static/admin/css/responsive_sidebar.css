@@ -73,6 +73,28 @@ body.app-shop.model-product.change-list #result_list {
   border-collapse: separate;
 }
 
+/* Narrow editable columns: price + stock quantity */
+body.app-shop.model-product.change-list #result_list th.column-price,
+body.app-shop.model-product.change-list #result_list td.field-price {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+body.app-shop.model-product.change-list #result_list th.column-stock_quantity,
+body.app-shop.model-product.change-list #result_list td.field-stock_quantity {
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+}
+
+body.app-shop.model-product.change-list #result_list td.field-price input,
+body.app-shop.model-product.change-list #result_list td.field-stock_quantity input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
 /* Optional forced zoom for wide product table on narrower desktop screens. */
 @media (max-width: 1600px) {
   body.app-shop.model-product.change-list #result_list {
