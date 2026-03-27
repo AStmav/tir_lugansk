@@ -194,6 +194,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Локально: проект/incoming_images. На сервере: задайте свой путь через переменную окружения INCOMING_IMAGES_DIR.
 INCOMING_IMAGES_DIR = Path(os.environ.get('INCOMING_IMAGES_DIR', str(BASE_DIR / 'incoming_images')))
 
+# Watermark settings for imported product images.
+WATERMARK_ENABLED = os.environ.get('WATERMARK_ENABLED', '0')
+WATERMARK_IMAGE_PATH = os.environ.get('WATERMARK_IMAGE_PATH', str(BASE_DIR / 'staticfiles' / 'img' / 'logo_footer.png'))
+WATERMARK_SCALE = float(os.environ.get('WATERMARK_SCALE', '0.22'))
+WATERMARK_OPACITY = float(os.environ.get('WATERMARK_OPACITY', '0.18'))
+WATERMARK_MARGIN = int(os.environ.get('WATERMARK_MARGIN', '16'))
+WATERMARK_POSITION = os.environ.get('WATERMARK_POSITION', 'center')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

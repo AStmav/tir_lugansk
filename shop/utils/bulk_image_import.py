@@ -5,6 +5,7 @@
 import os
 import logging
 from django.conf import settings
+from shop.utils.watermark import save_with_optional_watermark
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +103,7 @@ def process_bulk_image_items(items, remove_source_if_path=False, overwrite_exist
 
         try:
             section_dir.mkdir(parents=True, exist_ok=True)
-            with open(source_path, 'rb') as fh:
-                content = fh.read()
-            dest_path.write_bytes(content)
+            save_with_optional_watermark(str(source_path), str(dest_path))
 
             if product.id not in product_order:
                 product_order[product.id] = ProductImage.objects.filter(product=product).count()
