@@ -781,12 +781,12 @@ class CatalogView(CategorySEOMixin, ListView):
             context['found_analogs'] = OeKod.objects.none()
 
         search_query = (self.request.GET.get('search') or '').strip()
-        result_qs = getattr(self, 'object_list', None) or context.get('object_list') or Product.objects.none()
-        category_ids_qs = result_qs.order_by().values_list('category_id', flat=True).distinct()
-        brand_ids_qs = result_qs.order_by().values_list('brand_id', flat=True).distinct()
         
         # КЕШИРОВАНИЕ: Основные категории (обновляются редко)
         if search_query:
+            result_qs = getattr(self, 'object_list', None) or context.get('object_list') or Product.objects.none()
+            category_ids_qs = result_qs.order_by().values_list('category_id', flat=True).distinct()
+            brand_ids_qs = result_qs.order_by().values_list('brand_id', flat=True).distinct()
             # Для страницы поиска фильтры справа должны показывать только то, что есть в результатах.
             # Категории строим в той же иерархии, но ограничиваем список только найденными id.
             result_category_ids = set(category_ids_qs)

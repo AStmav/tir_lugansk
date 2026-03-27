@@ -307,13 +307,9 @@ header:not(.header) {
 }
 
 header:not(.header) + main {
-  padding-top: 260px;
+  padding-top: 220px;
   position: relative;
   z-index: 1;
-}
-
-body.page-catalog header:not(.header) + main {
-  padding-top: 180px;
 }
 /* Только страница товара: меньше пустого блока под шапкой */
 .page-product header:not(.header) + main {
@@ -332,7 +328,7 @@ body.page-catalog header:not(.header) + main {
 }
 
 .header {
-  padding-top: 260px;
+  padding-top: 220px;
 }
 
 .navbar {
@@ -1905,9 +1901,6 @@ body.page-catalog header:not(.header) + main {
   header:not(.header) + main {
     padding-top: 340px;
   }
-  body.page-catalog header:not(.header) + main {
-    padding-top: 180px;
-  }
   .page-product header:not(.header) + main {
     padding-top: 190px;
   }
@@ -2620,9 +2613,6 @@ body.page-catalog header:not(.header) + main {
 @media (max-width: 480px) {
   header:not(.header) + main {
     padding-top: 400px;
-  }
-  body.page-catalog header:not(.header) + main {
-    padding-top: 200px;
   }
   .page-product header:not(.header) + main {
     padding-top: 220px;

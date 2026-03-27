@@ -145,3 +145,51 @@ body.app-shop.model-product.change-list #result_list thead th:nth-child(1),
 body.app-shop.model-product.change-list #result_list thead th:nth-child(2) {
   z-index: 4;
 }
+/* Per-column collapse controls (except Name/Category/Brand; handled in JS) */
+body.app-shop.model-product.change-list #result_list th.tl-col-can-collapse {
+  position: relative;
+  padding-right: 24px;
+}
+
+body.app-shop.model-product.change-list #result_list .tl-col-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 1px solid #98a3ad;
+  border-radius: 2px;
+  background: #ffffff;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+body.app-shop.model-product.change-list #result_list .tl-col-toggle-btn:hover {
+  border-color: #1f8d6a;
+}
+
+body.app-shop.model-product.change-list #result_list .tl-col-toggle-btn.is-collapsed {
+  background: #d9dee2;
+  border-color: #7d8892;
+}
+
+body.app-shop.model-product.change-list #result_list th.tl-col-collapsed,
+body.app-shop.model-product.change-list #result_list td.tl-col-collapsed {
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.app-shop.model-product.change-list #result_list td.tl-col-collapsed input,
+body.app-shop.model-product.change-list #result_list td.tl-col-collapsed select {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
