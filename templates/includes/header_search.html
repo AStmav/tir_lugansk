@@ -168,9 +168,6 @@
     var hint = document.getElementById('catalog-prefix-hint');
     if (!input || !hint) return;
 
-    var isCatalogPage = !!(document.body && document.body.classList.contains('page-catalog'));
-    if (!isCatalogPage) return;
-
     function hasActiveSearch() {
         try {
             return new URLSearchParams(window.location.search).has('search');
