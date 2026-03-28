@@ -62,34 +62,42 @@ def save_with_optional_watermark(source_path: str, destination_path: str) -> boo
         scale = float(getattr(settings, "WATERMARK_SCALE", 0.22))
         opacity = float(getattr(settings, "WATERMARK_OPACITY", 0.18))
         margin = int(getattr(settings, "WATERMARK_MARGIN", 16))
+        fit_mode = str(getattr(settings, "WATERMARK_FIT_MODE", "full")).strip().lower()
 
-        target_w = max(1, int(base.width * scale))
-        ratio = target_w / max(1, watermark.width)
-        target_h = max(1, int(watermark.height * ratio))
-        wm_resized = watermark.resize((target_w, target_h))
+        if fit_mode == "full":
+            # Full-size overlay mode: watermark covers the whole image area.
+            wm_resized = watermark.resize((base.width, base.height))
+            x = 0
+            y = 0
+        else:
+            target_w = max(1, int(base.width * scale))
+            ratio = target_w / max(1, watermark.width)
+            target_h = max(1, int(watermark.height * ratio))
+            wm_resized = watermark.resize((target_w, target_h))
 
         if opacity < 1:
             alpha = wm_resized.getchannel("A")
             alpha = alpha.point(lambda x: int(x * max(0.0, min(1.0, opacity))))
             wm_resized.putalpha(alpha)
 
-        position = str(getattr(settings, "WATERMARK_POSITION", "center")).strip().lower()
-        if position == "bottom_right":
-            x = max(0, base.width - wm_resized.width - margin)
-            y = max(0, base.height - wm_resized.height - margin)
-        elif position == "top_left":
-            x = max(0, margin)
-            y = max(0, margin)
-        elif position == "top_right":
-            x = max(0, base.width - wm_resized.width - margin)
-            y = max(0, margin)
-        elif position == "bottom_left":
-            x = max(0, margin)
-            y = max(0, base.height - wm_resized.height - margin)
-        else:
-            # Default: center
-            x = max(0, (base.width - wm_resized.width) // 2)
-            y = max(0, (base.height - wm_resized.height) // 2)
+        if fit_mode != "full":
+            position = str(getattr(settings, "WATERMARK_POSITION", "center")).strip().lower()
+            if position == "bottom_right":
+                x = max(0, base.width - wm_resized.width - margin)
+                y = max(0, base.height - wm_resized.height - margin)
+            elif position == "top_left":
+                x = max(0, margin)
+                y = max(0, margin)
+            elif position == "top_right":
+                x = max(0, base.width - wm_resized.width - margin)
+                y = max(0, margin)
+            elif position == "bottom_left":
+                x = max(0, margin)
+                y = max(0, base.height - wm_resized.height - margin)
+            else:
+                # Default: center
+                x = max(0, (base.width - wm_resized.width) // 2)
+                y = max(0, (base.height - wm_resized.height) // 2)
         base.alpha_composite(wm_resized, (x, y))
 
         destination = Path(destination_path)

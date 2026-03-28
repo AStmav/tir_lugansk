@@ -201,6 +201,7 @@ WATERMARK_SCALE = float(os.environ.get('WATERMARK_SCALE', '0.22'))
 WATERMARK_OPACITY = float(os.environ.get('WATERMARK_OPACITY', '0.18'))
 WATERMARK_MARGIN = int(os.environ.get('WATERMARK_MARGIN', '16'))
 WATERMARK_POSITION = os.environ.get('WATERMARK_POSITION', 'center')
+WATERMARK_FIT_MODE = os.environ.get('WATERMARK_FIT_MODE', 'full')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
