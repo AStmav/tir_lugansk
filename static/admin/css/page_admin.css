@@ -1,4 +1,5 @@
-/* Админка: редактирование страниц (pages.Page) */
+/* Админка: редактирование страниц (pages.Page).
+   Подключены в PageAdmin.Media — обязательны в репозитории для `collectstatic` + ManifestStaticFilesStorage. */
 
 .field-content textarea {
     min-height: 320px;
