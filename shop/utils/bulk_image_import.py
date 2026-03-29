@@ -28,6 +28,9 @@ def _is_valid_image(file_path):
             return False
         with Image.open(file_path) as img:
             img.verify()
+        # verify() не декодирует полностью; обрезанные JPEG часто падают только на load().
+        with Image.open(file_path) as img:
+            img.load()
         return True
     except Exception:
         return False
@@ -101,6 +104,16 @@ def process_bulk_image_items(items, remove_source_if_path=False, overwrite_exist
                         pass
             continue
 
+        # Параллельный второй импорт (другой воркер / двойной POST) уже мог удалить исходник.
+        if not os.path.isfile(source_path):
+            errors += 1
+            logger.warning(
+                "Исходник отсутствует при копировании (часто — параллельный импорт): %s → %s",
+                source_path,
+                rel_path,
+            )
+            continue
+
         try:
             section_dir.mkdir(parents=True, exist_ok=True)
             save_with_optional_watermark(str(source_path), str(dest_path))
@@ -135,6 +148,13 @@ def process_bulk_image_items(items, remove_source_if_path=False, overwrite_exist
                     os.remove(source_path)
                 except OSError:
                     pass
+        except FileNotFoundError as e:
+            errors += 1
+            logger.warning(
+                "Файл исчез во время обработки %s (параллельный импорт?): %s",
+                rel_path,
+                e,
+            )
         except Exception as e:
             errors += 1
             logger.exception("Ошибка обработки %s: %s", rel_path, e)

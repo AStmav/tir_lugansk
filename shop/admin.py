@@ -323,6 +323,7 @@ class ProductAdmin(admin.ModelAdmin):
                 )
                 return HttpResponseRedirect(request.path)
             items = []
+            seen_realpaths = set()
             for root, _dirs, files in os.walk(incoming_str):
                 rel = os.path.relpath(root, incoming_str)
                 section_id = '_imported' if rel == '.' else rel.replace('\\', '/')
@@ -331,8 +332,16 @@ class ProductAdmin(admin.ModelAdmin):
                     if ext not in IMAGE_EXTENSIONS:
                         continue
                     path = os.path.join(root, filename)
-                    if os.path.isfile(path):
-                        items.append((section_id, filename, path))
+                    if not os.path.isfile(path):
+                        continue
+                    try:
+                        key = os.path.realpath(path)
+                    except OSError:
+                        key = os.path.abspath(path)
+                    if key in seen_realpaths:
+                        continue
+                    seen_realpaths.add(key)
+                    items.append((section_id, filename, path))
             overwrite = request.POST.get('overwrite') == 'on'
             linked_count, not_found, errors, skipped_duplicates, invalid_files, restored_count = process_bulk_image_items(
                 items, remove_source_if_path=True, overwrite_existing=overwrite

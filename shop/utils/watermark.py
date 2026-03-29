@@ -7,6 +7,33 @@ import tempfile
 
 from django.conf import settings
 
+# Чтобы nginx (www-data) читал файлы после импорта/водяного знака без ручного find/chmod.
+_FILE_MODE = 0o644
+_DIR_MODE = 0o755
+
+
+def _ensure_web_readable_image_path(destination_path: str) -> None:
+    path = Path(destination_path).resolve()
+    images_root = (Path(settings.BASE_DIR) / "images").resolve()
+    try:
+        if path.is_file():
+            path.chmod(_FILE_MODE)
+        parent = path.parent
+        for _ in range(32):
+            if not parent.is_dir():
+                break
+            try:
+                parent.chmod(_DIR_MODE)
+            except OSError:
+                pass
+            if parent == images_root:
+                break
+            if parent.parent == parent:
+                break
+            parent = parent.parent
+    except OSError:
+        pass
+
 
 def _env_flag(value: object) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
@@ -26,6 +53,7 @@ def _watermark_path() -> Path | None:
 def _copy_without_watermark(source_path: str, destination_path: str) -> None:
     Path(destination_path).parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination_path)
+    _ensure_web_readable_image_path(destination_path)
 
 
 def save_with_optional_watermark(source_path: str, destination_path: str) -> bool:
@@ -108,6 +136,7 @@ def save_with_optional_watermark(source_path: str, destination_path: str) -> boo
         else:
             base.save(destination, optimize=True)
 
+    _ensure_web_readable_image_path(str(destination_path))
     return True
 
 
