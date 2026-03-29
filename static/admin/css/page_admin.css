@@ -1,0 +1,12 @@
+/* Админка: редактирование страниц (pages.Page) */
+
+.field-content textarea {
+    min-height: 320px;
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.field-meta_description textarea {
+    min-height: 4.5em;
+}
