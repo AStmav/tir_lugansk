@@ -3344,8 +3344,22 @@ header:not(.header) + main {
 
 /* Final mobile header layout override (reference: logo | burger | contacts, search below) */
 @media (max-width: 768px) {
-  header:not(.header) + main {
-    padding-top: 300px;
+  /* Высота шапки задаётся из JS (--app-header-height) по факту: поиск, подсказка, автодополнение, открытое меню — без лишнего зазора до фильтров/контента. */
+  header:not(.header) + main,
+  .page-product header:not(.header) + main {
+    padding-top: calc(var(--app-header-height, 248px) + env(safe-area-inset-top, 0px));
+  }
+  /*
+   * Каталог (ассортимент): дополнительный зазор между нижним краем блока поиска в шапке и блоком «ФИЛЬТРЫ».
+   * Меняйте --catalog-gap-after-search на body.page-catalog (ниже) или здесь — значение в px.
+   */
+  .page-catalog {
+    --catalog-gap-after-search: 12px;
+  }
+  .page-catalog header:not(.header) + main {
+    padding-top: calc(
+      var(--app-header-height, 248px) + env(safe-area-inset-top, 0px) + var(--catalog-gap-after-search)
+    );
   }
   .header {
     padding-top: 540px !important;
@@ -3431,8 +3445,9 @@ header:not(.header) + main {
 }
 
 @media (max-width: 480px) {
-  header:not(.header) + main {
-    padding-top: 360px;
+  header:not(.header) + main,
+  .page-product header:not(.header) + main {
+    padding-top: calc(var(--app-header-height, 252px) + env(safe-area-inset-top, 0px));
   }
   .header {
     padding-top: 560px !important;
