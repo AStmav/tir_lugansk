@@ -923,27 +923,30 @@
                 }, 3000);
             }
             
-            // Слайдер похожих товаров
-            const relatedSwiper = new Swiper('.products-slider-related', {
-                slidesPerView: 1,
-                spaceBetween: 15,
-                loop: true,
-                navigation: {
-                    nextEl: '.swiper-button-next',
-                    prevEl: '.swiper-button-prev',
-                },
-                breakpoints: {
-                    768: { slidesPerView: 2, spaceBetween: 15 },
-                    1024: { slidesPerView: 3, spaceBetween: 20 },
-                    1200: { slidesPerView: 4, spaceBetween: 20 },
-                },
-            });
+            // Слайдер похожих товаров (защита от падения, если Swiper ещё не загрузился)
+            if (typeof Swiper !== 'undefined' && document.querySelector('.products-slider-related')) {
+                new Swiper('.products-slider-related', {
+                    slidesPerView: 1,
+                    spaceBetween: 15,
+                    loop: true,
+                    navigation: {
+                        nextEl: '.swiper-button-next',
+                        prevEl: '.swiper-button-prev',
+                    },
+                    breakpoints: {
+                        768: { slidesPerView: 2, spaceBetween: 15 },
+                        1024: { slidesPerView: 3, spaceBetween: 20 },
+                        1200: { slidesPerView: 4, spaceBetween: 20 },
+                    },
+                });
+            }
             // Обработка формы
             document.addEventListener('DOMContentLoaded', function() {
                 setPhoneMask();
                 
                 const callForm = document.getElementById('callForm');
-                
+                if (!callForm) return;
+
                 callForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     
