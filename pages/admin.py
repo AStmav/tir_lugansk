@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django import forms
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
@@ -219,8 +220,43 @@ class BaseNotificationRecipientAdmin(admin.ModelAdmin):
     deactivate_selected.short_description = "Выключить выбранных получателей"
 
 
+class _ForcedChannelRecipientForm(forms.ModelForm):
+    forced_channel = None
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.forced_channel:
+            self.instance.channel = self.forced_channel
+        return cleaned
+
+
+class EmailNotificationRecipientForm(_ForcedChannelRecipientForm):
+    forced_channel = NotificationRecipient.CHANNEL_EMAIL
+
+    class Meta:
+        model = EmailNotificationRecipient
+        fields = "__all__"
+
+
+class TelegramNotificationRecipientForm(_ForcedChannelRecipientForm):
+    forced_channel = NotificationRecipient.CHANNEL_TELEGRAM
+
+    class Meta:
+        model = TelegramNotificationRecipient
+        fields = "__all__"
+
+
+class MaxNotificationRecipientForm(_ForcedChannelRecipientForm):
+    forced_channel = NotificationRecipient.CHANNEL_MAX
+
+    class Meta:
+        model = MaxNotificationRecipient
+        fields = "__all__"
+
+
 @admin.register(EmailNotificationRecipient)
 class EmailNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    form = EmailNotificationRecipientForm
     list_display = ["value", "is_active", "note", "updated_at"]
     list_filter = ["is_active"]
     fieldsets = (
@@ -243,6 +279,7 @@ class EmailNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
 
 @admin.register(TelegramNotificationRecipient)
 class TelegramNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    form = TelegramNotificationRecipientForm
     list_display = ["telegram_channel", "has_bot_token", "is_active", "note", "updated_at"]
     list_filter = []
     search_fields = []
@@ -283,6 +320,7 @@ class TelegramNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
 
 @admin.register(MaxNotificationRecipient)
 class MaxNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    form = MaxNotificationRecipientForm
     list_display = ["max_owner_id", "has_bot_token", "is_active", "note", "updated_at"]
     list_filter = []
     search_fields = []
