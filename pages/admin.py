@@ -2,7 +2,16 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Page, ContentBlock, PriceInquiry
+from .models import (
+    Page,
+    ContentBlock,
+    PriceInquiry,
+    NotificationRecipient,
+    NotificationDelivery,
+    EmailNotificationRecipient,
+    TelegramNotificationRecipient,
+    MaxNotificationRecipient,
+)
 
 
 class ContentBlockInline(admin.TabularInline):
@@ -80,12 +89,44 @@ class ContentBlockAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at']
 
 
+class DeliveryErrorFilter(admin.SimpleListFilter):
+    title = "ошибки доставки"
+    parameter_name = "delivery_errors"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("yes", "Есть ошибки"),
+            ("no", "Без ошибок"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(
+                notification_deliveries__status=NotificationDelivery.STATUS_FAILED
+            ).distinct()
+        if self.value() == "no":
+            return queryset.exclude(
+                notification_deliveries__status=NotificationDelivery.STATUS_FAILED
+            ).distinct()
+        return queryset
+
+
 @admin.register(PriceInquiry)
 class PriceInquiryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'email', 'request_type', 'product_name_short', 'is_processed', 'created_at']
+    list_display = [
+        'name',
+        'phone',
+        'email',
+        'request_type',
+        'product_name_short',
+        'delivery_summary',
+        'is_processed',
+        'created_at',
+    ]
     list_filter = [
         ('is_processed', admin.BooleanFieldListFilter),
         ('request_type', admin.ChoicesFieldListFilter),
+        DeliveryErrorFilter,
     ]
     search_fields = ['name', 'phone', 'email', 'product_name', 'product_code']
     readonly_fields = ['created_at']
@@ -96,6 +137,7 @@ class PriceInquiryAdmin(admin.ModelAdmin):
         return [
             ('is_processed', admin.BooleanFieldListFilter),
             ('request_type', admin.ChoicesFieldListFilter),
+            DeliveryErrorFilter,
         ]
     
     def product_name_short(self, obj):
@@ -103,6 +145,13 @@ class PriceInquiryAdmin(admin.ModelAdmin):
             return obj.product_name[:50] + '...' if len(obj.product_name) > 50 else obj.product_name
         return '-'
     product_name_short.short_description = 'Товар'
+
+    def delivery_summary(self, obj):
+        sent = obj.notification_deliveries.filter(status=NotificationDelivery.STATUS_SENT).count()
+        failed = obj.notification_deliveries.filter(status=NotificationDelivery.STATUS_FAILED).count()
+        skipped = obj.notification_deliveries.filter(status=NotificationDelivery.STATUS_SKIPPED).count()
+        return f"ok:{sent} err:{failed} skip:{skipped}"
+    delivery_summary.short_description = 'Доставка'
     
     fieldsets = (
         ('Контактная информация', {
@@ -133,3 +182,169 @@ class PriceInquiryAdmin(admin.ModelAdmin):
         updated = queryset.update(is_processed=False)
         self.message_user(request, f'{updated} заявок отмечено как необработанные.')
     mark_as_unprocessed.short_description = 'Отметить как необработанные'
+
+
+class BaseNotificationRecipientAdmin(admin.ModelAdmin):
+    list_display = ["channel", "value", "is_active", "has_bot_token", "note", "updated_at"]
+    list_filter = ["channel", "is_active"]
+    search_fields = ["value", "note"]
+    list_editable = ["is_active"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["channel", "value"]
+
+    fieldsets = (
+        ("Основное", {"fields": ("channel", "value", "bot_token", "is_active", "note")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def has_bot_token(self, obj):
+        return bool(obj.bot_token)
+
+    actions = ["activate_selected", "deactivate_selected"]
+
+    has_bot_token.boolean = True
+    has_bot_token.short_description = "Токен"
+
+    def activate_selected(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Активировано получателей: {updated}.")
+    activate_selected.short_description = "Включить выбранных получателей"
+
+    def deactivate_selected(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Деактивировано получателей: {updated}.")
+    deactivate_selected.short_description = "Выключить выбранных получателей"
+
+
+@admin.register(EmailNotificationRecipient)
+class EmailNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    list_display = ["value", "is_active", "note", "updated_at"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("Email получатель", {"fields": ("value", "is_active", "note")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(channel=NotificationRecipient.CHANNEL_EMAIL)
+
+    def save_model(self, request, obj, form, change):
+        obj.channel = NotificationRecipient.CHANNEL_EMAIL
+        obj.bot_token = ""
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(TelegramNotificationRecipient)
+class TelegramNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    list_display = ["telegram_channel", "has_bot_token", "is_active", "note", "updated_at"]
+    list_filter = []
+    search_fields = []
+    ordering = ["-updated_at"]
+    fieldsets = (
+        ("Телеграм канал", {"fields": ("value", "bot_token", "is_active", "note")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(channel=NotificationRecipient.CHANNEL_TELEGRAM)
+
+    def save_model(self, request, obj, form, change):
+        obj.channel = NotificationRecipient.CHANNEL_TELEGRAM
+        super().save_model(request, obj, form, change)
+
+    def has_add_permission(self, request):
+        # В проекте используется только один Telegram-канал.
+        if NotificationRecipient.objects.filter(channel=NotificationRecipient.CHANNEL_TELEGRAM).exists():
+            return False
+        return super().has_add_permission(request)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if "value" in form.base_fields:
+            form.base_fields["value"].help_text = "Идентификатор канала (chat_id)."
+        return form
+
+    def telegram_channel(self, obj):
+        return obj.value
+
+    telegram_channel.short_description = "Телеграм канал"
+
+
+@admin.register(MaxNotificationRecipient)
+class MaxNotificationRecipientAdmin(BaseNotificationRecipientAdmin):
+    list_display = ["max_owner_id", "has_bot_token", "is_active", "note", "updated_at"]
+    list_filter = []
+    search_fields = []
+    ordering = ["-updated_at"]
+    fieldsets = (
+        ("MAX канал", {"fields": ("value", "bot_token", "is_active", "note")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(channel=NotificationRecipient.CHANNEL_MAX)
+
+    def save_model(self, request, obj, form, change):
+        obj.channel = NotificationRecipient.CHANNEL_MAX
+        super().save_model(request, obj, form, change)
+
+    def has_add_permission(self, request):
+        if NotificationRecipient.objects.filter(channel=NotificationRecipient.CHANNEL_MAX).exists():
+            return False
+        return super().has_add_permission(request)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if "value" in form.base_fields:
+            form.base_fields["value"].help_text = "OWNER_ID (числовой идентификатор владельца)."
+        if "bot_token" in form.base_fields:
+            form.base_fields["bot_token"].help_text = "BOT_TOKEN для MAX."
+        return form
+
+    def max_owner_id(self, obj):
+        return obj.value
+
+    max_owner_id.short_description = "MAX OWNER_ID"
+
+
+@admin.register(NotificationDelivery)
+class NotificationDeliveryAdmin(admin.ModelAdmin):
+    list_display = [
+        "inquiry",
+        "channel",
+        "recipient",
+        "status",
+        "attempt_count",
+        "sent_at",
+        "updated_at",
+    ]
+    list_filter = ["channel", "status", "sent_at", "updated_at"]
+    search_fields = ["recipient", "idempotency_key", "inquiry__name", "inquiry__phone"]
+    readonly_fields = [
+        "inquiry",
+        "channel",
+        "recipient",
+        "status",
+        "attempt_count",
+        "last_error",
+        "idempotency_key",
+        "sent_at",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ["-updated_at"]

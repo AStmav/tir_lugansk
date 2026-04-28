@@ -139,6 +139,49 @@ CATEGORY_CACHE_TIMEOUT = 3600  # 1 час
 BRAND_CACHE_TIMEOUT = 3600  # 1 час
 PRODUCT_CACHE_TIMEOUT = 300  # 5 минут
 
+# Email notifications (call request / price inquiry)
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '1') == '1'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', '0') == '1'
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or 'no-reply@tir-lugansk.ru',
+)
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+
+_notification_emails_raw = os.environ.get(
+    'NOTIFICATION_EMAIL_RECIPIENTS',
+    'astbackend@yandex.ru',
+)
+NOTIFICATION_EMAIL_RECIPIENTS = [
+    email.strip()
+    for email in _notification_emails_raw.split(',')
+    if email.strip()
+]
+
+# Telegram notifications
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+
+# MAX notifications
+MAX_BOT_TOKEN = os.environ.get('MAX_BOT_TOKEN', '')
+MAX_OWNER_ID = os.environ.get('MAX_OWNER_ID', '')
+MAX_API_BASE_URL = os.environ.get('MAX_API_BASE_URL', 'https://api.max.ru')
+
+# Celery (async notifications queue)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'))
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 60
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', '0') == '1'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

@@ -4,8 +4,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.db import transaction
 from shop.models import Product
 from .models import Page, PriceInquiry
+from .tasks import enqueue_inquiry_notifications
 
 
 class HomeView(TemplateView):
@@ -97,6 +99,13 @@ class CallRequestView(View):
                 email=email,
                 request_type='call'
             )
+            def _enqueue():
+                try:
+                    enqueue_inquiry_notifications(call_request.id)
+                except Exception as enqueue_exc:
+                    # Не ломаем ответ пользователю из-за недоступности очереди.
+                    print(f"WARNING: enqueue notify task failed for inquiry {call_request.id}: {enqueue_exc}")
+            transaction.on_commit(_enqueue)
             
             print(f"SUCCESS: Created call request with ID {call_request.id}")
             
@@ -154,6 +163,13 @@ class PriceInquiryView(View):
                 product_name=product_name,
                 product_code=product_code or ''
             )
+            def _enqueue():
+                try:
+                    enqueue_inquiry_notifications(price_inquiry.id)
+                except Exception as enqueue_exc:
+                    # Не ломаем ответ пользователю из-за недоступности очереди.
+                    print(f"WARNING: enqueue notify task failed for inquiry {price_inquiry.id}: {enqueue_exc}")
+            transaction.on_commit(_enqueue)
             
             print(f"SUCCESS: Created PriceInquiry with ID {price_inquiry.id}")
             
