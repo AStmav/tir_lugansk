@@ -6,6 +6,18 @@ Production settings for tir_lugansk.
 На сервере задайте свой каталог через .env: INCOMING_IMAGES_DIR=/var/www/tir-lugansk/incoming_images
 """
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Важно: загружаем .env до импорта .settings, чтобы переменные успели
+# попасть в EMAIL/TELEGRAM/CELERY настройки базового файла.
+_settings_dir = Path(__file__).resolve().parent
+_base_dir = _settings_dir.parent
+_env_file = _settings_dir / ".env"
+if not _env_file.exists():
+    _env_file = _base_dir / ".env"
+load_dotenv(_env_file)
 
 from .settings import *  # noqa: F401, F403
 
