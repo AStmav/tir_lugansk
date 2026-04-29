@@ -456,6 +456,55 @@ def send_inquiry_telegram_to_target(inquiry, chat_id, token):
         )
         return False
 
+    message = _build_body(inquiry)
+    try:
+        async def _send():
+            bot = Bot(token=token)
+            try:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=message,
+                    disable_web_page_preview=True,
+                )
+                return True
+            finally:
+                await bot.session.close()
+
+        result = asyncio.run(_send())
+        if result:
+            _log_delivery(
+                inquiry,
+                NotificationRecipient.CHANNEL_TELEGRAM,
+                chat_id,
+                NotificationDelivery.STATUS_SENT,
+            )
+            logger.info("Inquiry #%s telegram notification sent to %s.", inquiry.id, chat_id)
+            return True
+
+        _log_delivery(
+            inquiry,
+            NotificationRecipient.CHANNEL_TELEGRAM,
+            chat_id,
+            NotificationDelivery.STATUS_FAILED,
+            "Telegram API returned non-success result.",
+        )
+        return False
+    except Exception as exc:
+        _log_delivery(
+            inquiry,
+            NotificationRecipient.CHANNEL_TELEGRAM,
+            chat_id,
+            NotificationDelivery.STATUS_FAILED,
+            str(exc),
+        )
+        logger.exception(
+            "Failed to send inquiry #%s telegram notification to %s: %s",
+            inquiry.id,
+            chat_id,
+            exc,
+        )
+        return False
+
 
 def send_inquiry_max_to_target(inquiry, owner_id, token):
     owner_id = (owner_id or "").strip()
@@ -523,55 +572,6 @@ def send_inquiry_max_to_target(inquiry, owner_id, token):
             "Failed to send inquiry #%s MAX notification to %s: %s",
             inquiry.id,
             owner_id,
-            exc,
-        )
-        return False
-
-    message = _build_body(inquiry)
-    try:
-        async def _send():
-            bot = Bot(token=token)
-            try:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=message,
-                    disable_web_page_preview=True,
-                )
-                return True
-            finally:
-                await bot.session.close()
-
-        result = asyncio.run(_send())
-        if result:
-            _log_delivery(
-                inquiry,
-                NotificationRecipient.CHANNEL_TELEGRAM,
-                chat_id,
-                NotificationDelivery.STATUS_SENT,
-            )
-            logger.info("Inquiry #%s telegram notification sent to %s.", inquiry.id, chat_id)
-            return True
-
-        _log_delivery(
-            inquiry,
-            NotificationRecipient.CHANNEL_TELEGRAM,
-            chat_id,
-            NotificationDelivery.STATUS_FAILED,
-            "Telegram API returned non-success result.",
-        )
-        return False
-    except Exception as exc:
-        _log_delivery(
-            inquiry,
-            NotificationRecipient.CHANNEL_TELEGRAM,
-            chat_id,
-            NotificationDelivery.STATUS_FAILED,
-            str(exc),
-        )
-        logger.exception(
-            "Failed to send inquiry #%s telegram notification to %s: %s",
-            inquiry.id,
-            chat_id,
             exc,
         )
         return False
