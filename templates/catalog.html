@@ -270,6 +270,20 @@
             .product-content {
                 z-index: 10000 !important;
             }
+            .product-price {
+                margin: 8px 0 10px;
+                font-size: 16px;
+                font-weight: 600;
+                color: #1f2937;
+            }
+            .product-price__label {
+                color: #6b7280;
+                font-weight: 500;
+                margin-right: 4px;
+            }
+            .product-price--request {
+                color: #6b7280;
+            }
         </style>
     </head>
     <body class="page-catalog">
@@ -498,6 +512,17 @@
                                                         <span class="detail-value">{{ product.applicability|default:"Уточняйте" }}</span>
                                                     </div>
                                                 </div>
+                                                {% if product.price %}
+                                                <div class="product-price">
+                                                    <span class="product-price__label">Цена от:</span>
+                                                    <span>{{ product.price|floatformat:"0" }} ₽</span>
+                                                </div>
+                                                {% else %}
+                                                <div class="product-price product-price--request">
+                                                    <span class="product-price__label">Цена:</span>
+                                                    <span>по запросу</span>
+                                                </div>
+                                                {% endif %}
                                                 <div class="product-footer">
                                                     <button class="product-contact-btn">
                                                         Обратная связь
