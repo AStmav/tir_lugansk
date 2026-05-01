@@ -20,7 +20,7 @@ class PrettyRssFeed(Rss201rev2Feed):
         if feed_url:
             handler.addQuickElement(
                 "atom:link",
-                "",S
+                "",
                 {
                     "href": feed_url,
                     "rel": "self",
