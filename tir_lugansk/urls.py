@@ -23,6 +23,7 @@ import os
 
 # SEO: импорт для sitemap и robots
 from shop.sitemap_views import SitemapView, RobotsView
+from shop.feeds import CatalogUpdatesFeed
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -32,6 +33,7 @@ urlpatterns = [
     # SEO: sitemap и robots
     path('sitemap.xml', SitemapView.as_view(), name='sitemap'),
     path('robots.txt', RobotsView.as_view(), name='robots'),
+    path('rss.xml', CatalogUpdatesFeed(), name='rss'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Добавляем обслуживание статических файлов для продакшн
