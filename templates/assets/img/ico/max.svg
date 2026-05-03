@@ -1,0 +1,10 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="24" cy="24" r="24" fill="url(#max_grad)"/>
+  <text x="24" y="30" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" letter-spacing="0.04em">MAX</text>
+  <defs>
+    <linearGradient id="max_grad" x1="10" y1="4" x2="38" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#5B21B6"/>
+    </linearGradient>
+  </defs>
+</svg>
