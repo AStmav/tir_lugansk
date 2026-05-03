@@ -356,7 +356,7 @@ header:not(.header) + main {
 .navbar__menu nav {
   width: 100%;
 }
-.navbar__menu nav ul {
+.navbar__menu nav > ul {
   margin: 0;
   width: 100%;
   display: flex;
@@ -369,10 +369,10 @@ header:not(.header) + main {
   border-radius: 20px;
   box-shadow: 0px 0px 30px 0px rgba(169, 175, 180, 0.25);
 }
-.navbar__menu nav ul li {
+.navbar__menu nav > ul > li {
   white-space: nowrap;
 }
-.navbar__menu nav ul li a {
+.navbar__menu nav > ul > li > a {
   padding: 6px 4px;
 }
 .navbar__block {
@@ -467,7 +467,7 @@ header:not(.header) + main {
   text-decoration: none !important;
 }
 
-.menu__links nav ul {
+.menu__links nav > ul {
   display: flex;
   justify-content: space-between;
   max-width: 800px;
@@ -497,7 +497,7 @@ header:not(.header) + main {
     width: auto;
   }
   
-  .navbar__content .navbar__menu.menu__links nav ul {
+  .navbar__content .navbar__menu.menu__links nav > ul {
     width: auto;
     max-width: 800px;
     margin: 20px auto;
@@ -512,23 +512,112 @@ header:not(.header) + main {
   }
 }
 
-.menu__links nav ul li {
+.menu__links nav > ul > li {
   list-style: none;
 }
-.menu__links nav ul li a {
+.menu__links nav > ul > li > a {
   text-decoration: none;
   color: #282828;
   transition: all 0.3s ease;
   padding-bottom: 5px;
   border-bottom: 2px solid transparent;
 }
-.menu__links nav ul li a:hover {
+.menu__links nav > ul > li > a:hover {
   color: #3CC14E;
   border-bottom: 2px solid #3CC14E;
 }
-.menu__links-active a {
+.menu__links-active > a {
   color: #3CC14E !important;
   border-bottom: 2px solid #3CC14E !important;
+}
+
+.menu-catalog {
+  position: relative;
+}
+
+/* dropdown категорий в верхнем меню */
+/* top: 100% без зазора — иначе при движении курсора через «дыру» между ссылкой и
+   списком снимается :hover с li и меню исчезает. Отступ от ссылки — padding-top. */
+.menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown {
+  display: none !important;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  /* Ширина по самой длинной строке + симметричные поля у ссылок (без фиксированной колонки) */
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  max-height: 400px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 !important;
+  padding: 10px 0 12px !important;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e8ecf0;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1), 0 4px 8px rgba(15, 23, 42, 0.04);
+  overflow-wrap: break-word;
+}
+@media (min-width: 769px) {
+  /* Невидимая зона над списком — компенсирует зазор к подложке овала и не рвёт hover */
+  .menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -14px;
+    height: 14px;
+  }
+}
+.menu__links nav > ul > li.menu-catalog:hover > ul.menu-catalog__dropdown,
+.menu__links nav > ul > li.menu-catalog:focus-within > ul.menu-catalog__dropdown,
+.menu__links nav > ul > li.menu-catalog.is-open > ul.menu-catalog__dropdown {
+  display: block !important;
+}
+.menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown > li {
+  display: block !important;
+  width: 100%;
+  list-style: none;
+}
+.menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown > li > a {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 2px 0;
+  padding: 11px 18px;
+  font-size: 15px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  color: #282828;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown > li > a:hover {
+  color: #3CC14E;
+  background: rgba(60, 193, 78, 0.08);
+  border-left-color: #3CC14E;
+}
+.menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown > li > a:focus-visible {
+  outline: none;
+  color: #3CC14E;
+  background: rgba(60, 193, 78, 0.1);
+  border-left-color: #3CC14E;
+}
+
+@media (max-width: 768px) {
+  .menu__links nav > ul > li.menu-catalog > ul.menu-catalog__dropdown {
+    position: static;
+    width: 100%;
+    max-height: 220px;
+    margin-top: 8px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
 }
 
 .info__button {
@@ -2065,7 +2154,7 @@ header:not(.header) + main {
   .header__search-wrapper {
     border-radius: 8px;
   }
-  .menu__links nav ul {
+  .menu__links nav > ul {
     flex-direction: column;
     flex-wrap: wrap;
     align-items: center;
@@ -2075,10 +2164,10 @@ header:not(.header) + main {
     max-width: 400px;
     text-align: center;
   }
-  .menu__links nav ul li {
+  .menu__links nav > ul > li {
     text-align: center;
   }
-  .menu__links nav ul li a {
+  .menu__links nav > ul > li > a {
     display: flex;
     justify-content: center;
   }
@@ -2682,17 +2771,17 @@ header:not(.header) + main {
   .header__search-input {
     font-size: 16px;
   }
-  .menu__links nav ul {
+  .menu__links nav > ul {
     padding: 10px 15px;
     margin: 5px auto;
     max-width: 300px;
     align-items: center;
     text-align: center;
   }
-  .menu__links nav ul li {
+  .menu__links nav > ul > li {
     text-align: center;
   }
-  .menu__links nav ul li a {
+  .menu__links nav > ul > li > a {
     font-size: 13px;
     display: flex;
     justify-content: center;
