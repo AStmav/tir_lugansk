@@ -155,37 +155,112 @@
                 color: #1a1a1a;
             }
             
-            /* Стили для древовидной структуры категорий */
+            /* Подкатегории и бренды — выпадающий список (details), общие стили */
             .category-group {
-                margin-bottom: 8px;
+                margin-bottom: 10px;
             }
             
             .category-parent {
                 font-weight: 500;
-                margin-bottom: 5px;
+                margin-bottom: 6px;
             }
             
-            .subcategory-list {
-                padding-left: 20px;
-                margin-bottom: 5px;
+            .category-subdropdown,
+            .brand-subdropdown {
+                margin-top: 4px;
             }
             
-            .subcategory-option {
-                margin-bottom: 5px;
+            .brand-subdropdown {
+                margin-top: 0;
+            }
+            
+            .category-subdropdown__trigger,
+            .brand-subdropdown__trigger {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 8px 10px;
+                list-style: none;
+                cursor: pointer;
                 font-size: 13px;
-                color: #666;
-                padding-left: 0;
+                color: #333;
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                user-select: none;
+                transition: border-color 0.2s ease, background 0.2s ease;
             }
             
-            .subcategory-option:before {
-                content: '├─';
-                margin-right: 5px;
-                color: #ccc;
-                font-family: monospace;
+            .category-subdropdown__trigger::-webkit-details-marker,
+            .brand-subdropdown__trigger::-webkit-details-marker {
+                display: none;
             }
             
-            .subcategory-option:last-child:before {
-                content: '└─';
+            .category-subdropdown__trigger:hover,
+            .brand-subdropdown__trigger:hover {
+                border-color: #c5c5c5;
+                background: #fafafa;
+            }
+            
+            .category-subdropdown__count,
+            .brand-subdropdown__count {
+                color: #888;
+                font-weight: 400;
+            }
+            
+            .category-subdropdown__chevron,
+            .brand-subdropdown__chevron {
+                flex-shrink: 0;
+                width: 0;
+                height: 0;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #666;
+                margin-left: auto;
+                transition: transform 0.2s ease;
+            }
+            
+            .category-subdropdown[open] .category-subdropdown__chevron,
+            .brand-subdropdown[open] .brand-subdropdown__chevron {
+                transform: rotate(180deg);
+            }
+            
+            .category-subdropdown__panel,
+            .brand-subdropdown__panel {
+                margin-top: 4px;
+                padding: 8px 10px 6px;
+                max-height: 220px;
+                overflow-y: auto;
+                border: 1px solid #e9ecef;
+                border-radius: 6px;
+                background: #fcfcfc;
+            }
+            
+            .category-subdropdown__item,
+            .brand-subdropdown__item {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                margin: 0 0 6px 0;
+                font-size: 13px;
+                line-height: 1.35;
+                color: #444;
+            }
+            
+            .category-subdropdown__item:last-child,
+            .brand-subdropdown__item:last-child {
+                margin-bottom: 0;
+            }
+            
+            .category-subdropdown__item input[type="checkbox"],
+            .brand-subdropdown__item input[type="checkbox"] {
+                margin-top: 2px;
+                flex-shrink: 0;
+            }
+            
+            .brand-subdropdown__panel .show-more-btn {
+                margin-top: 8px;
             }
             
             /* Стили для пагинации */
@@ -380,17 +455,22 @@
                                                     <span>{{ category.name }}</span>
                                                 </label>
                                                 
-                                                <!-- Подкатегории (дочерние категории) -->
                                                 {% if category.active_children %}
-                                                <div class="subcategory-list">
-                                                    {% for subcategory in category.active_children %}
-                                                    <label class="filter-option subcategory-option">
-                                                        <input type="checkbox" name="category" value="{{ subcategory.slug }}"
-                                                               {% if subcategory.slug in selected_categories %}checked{% endif %}>
-                                                        <span>{{ subcategory.name }}</span>
-                                                    </label>
-                                                    {% endfor %}
-                                                </div>
+                                                <details class="category-subdropdown">
+                                                    <summary class="category-subdropdown__trigger">
+                                                        <span>Подкатегории <span class="category-subdropdown__count">({{ category.active_children|length }})</span></span>
+                                                        <span class="category-subdropdown__chevron" aria-hidden="true"></span>
+                                                    </summary>
+                                                    <div class="category-subdropdown__panel" role="group" aria-label="Подкатегории">
+                                                        {% for subcategory in category.active_children %}
+                                                        <label class="filter-option category-subdropdown__item">
+                                                            <input type="checkbox" name="category" value="{{ subcategory.slug }}"
+                                                                   {% if subcategory.slug in selected_categories %}checked{% endif %}>
+                                                            <span>{{ subcategory.name }}</span>
+                                                        </label>
+                                                        {% endfor %}
+                                                    </div>
+                                                </details>
                                                 {% endif %}
                                             </div>
                                             {% endfor %}
@@ -407,19 +487,27 @@
                                     <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details">
                                         <summary class="filter-group__summary"><h4>БРЕНДЫ</h4></summary>
                                         <div class="filter-options">
-                                            {% for brand in brands %}
-                                            <label class="filter-option{% if forloop.counter > 30 %} brand-hidden{% endif %}">
-                                                <input type="checkbox" name="brand" value="{{ brand.slug }}"
-                                                       {% if brand.slug in selected_brands %}checked{% endif %}>
-                                                <span>{{ brand.name }}</span>
-                                            </label>
-                                            {% endfor %}
-                                            {% if brands|length > 30 %}
-                                            <button type="button" class="show-more-btn" onclick="toggleBrands()">
-                                                <span class="show-text">Показать еще ({{ brands|length|add:'-30' }})</span>
-                                                <span class="hide-text" style="display: none;">Скрыть</span>
-                                            </button>
-                                            {% endif %}
+                                            <details class="brand-subdropdown">
+                                                <summary class="brand-subdropdown__trigger">
+                                                    <span>Список брендов <span class="brand-subdropdown__count">({{ brands|length }})</span></span>
+                                                    <span class="brand-subdropdown__chevron" aria-hidden="true"></span>
+                                                </summary>
+                                                <div class="brand-subdropdown__panel" role="group" aria-label="Бренды">
+                                                    {% for brand in brands %}
+                                                    <label class="filter-option brand-subdropdown__item{% if forloop.counter > 30 %} brand-hidden{% endif %}">
+                                                        <input type="checkbox" name="brand" value="{{ brand.slug }}"
+                                                               {% if brand.slug in selected_brands %}checked{% endif %}>
+                                                        <span>{{ brand.name }}</span>
+                                                    </label>
+                                                    {% endfor %}
+                                                    {% if brands|length > 30 %}
+                                                    <button type="button" class="show-more-btn" onclick="toggleBrands()">
+                                                        <span class="show-text">Показать еще ({{ brands|length|add:'-30' }})</span>
+                                                        <span class="hide-text" style="display: none;">Скрыть</span>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </details>
                                         </div>
                                     </details>
                                     
@@ -958,6 +1046,17 @@
             const filterForm = document.getElementById('filterForm');
             const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
             const radioButtons = filterForm.querySelectorAll('input[type="radio"]');
+            
+            document.querySelectorAll('.category-subdropdown').forEach(function (drop) {
+                if (drop.querySelector('.category-subdropdown__panel input[type="checkbox"]:checked')) {
+                    drop.open = true;
+                }
+            });
+            document.querySelectorAll('.brand-subdropdown').forEach(function (drop) {
+                if (drop.querySelector('.brand-subdropdown__panel input[type="checkbox"]:checked')) {
+                    drop.open = true;
+                }
+            });
             
             // Функция для сохранения позиции и отправки формы
             function savePositionAndSubmit() {

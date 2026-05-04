@@ -681,12 +681,21 @@ class CatalogView(CategorySEOMixin, ListView):
         
         # Применяем фильтры поверх текущего queryset.
         # Для пустого queryset это безопасно и не меняет результат, но избегает лишнего EXISTS().
-        # Фильтр по категории (множественный выбор)
-        category_slugs = self.request.GET.getlist('category')
-        if category_slugs:
-            logger.info(f"Применяем фильтр по категориям: {category_slugs}")
-            queryset = queryset.filter(category__slug__in=category_slugs)
-            logger.info("Применён фильтр по категориям")
+        # Фильтр по категории (множественный выбор).
+        # Параметр `category` в шаблонах — slug; get_absolute_url у Category даёт id — поддерживаем оба.
+        category_params = self.request.GET.getlist('category')
+        if category_params:
+            q_cat = Q()
+            for val in category_params:
+                v = (val or '').strip()
+                if not v:
+                    continue
+                if v.isdigit():
+                    q_cat |= Q(category_id=int(v))
+                else:
+                    q_cat |= Q(category__slug=v)
+            queryset = queryset.filter(q_cat)
+            logger.info(f"Применён фильтр по категориям (slug или id): {category_params}")
         
         # Фильтр по бренду (множественный выбор)
         brand_slugs = self.request.GET.getlist('brand')
