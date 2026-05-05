@@ -90,6 +90,7 @@ class PriceInquiry(models.Model):
     name = models.CharField(max_length=100, verbose_name='Имя')
     phone = models.CharField(max_length=20, verbose_name='Телефон')
     email = models.EmailField(blank=True, verbose_name='Email')
+    comment = models.TextField(blank=True, verbose_name='Комментарий')
     request_type = models.CharField(max_length=10, choices=REQUEST_TYPES, default='call', verbose_name='Тип заявки')
     
     # Поля для запроса цены товара (необязательные)

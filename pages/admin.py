@@ -129,7 +129,7 @@ class PriceInquiryAdmin(admin.ModelAdmin):
         ('request_type', admin.ChoicesFieldListFilter),
         DeliveryErrorFilter,
     ]
-    search_fields = ['name', 'phone', 'email', 'product_name', 'product_code']
+    search_fields = ['name', 'phone', 'email', 'comment', 'product_name', 'product_code']
     readonly_fields = ['created_at']
     list_editable = ['is_processed']
     
@@ -156,7 +156,7 @@ class PriceInquiryAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Контактная информация', {
-            'fields': ('name', 'phone', 'email', 'request_type')
+            'fields': ('name', 'phone', 'email', 'comment', 'request_type')
         }),
         ('Информация о товаре', {
             'fields': ('product_name', 'product_code', 'product_id'),

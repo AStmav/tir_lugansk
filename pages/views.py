@@ -82,6 +82,7 @@ class CallRequestView(View):
             name = request.POST.get('userName')
             phone = request.POST.get('userPhone')
             email = request.POST.get('userEmail', '')
+            comment = request.POST.get('comment', '')
             
             print(f"Parsed data: name={name}, phone={phone}, email={email}")
             
@@ -97,6 +98,7 @@ class CallRequestView(View):
                 name=name,
                 phone=phone,
                 email=email,
+                comment=comment,
                 request_type='call'
             )
             def _enqueue():
@@ -132,6 +134,7 @@ class PriceInquiryView(View):
             name = request.POST.get('userName')
             phone = request.POST.get('userPhone')
             email = request.POST.get('userEmail', '')
+            comment = request.POST.get('comment', '')
             product_id = request.POST.get('product_id')
             product_name = request.POST.get('product_name')
             product_code = request.POST.get('product_code')
@@ -158,6 +161,7 @@ class PriceInquiryView(View):
                 name=name,
                 phone=phone,
                 email=email,
+                comment=comment,
                 request_type='price',
                 product_id=product_id,
                 product_name=product_name,

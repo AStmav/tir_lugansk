@@ -150,6 +150,7 @@ def _build_body(inquiry):
         f"Имя: {inquiry.name}",
         f"Телефон: {inquiry.phone}",
         f"Email: {inquiry.email or 'не указан'}",
+        f"Комментарий: {getattr(inquiry, 'comment', '') or 'не указан'}",
         f"Дата: {inquiry.created_at:%Y-%m-%d %H:%M:%S}",
     ]
     if inquiry.request_type == "price":
