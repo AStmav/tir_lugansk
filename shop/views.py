@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q, Prefetch
@@ -857,6 +859,20 @@ class CatalogView(CategorySEOMixin, ListView):
             else:
                 logger.info(f"Бренды загружены из кеша: {len(all_brands)}")
         context['brands'] = all_brands
+        # Группировка брендов по первой букве для удобного dropdown-отображения в фильтре
+        brand_groups_map = defaultdict(list)
+        for brand in all_brands:
+            first_char = (brand.name or '').strip()[:1].upper()
+            if not first_char:
+                first_char = '#'
+            # Небуквенные названия отправляем в служебную группу "#"
+            if not (('A' <= first_char <= 'Z') or ('А' <= first_char <= 'Я') or first_char == 'Ё'):
+                first_char = '#'
+            brand_groups_map[first_char].append(brand)
+        context['brand_groups'] = sorted(
+            brand_groups_map.items(),
+            key=lambda item: (item[0] == '#', item[0]),
+        )
         
         # Выбранные фильтры для template
         context['selected_categories'] = self.request.GET.getlist('category')

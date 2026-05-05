@@ -155,9 +155,12 @@
                 color: #1a1a1a;
             }
             
-            /* Подкатегории и бренды — выпадающий список (details), общие стили */
+            /* Подкатегории и бренды — выпадающие списки (details) */
             .category-group {
                 margin-bottom: 10px;
+            }
+            .filter-group--accordion .filter-group__summary {
+                cursor: pointer;
             }
             
             .category-parent {
@@ -191,6 +194,26 @@
                 user-select: none;
                 transition: border-color 0.2s ease, background 0.2s ease;
             }
+            .category-subdropdown__trigger--parent {
+                padding: 9px 10px;
+            }
+            .category-subdropdown__left {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+            }
+            .category-subdropdown__left input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+                accent-color: #3CC14E;
+                flex-shrink: 0;
+            }
+            .category-subdropdown__name {
+                color: #1a1a1a;
+                font-weight: 600;
+                line-height: 1.3;
+            }
             
             .category-subdropdown__trigger::-webkit-details-marker,
             .brand-subdropdown__trigger::-webkit-details-marker {
@@ -207,6 +230,10 @@
             .brand-subdropdown__count {
                 color: #888;
                 font-weight: 400;
+            }
+            .category-subdropdown__count {
+                margin-left: auto;
+                white-space: nowrap;
             }
             
             .category-subdropdown__chevron,
@@ -261,6 +288,9 @@
             
             .brand-subdropdown__panel .show-more-btn {
                 margin-top: 8px;
+            }
+            .brand-subdropdown__trigger--letter {
+                font-weight: 600;
             }
             
             /* Доп. пагинация каталога см. main.css (.catalog__pagination) */
@@ -491,22 +521,20 @@
                                     
                                     <h3>ФИЛЬТРЫ</h3>
                                     
-                                    <details class="filter-group filter-group--accordion filter-group--categories" open>
+                                    <details class="filter-group filter-group--accordion filter-group--categories" id="filter-categories-details">
                                         <summary class="filter-group__summary"><h4>КАТЕГОРИИ</h4></summary>
                                         <div class="filter-options">
                                             {% for category in main_categories %}
                                             <div class="category-group{% if forloop.counter > 20 %} category-hidden{% endif %}">
-                                                <!-- Основная категория -->
-                                                <label class="filter-option category-parent">
-                                                    <input type="checkbox" name="category" value="{{ category.slug }}" 
-                                                           {% if category.slug in selected_categories %}checked{% endif %}>
-                                                    <span>{{ category.name }}</span>
-                                                </label>
-                                                
                                                 {% if category.active_children %}
                                                 <details class="category-subdropdown">
-                                                    <summary class="category-subdropdown__trigger">
-                                                        <span>Подкатегории <span class="category-subdropdown__count">({{ category.active_children|length }})</span></span>
+                                                    <summary class="category-subdropdown__trigger category-subdropdown__trigger--parent">
+                                                        <span class="category-subdropdown__left">
+                                                            <input type="checkbox" class="category-subdropdown__parent-checkbox" name="category" value="{{ category.slug }}" 
+                                                                   {% if category.slug in selected_categories %}checked{% endif %}>
+                                                            <span class="category-subdropdown__name">{{ category.name }}</span>
+                                                        </span>
+                                                        <span class="category-subdropdown__count">Подкатегории ({{ category.active_children|length }})</span>
                                                         <span class="category-subdropdown__chevron" aria-hidden="true"></span>
                                                     </summary>
                                                     <div class="category-subdropdown__panel" role="group" aria-label="Подкатегории">
@@ -519,6 +547,12 @@
                                                         {% endfor %}
                                                     </div>
                                                 </details>
+                                                {% else %}
+                                                <label class="filter-option category-parent">
+                                                    <input type="checkbox" name="category" value="{{ category.slug }}" 
+                                                           {% if category.slug in selected_categories %}checked{% endif %}>
+                                                    <span>{{ category.name }}</span>
+                                                </label>
                                                 {% endif %}
                                             </div>
                                             {% endfor %}
@@ -535,27 +569,23 @@
                                     <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details">
                                         <summary class="filter-group__summary"><h4>БРЕНДЫ</h4></summary>
                                         <div class="filter-options">
+                                            {% for letter, letter_brands in brand_groups %}
                                             <details class="brand-subdropdown">
-                                                <summary class="brand-subdropdown__trigger">
-                                                    <span>Список брендов <span class="brand-subdropdown__count">({{ brands|length }})</span></span>
+                                                <summary class="brand-subdropdown__trigger brand-subdropdown__trigger--letter">
+                                                    <span>{{ letter }} <span class="brand-subdropdown__count">({{ letter_brands|length }})</span></span>
                                                     <span class="brand-subdropdown__chevron" aria-hidden="true"></span>
                                                 </summary>
-                                                <div class="brand-subdropdown__panel" role="group" aria-label="Бренды">
-                                                    {% for brand in brands %}
-                                                    <label class="filter-option brand-subdropdown__item{% if forloop.counter > 30 %} brand-hidden{% endif %}">
+                                                <div class="brand-subdropdown__panel" role="group" aria-label="Бренды {{ letter }}">
+                                                    {% for brand in letter_brands %}
+                                                    <label class="filter-option brand-subdropdown__item">
                                                         <input type="checkbox" name="brand" value="{{ brand.slug }}"
                                                                {% if brand.slug in selected_brands %}checked{% endif %}>
                                                         <span>{{ brand.name }}</span>
                                                     </label>
                                                     {% endfor %}
-                                                    {% if brands|length > 30 %}
-                                                    <button type="button" class="show-more-btn" onclick="toggleBrands()">
-                                                        <span class="show-text">Показать еще ({{ brands|length|add:'-30' }})</span>
-                                                        <span class="hide-text" style="display: none;">Скрыть</span>
-                                                    </button>
-                                                    {% endif %}
                                                 </div>
                                             </details>
+                                            {% endfor %}
                                         </div>
                                     </details>
                                     
@@ -847,31 +877,7 @@
             document.body.style.overflow = '';
         }
 
-        // Аккордеон фильтров только на мобильных: на десктопе блоки всегда открыты, клик по заголовку не сворачивает
-        function applyCatalogAccordionMode() {
-            var isMobile = window.matchMedia('(max-width: 768px)').matches;
-            var categoriesDetails = document.querySelector('.filter-group--categories');
-            var brandsDetails = document.getElementById('filter-brands-details');
-            if (categoriesDetails && brandsDetails) {
-                if (isMobile) {
-                    brandsDetails.removeAttribute('open');
-                } else {
-                    categoriesDetails.setAttribute('open', '');
-                    brandsDetails.setAttribute('open', '');
-                }
-            }
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            applyCatalogAccordionMode();
-            window.addEventListener('resize', applyCatalogAccordionMode);
-            document.addEventListener('click', function(e) {
-                var summary = e.target && e.target.closest('.filter-group__summary');
-                if (summary && window.matchMedia('(min-width: 769px)').matches) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            }, true);
-        });
+        // Блоки категорий/брендов работают как обычные details (dropdown) и на desktop, и на mobile.
 
         // Открытие модального окна заказа звонка
         document.addEventListener('DOMContentLoaded', function() {
@@ -1054,30 +1060,6 @@
             }
         }
         
-        // Показать/скрыть бренды
-        function toggleBrands() {
-            const hiddenBrands = document.querySelectorAll('.brand-hidden');
-            const btn = document.querySelector('.filter-group:nth-of-type(2) .show-more-btn');
-            const showText = btn.querySelector('.show-text');
-            const hideText = btn.querySelector('.hide-text');
-            
-            hiddenBrands.forEach(brand => {
-                if (brand.style.display === 'none' || !brand.style.display) {
-                    brand.style.display = 'block';
-                } else {
-                    brand.style.display = 'none';
-                }
-            });
-            
-            if (showText.style.display === 'none') {
-                showText.style.display = 'inline';
-                hideText.style.display = 'none';
-            } else {
-                showText.style.display = 'none';
-                hideText.style.display = 'inline';
-            }
-        }
-
         // Сохранение и восстановление позиции скролла при изменении фильтров
         document.addEventListener('DOMContentLoaded', function() {
             // Восстанавливаем позицию скролла после загрузки страницы
@@ -1096,6 +1078,15 @@
             const filterForm = document.getElementById('filterForm');
             const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
             const radioButtons = filterForm.querySelectorAll('input[type="radio"]');
+            const categoriesDetails = document.getElementById('filter-categories-details');
+            const brandsDetails = document.getElementById('filter-brands-details');
+
+            // Клик по чекбоксу родительской категории не должен раскрывать/сворачивать dropdown.
+            document.querySelectorAll('.category-subdropdown__parent-checkbox').forEach(function (inputEl) {
+                inputEl.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                });
+            });
             
             document.querySelectorAll('.category-subdropdown').forEach(function (drop) {
                 if (drop.querySelector('.category-subdropdown__panel input[type="checkbox"]:checked')) {
@@ -1107,6 +1098,12 @@
                     drop.open = true;
                 }
             });
+            if (categoriesDetails && filterForm.querySelector('input[name="category"]:checked')) {
+                categoriesDetails.open = true;
+            }
+            if (brandsDetails && filterForm.querySelector('input[name="brand"]:checked')) {
+                brandsDetails.open = true;
+            }
             
             // Функция для сохранения позиции и отправки формы
             function savePositionAndSubmit() {
