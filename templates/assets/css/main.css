@@ -1320,10 +1320,91 @@ header:not(.header) + main {
 }
 .catalog__pagination {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
   padding-top: 30px;
   border-top: 1px solid #e9ecef;
+}
+
+.catalog__pagination .pagination__pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.catalog__pagination .pagination__pages > a,
+.catalog__pagination .pagination__pages > .pagination__current {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.catalog__pagination .pagination__pages > a {
+  color: #2b2b2b;
+  background: #fff;
+  border: 1px solid #dee2e6;
+}
+
+.catalog__pagination .pagination__pages > a:hover {
+  border-color: #3CC14E;
+  color: #1a7a28;
+  background: #f5fcf6;
+}
+
+.catalog__pagination .pagination__pages > .pagination__current {
+  color: #fff;
+  background: #3CC14E;
+  border: 2px solid #3CC14E;
+  font-weight: 700;
+  cursor: default;
+}
+
+.catalog__pagination .pagination__dots {
+  padding: 0 4px;
+  color: #888;
+  font-size: 15px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.catalog__pagination .pagination__prev,
+.catalog__pagination .pagination__next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  text-decoration: none;
+  line-height: 1;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.catalog__pagination .pagination__prev:hover,
+.catalog__pagination .pagination__next:hover {
+  border-color: #3CC14E;
+  color: #3CC14E;
+  background: #f8fff9;
 }
 
 .filter-group {

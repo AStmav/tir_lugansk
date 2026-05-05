@@ -263,12 +263,7 @@
                 margin-top: 8px;
             }
             
-            /* Стили для пагинации */
-            .pagination__dots {
-                padding: 8px 12px;
-                color: #999;
-                font-weight: bold;
-            }
+            /* Доп. пагинация каталога см. main.css (.catalog__pagination) */
             
             /* Стили для "Показать еще" */
             .category-hidden, .brand-hidden {
@@ -635,36 +630,34 @@
                                             </div>
                                     
                                     {% if is_paginated %}
-                                    <div class="catalog__pagination">
+                                    <nav class="catalog__pagination" aria-label="Страницы каталога">
                                         {% if page_obj.has_previous %}
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="pagination__prev">←</a>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="pagination__prev" aria-label="Предыдущая страница">←</a>
                                         {% endif %}
                                         
                                         <div class="pagination__pages">
-                                            <!-- Первая страница -->
-                                            {% if page_obj.number > 3 %}
-                                            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">1</a>
+                                            <!-- Первая страница (если окно ±3 уже не начинается с 1) -->
                                             {% if page_obj.number > 4 %}
-                                            <span class="pagination__dots">...</span>
+                                            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">1</a>
+                                            {% if page_obj.number > 5 %}
+                                            <span class="pagination__dots" aria-hidden="true">...</span>
                                             {% endif %}
                                             {% endif %}
                                             
-                                            <!-- Страницы вокруг текущей -->
                                             {% for num in page_obj.paginator.page_range %}
-                                                {% if num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                                                {% if num >= page_obj.number|add:'-3' and num <= page_obj.number|add:'3' %}
                                                 {% if page_obj.number == num %}
-                                                <span class="pagination__current">{{ num }}</span>
+                                                <span class="pagination__current" aria-current="page">{{ num }}</span>
                                                     {% else %}
                                                     <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
                                                     {% endif %}
                                                 {% endif %}
                                             {% endfor %}
                                             
-                                            <!-- Последняя страница -->
                                             {% with total_pages=page_obj.paginator.num_pages %}
-                                            {% if page_obj.number < total_pages|add:'-2' %}
                                             {% if page_obj.number < total_pages|add:'-3' %}
-                                            <span class="pagination__dots">...</span>
+                                            {% if page_obj.number < total_pages|add:'-4' %}
+                                            <span class="pagination__dots" aria-hidden="true">...</span>
                                             {% endif %}
                                             <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ total_pages }}">{{ total_pages }}</a>
                                             {% endif %}
@@ -672,9 +665,9 @@
                                             </div>
                                         
                                         {% if page_obj.has_next %}
-                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="pagination__next">→</a>
+                                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="pagination__next" aria-label="Следующая страница">→</a>
                                         {% endif %}
-                                    </div>
+                                    </nav>
                                     {% endif %}
                                 </div>
                             </div>
