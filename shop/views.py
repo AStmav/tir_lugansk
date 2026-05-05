@@ -684,20 +684,43 @@ class CatalogView(CategorySEOMixin, ListView):
         # Применяем фильтры поверх текущего queryset.
         # Для пустого queryset это безопасно и не меняет результат, но избегает лишнего EXISTS().
         # Фильтр по категории (множественный выбор).
-        # Параметр `category` в шаблонах — slug; get_absolute_url у Category даёт id — поддерживаем оба.
+        # Поддерживаем и slug, и id; при выборе родителя включаем товары его подкатегорий.
         category_params = self.request.GET.getlist('category')
         if category_params:
-            q_cat = Q()
-            for val in category_params:
-                v = (val or '').strip()
-                if not v:
-                    continue
-                if v.isdigit():
-                    q_cat |= Q(category_id=int(v))
-                else:
-                    q_cat |= Q(category__slug=v)
-            queryset = queryset.filter(q_cat)
-            logger.info(f"Применён фильтр по категориям (slug или id): {category_params}")
+            raw_values = [(v or '').strip() for v in category_params if (v or '').strip()]
+            numeric_ids = [int(v) for v in raw_values if v.isdigit()]
+            slug_values = [v for v in raw_values if not v.isdigit()]
+
+            selected_categories_qs = Category.objects.none()
+            if numeric_ids:
+                selected_categories_qs = selected_categories_qs | Category.objects.filter(id__in=numeric_ids)
+            if slug_values:
+                selected_categories_qs = selected_categories_qs | Category.objects.filter(slug__in=slug_values)
+            selected_categories_qs = selected_categories_qs.distinct()
+
+            selected_ids = set(selected_categories_qs.values_list('id', flat=True))
+            all_target_ids = set(selected_ids)
+
+            # Рекурсивно добавляем всех потомков выбранных категорий (по уровням)
+            frontier_ids = set(selected_ids)
+            while frontier_ids:
+                child_ids = set(
+                    Category.objects.filter(parent_id__in=frontier_ids, is_active=True).values_list('id', flat=True)
+                )
+                new_ids = child_ids - all_target_ids
+                if not new_ids:
+                    break
+                all_target_ids.update(new_ids)
+                frontier_ids = new_ids
+
+            if all_target_ids:
+                queryset = queryset.filter(category_id__in=all_target_ids)
+                logger.info(
+                    "Применён фильтр по категориям: params=%s, selected=%s, with_descendants=%s",
+                    category_params,
+                    len(selected_ids),
+                    len(all_target_ids),
+                )
         
         # Фильтр по бренду (множественный выбор)
         brand_slugs = self.request.GET.getlist('brand')
