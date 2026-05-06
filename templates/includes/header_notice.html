@@ -1,0 +1,19 @@
+{% if header_notice %}
+<div class="header-notice header-notice--{{ header_notice.level }}" role="status" aria-live="polite">
+    <div class="container">
+        <div class="header-notice__content">
+            {% if header_notice.title or header_notice.message %}
+            <div class="header-notice__text">
+                {% if header_notice.title %}
+                <strong class="header-notice__title">{{ header_notice.title }}</strong>
+                {% endif %}
+                <span class="header-notice__message">{{ header_notice.message }}</span>
+            </div>
+            {% endif %}
+            {% if header_notice.link_url %}
+            <a class="header-notice__link" href="{{ header_notice.link_url }}">{{ header_notice.link_text|default:"Подробнее" }}</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
