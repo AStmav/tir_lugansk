@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 from .models import (
     Page,
     ContentBlock,
+    HeaderNotice,
     PriceInquiry,
     NotificationRecipient,
     NotificationDelivery,
@@ -88,6 +89,31 @@ class ContentBlockAdmin(admin.ModelAdmin):
         }),
     )
     readonly_fields = ['created_at']
+
+
+@admin.register(HeaderNotice)
+class HeaderNoticeAdmin(admin.ModelAdmin):
+    list_display = ["display_name", "level", "is_active", "starts_at", "ends_at", "updated_at"]
+    list_filter = ["is_active", "level"]
+    search_fields = ["title", "message", "link_text", "link_url"]
+    list_editable = ["is_active"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["-is_active", "-updated_at"]
+
+    fieldsets = (
+        ("Контент", {"fields": ("title", "message", "level")}),
+        ("Ссылка", {"fields": ("link_url", "link_text"), "classes": ("collapse",)}),
+        ("Публикация", {"fields": ("is_active", "starts_at", "ends_at")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def display_name(self, obj):
+        return obj.title or obj.message[:60]
+
+    display_name.short_description = "Сообщение"
 
 
 class DeliveryErrorFilter(admin.SimpleListFilter):

@@ -64,6 +64,48 @@ class ContentBlock(models.Model):
         return f"{self.page.title} - {self.get_block_type_display()}"
 
 
+class HeaderNotice(models.Model):
+    LEVEL_INFO = "info"
+    LEVEL_WARNING = "warning"
+    LEVEL_CRITICAL = "critical"
+    LEVEL_CHOICES = [
+        (LEVEL_INFO, "Информация"),
+        (LEVEL_WARNING, "Предупреждение"),
+        (LEVEL_CRITICAL, "Критично"),
+    ]
+
+    title = models.CharField(max_length=120, blank=True, verbose_name="Заголовок")
+    message = models.CharField(max_length=280, verbose_name="Текст сообщения")
+    link_url = models.URLField(blank=True, verbose_name="Ссылка")
+    link_text = models.CharField(max_length=60, blank=True, verbose_name="Текст ссылки")
+    level = models.CharField(
+        max_length=16,
+        choices=LEVEL_CHOICES,
+        default=LEVEL_INFO,
+        verbose_name="Уровень важности",
+    )
+    is_active = models.BooleanField(default=False, verbose_name="Включено")
+    starts_at = models.DateTimeField(null=True, blank=True, verbose_name="Показывать с")
+    ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Показывать до")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Важное сообщение в шапке"
+        verbose_name_plural = "Важные сообщения в шапке"
+        ordering = ["-is_active", "-updated_at"]
+
+    def __str__(self):
+        return self.title or self.message[:60]
+
+    def clean(self):
+        super().clean()
+        if self.ends_at and self.starts_at and self.ends_at < self.starts_at:
+            raise ValidationError({"ends_at": "Дата окончания не может быть раньше даты начала."})
+        if self.link_url and not self.link_text:
+            raise ValidationError({"link_text": "Укажите текст ссылки."})
+
+
 class Contact(models.Model):
     name = models.CharField(max_length=100, verbose_name='Имя')
     phone = models.CharField(max_length=20, verbose_name='Телефон')
