@@ -143,6 +143,9 @@ def _build_subject(inquiry):
 
 
 def _build_body(inquiry):
+    comment_raw = (getattr(inquiry, "comment", None) or "").strip()
+    comment_line = f"Комментарий: {comment_raw if comment_raw else 'не указан'}"
+
     lines = [
         "Поступила новая заявка с сайта.",
         "",
@@ -150,7 +153,7 @@ def _build_body(inquiry):
         f"Имя: {inquiry.name}",
         f"Телефон: {inquiry.phone}",
         f"Email: {inquiry.email or 'не указан'}",
-        f"Комментарий: {getattr(inquiry, 'comment', '') or 'не указан'}",
+        comment_line,
         f"Дата: {inquiry.created_at:%Y-%m-%d %H:%M:%S}",
     ]
     if inquiry.request_type == "price":
