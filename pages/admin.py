@@ -93,6 +93,21 @@ class ContentBlockAdmin(admin.ModelAdmin):
 
 @admin.register(HeaderNotice)
 class HeaderNoticeAdmin(admin.ModelAdmin):
+    class HeaderNoticeForm(forms.ModelForm):
+        class Meta:
+            model = HeaderNotice
+            fields = "__all__"
+            widgets = {
+                "message": forms.Textarea(
+                    attrs={
+                        "rows": 5,
+                        "style": "max-width: 90ch; width: 100%;",
+                        "placeholder": "Введите текст сообщения (можно в несколько строк)…",
+                    }
+                )
+            }
+
+    form = HeaderNoticeForm
     list_display = ["display_name", "level", "is_active", "starts_at", "ends_at", "updated_at"]
     list_filter = ["is_active", "level"]
     search_fields = ["title", "message", "link_text", "link_url"]

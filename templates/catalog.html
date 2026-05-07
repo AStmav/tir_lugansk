@@ -292,6 +292,36 @@
             .brand-subdropdown__trigger--letter {
                 font-weight: 600;
             }
+
+            /* Режим поиска: более наглядный "деревом", без вложенных dropdown */
+            .category-tree__group {
+                margin-bottom: 8px;
+            }
+            .category-tree__children {
+                margin: 4px 0 0 24px;
+                padding-left: 10px;
+                border-left: 2px solid #e9ecef;
+            }
+            .category-tree__item {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+            .brand-tree__group {
+                margin-bottom: 12px;
+            }
+            .brand-tree__letter {
+                font-size: 13px;
+                font-weight: 700;
+                color: #495057;
+                margin-bottom: 6px;
+            }
+            .brand-tree__items {
+                margin-left: 6px;
+            }
+            .brand-tree__item {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
             
             /* Доп. пагинация каталога см. main.css (.catalog__pagination) */
             
@@ -522,9 +552,33 @@
                                     
                                     <h3>ФИЛЬТРЫ</h3>
                                     
-                                    <details class="filter-group filter-group--accordion filter-group--categories" id="filter-categories-details">
+                                    <details class="filter-group filter-group--accordion filter-group--categories" id="filter-categories-details" {% if not search_query or selected_categories %}open{% endif %}>
                                         <summary class="filter-group__summary"><h4>КАТЕГОРИИ</h4></summary>
                                         <div class="filter-options">
+                                            {% if search_query %}
+                                            <div class="category-tree">
+                                                {% for category in main_categories %}
+                                                <div class="category-tree__group{% if forloop.counter > 20 %} category-hidden{% endif %}">
+                                                    <label class="filter-option category-parent">
+                                                        <input type="checkbox" name="category" value="{{ category.slug }}"
+                                                               {% if category.slug in selected_categories %}checked{% endif %}>
+                                                        <span>{{ category.name }}</span>
+                                                    </label>
+                                                    {% if category.active_children %}
+                                                    <div class="category-tree__children">
+                                                        {% for subcategory in category.active_children %}
+                                                        <label class="filter-option category-tree__item">
+                                                            <input type="checkbox" name="category" value="{{ subcategory.slug }}"
+                                                                   {% if subcategory.slug in selected_categories %}checked{% endif %}>
+                                                            <span>{{ subcategory.name }}</span>
+                                                        </label>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% else %}
                                             {% for category in main_categories %}
                                             <div class="category-group{% if forloop.counter > 20 %} category-hidden{% endif %}">
                                                 {% if category.active_children %}
@@ -557,6 +611,7 @@
                                                 {% endif %}
                                             </div>
                                             {% endfor %}
+                                            {% endif %}
                                         </div>
                                         
                                         {% if categories.count > 20 %}
@@ -567,9 +622,27 @@
                                         {% endif %}
                                     </details>
                                     
-                                    <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details">
+                                    <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details" {% if not search_query or selected_brands %}open{% endif %}>
                                         <summary class="filter-group__summary"><h4>БРЕНДЫ</h4></summary>
                                         <div class="filter-options">
+                                            {% if search_query %}
+                                            <div class="brand-tree">
+                                                {% for letter, letter_brands in brand_groups %}
+                                                <div class="brand-tree__group">
+                                                    <div class="brand-tree__letter">{{ letter }} ({{ letter_brands|length }})</div>
+                                                    <div class="brand-tree__items">
+                                                        {% for brand in letter_brands %}
+                                                        <label class="filter-option brand-tree__item">
+                                                            <input type="checkbox" name="brand" value="{{ brand.slug }}"
+                                                                   {% if brand.slug in selected_brands %}checked{% endif %}>
+                                                            <span>{{ brand.name }}</span>
+                                                        </label>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% else %}
                                             {% for letter, letter_brands in brand_groups %}
                                             <details class="brand-subdropdown">
                                                 <summary class="brand-subdropdown__trigger brand-subdropdown__trigger--letter">
@@ -587,6 +660,7 @@
                                                 </div>
                                             </details>
                                             {% endfor %}
+                                            {% endif %}
                                         </div>
                                     </details>
                                     
