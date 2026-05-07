@@ -7,6 +7,7 @@ from .models import (
     Page,
     ContentBlock,
     HeaderNotice,
+    HelpfulMenuItem,
     PriceInquiry,
     NotificationRecipient,
     NotificationDelivery,
@@ -129,6 +130,24 @@ class HeaderNoticeAdmin(admin.ModelAdmin):
         return obj.title or obj.message[:60]
 
     display_name.short_description = "Сообщение"
+
+
+@admin.register(HelpfulMenuItem)
+class HelpfulMenuItemAdmin(admin.ModelAdmin):
+    list_display = ["title", "url", "order", "is_active", "open_in_new_tab", "updated_at"]
+    list_editable = ["order", "is_active", "open_in_new_tab"]
+    list_filter = ["is_active", "open_in_new_tab"]
+    search_fields = ["title", "url"]
+    ordering = ["order", "title"]
+    readonly_fields = ["created_at", "updated_at"]
+
+    fieldsets = (
+        ("Пункт меню", {"fields": ("title", "url", "order", "is_active", "open_in_new_tab")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
 
 
 class DeliveryErrorFilter(admin.SimpleListFilter):

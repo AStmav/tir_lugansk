@@ -106,6 +106,28 @@ class HeaderNotice(models.Model):
             raise ValidationError({"link_text": "Укажите текст ссылки."})
 
 
+class HelpfulMenuItem(models.Model):
+    title = models.CharField(max_length=80, verbose_name="Название")
+    url = models.CharField(
+        max_length=500,
+        verbose_name="Ссылка",
+        help_text="Внутренний путь (/news/) или полный URL (https://...).",
+    )
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    open_in_new_tab = models.BooleanField(default=False, verbose_name="Открывать в новой вкладке")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Пункт меню «Полезное»"
+        verbose_name_plural = "Пункты меню «Полезное»"
+        ordering = ["order", "title"]
+
+    def __str__(self):
+        return self.title
+
+
 class Contact(models.Model):
     name = models.CharField(max_length=100, verbose_name='Имя')
     phone = models.CharField(max_length=20, verbose_name='Телефон')

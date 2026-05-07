@@ -62,6 +62,86 @@ class ContactsView(TemplateView):
         return context
 
 
+class UsefulSectionView(TemplateView):
+    template_name = "useful_section.html"
+    section_title = ""
+    section_subtitle = ""
+    section_items = []
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["section_title"] = self.section_title
+        context["section_subtitle"] = self.section_subtitle
+        context["section_items"] = self.section_items
+        return context
+
+
+class NewsView(UsefulSectionView):
+    section_title = "Новости"
+    section_subtitle = "Обновления ассортимента, графика работы и сервисные объявления."
+    section_items = [
+        {
+            "title": "Обновление ассортимента",
+            "text": "Еженедельное поступление запчастей по основным маркам европейских грузовиков.",
+            "meta": "Май 2026",
+        },
+        {
+            "title": "График работы на праздники",
+            "text": "Публикуем актуальный режим работы магазина и отгрузок в праздничные дни.",
+            "meta": "Апрель 2026",
+        },
+        {
+            "title": "Новые каналы связи",
+            "text": "Добавлены дополнительные контакты для быстрой связи с менеджерами.",
+            "meta": "Март 2026",
+        },
+    ]
+
+
+class CatalogsView(UsefulSectionView):
+    section_title = "Каталоги"
+    section_subtitle = "Подборки и справочные материалы для быстрого поиска нужных позиций."
+    section_items = [
+        {
+            "title": "Каталог тормозной системы",
+            "text": "Позиции по колодкам, дискам, барабанам и комплектам обслуживания.",
+            "meta": "PDF / онлайн-версия",
+        },
+        {
+            "title": "Каталог подвески и ходовой",
+            "text": "Амортизаторы, рессоры, втулки и крепеж для популярных моделей.",
+            "meta": "PDF / онлайн-версия",
+        },
+        {
+            "title": "Каталог фильтров и расходников",
+            "text": "Фильтры, ремни, технические жидкости и сопутствующие комплектующие.",
+            "meta": "PDF / онлайн-версия",
+        },
+    ]
+
+
+class ArticlesView(UsefulSectionView):
+    section_title = "Статьи"
+    section_subtitle = "Полезные материалы по подбору и эксплуатации запчастей."
+    section_items = [
+        {
+            "title": "Как подобрать аналог детали правильно",
+            "text": "Ключевые шаги проверки OEM-номера и совместимости перед покупкой.",
+            "meta": "Руководство",
+        },
+        {
+            "title": "Частые ошибки при выборе фильтров",
+            "text": "Разбираем типовые ошибки и даем чек-лист для быстрого контроля.",
+            "meta": "Практика",
+        },
+        {
+            "title": "Когда менять элементы тормозной системы",
+            "text": "Базовые интервалы и признаки износа для безопасной эксплуатации.",
+            "meta": "Обслуживание",
+        },
+    ]
+
+
 class PageDetailView(DetailView):
     model = Page
     template_name = 'page_detail.html'

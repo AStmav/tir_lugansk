@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.db.models import Q
 
-from .models import HeaderNotice
+from .models import HeaderNotice, HelpfulMenuItem
 
 
 def header_notice(request):
@@ -13,4 +13,8 @@ def header_notice(request):
         .order_by("-updated_at")
         .first()
     )
-    return {"header_notice": notice}
+    helpful_menu_items = HelpfulMenuItem.objects.filter(is_active=True).order_by("order", "title")
+    return {
+        "header_notice": notice,
+        "helpful_menu_items": helpful_menu_items,
+    }

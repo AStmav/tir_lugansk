@@ -1,0 +1,14 @@
+{% if helpful_menu_items %}
+<li class="menu-catalog menu-useful">
+    <a href="javascript:void(0)" class="menu-catalog__toggle" aria-haspopup="true" aria-expanded="false">Полезное</a>
+    <ul class="menu-catalog__dropdown">
+        {% for useful_item in helpful_menu_items %}
+        <li>
+            <a href="{{ useful_item.url }}"{% if useful_item.open_in_new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>
+                {{ useful_item.title }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</li>
+{% endif %}
