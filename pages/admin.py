@@ -8,6 +8,8 @@ from .models import (
     ContentBlock,
     HeaderNotice,
     HelpfulMenuItem,
+    UsefulCategory,
+    UsefulPost,
     PriceInquiry,
     NotificationRecipient,
     NotificationDelivery,
@@ -134,15 +136,62 @@ class HeaderNoticeAdmin(admin.ModelAdmin):
 
 @admin.register(HelpfulMenuItem)
 class HelpfulMenuItemAdmin(admin.ModelAdmin):
-    list_display = ["title", "url", "order", "is_active", "open_in_new_tab", "updated_at"]
+    list_display = ["title", "useful_category", "url", "order", "is_active", "open_in_new_tab", "updated_at"]
     list_editable = ["order", "is_active", "open_in_new_tab"]
-    list_filter = ["is_active", "open_in_new_tab"]
-    search_fields = ["title", "url"]
+    list_filter = ["is_active", "open_in_new_tab", "useful_category"]
+    search_fields = ["title", "url", "useful_category__title"]
     ordering = ["order", "title"]
     readonly_fields = ["created_at", "updated_at"]
 
     fieldsets = (
-        ("Пункт меню", {"fields": ("title", "url", "order", "is_active", "open_in_new_tab")}),
+        ("Пункт меню", {"fields": ("title", "useful_category", "url", "order", "is_active", "open_in_new_tab")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+
+class UsefulPostInline(admin.TabularInline):
+    model = UsefulPost
+    extra = 0
+    fields = ("title", "summary", "order", "is_active", "published_at")
+    ordering = ("-published_at", "order")
+
+
+@admin.register(UsefulCategory)
+class UsefulCategoryAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "order", "is_active", "updated_at")
+    list_editable = ("order", "is_active")
+    search_fields = ("title", "slug", "description")
+    ordering = ("order", "title")
+    readonly_fields = ("created_at", "updated_at")
+    inlines = [UsefulPostInline]
+    prepopulated_fields = {"slug": ("title",)}
+
+    fieldsets = (
+        ("Основное", {"fields": ("title", "slug", "description", "order", "is_active")}),
+        (
+            "Системная информация",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+
+@admin.register(UsefulPost)
+class UsefulPostAdmin(admin.ModelAdmin):
+    list_display = ("title", "category", "published_at", "order", "is_active", "updated_at")
+    list_editable = ("order", "is_active")
+    list_filter = ("category", "is_active", "published_at")
+    search_fields = ("title", "summary", "content", "category__title")
+    ordering = ("-published_at", "order")
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        (
+            "Материал",
+            {"fields": ("category", "title", "summary", "content", "published_at", "order", "is_active")},
+        ),
         (
             "Системная информация",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},

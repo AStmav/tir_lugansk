@@ -4,7 +4,7 @@
     <ul class="menu-catalog__dropdown">
         {% for useful_item in helpful_menu_items %}
         <li>
-            <a href="{{ useful_item.url }}"{% if useful_item.open_in_new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>
+            <a href="{% if useful_item.useful_category %}{% url 'pages:useful_category' useful_item.useful_category.slug %}{% else %}{{ useful_item.url }}{% endif %}"{% if useful_item.open_in_new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>
                 {{ useful_item.title }}
             </a>
         </li>

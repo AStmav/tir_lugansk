@@ -2,6 +2,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.utils.text import slugify
+from django.utils import timezone
+from django.urls import reverse
 
 
 class Page(models.Model):
@@ -108,6 +110,14 @@ class HeaderNotice(models.Model):
 
 class HelpfulMenuItem(models.Model):
     title = models.CharField(max_length=80, verbose_name="Название")
+    useful_category = models.ForeignKey(
+        "UsefulCategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="menu_items",
+        verbose_name="Категория полезного",
+    )
     url = models.CharField(
         max_length=500,
         verbose_name="Ссылка",
@@ -126,6 +136,52 @@ class HelpfulMenuItem(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class UsefulCategory(models.Model):
+    title = models.CharField(max_length=120, verbose_name="Название категории")
+    slug = models.SlugField(unique=True, verbose_name="Slug")
+    description = models.TextField(blank=True, verbose_name="Описание")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Категория раздела «Полезное»"
+        verbose_name_plural = "Категории раздела «Полезное»"
+        ordering = ["order", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class UsefulPost(models.Model):
+    category = models.ForeignKey(
+        UsefulCategory,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Категория",
+    )
+    title = models.CharField(max_length=180, verbose_name="Заголовок")
+    summary = models.TextField(blank=True, verbose_name="Краткое описание")
+    content = models.TextField(blank=True, verbose_name="Содержимое")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    published_at = models.DateTimeField(default=timezone.now, verbose_name="Дата публикации")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Материал раздела «Полезное»"
+        verbose_name_plural = "Материалы раздела «Полезное»"
+        ordering = ["-published_at", "order", "title"]
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse("pages:useful_post_detail", kwargs={"post_id": self.id})
 
 
 class Contact(models.Model):

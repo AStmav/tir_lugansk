@@ -13,7 +13,12 @@ def header_notice(request):
         .order_by("-updated_at")
         .first()
     )
-    helpful_menu_items = HelpfulMenuItem.objects.filter(is_active=True).order_by("order", "title")
+    #helpful_menu_items = HelpfulMenuItem.objects.filter(is_active=True).order_by("order", "title")
+    helpful_menu_items = (
+        HelpfulMenuItem.objects.filter(is_active=True)
+        .select_related("useful_category")
+        .order_by("order", "title")
+    )
     return {
         "header_notice": notice,
         "helpful_menu_items": helpful_menu_items,

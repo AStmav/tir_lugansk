@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import TemplateView, DetailView
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -6,7 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.db import transaction
 from shop.models import Product
-from .models import Page, PriceInquiry
+from .models import Page, PriceInquiry, UsefulCategory, UsefulPost
 from .tasks import enqueue_inquiry_notifications
 
 
@@ -66,17 +66,35 @@ class UsefulSectionView(TemplateView):
     template_name = "useful_section.html"
     section_title = ""
     section_subtitle = ""
+    section_slug = ""
     section_items = []
+
+    def get_section_slug(self):
+        return self.section_slug or self.kwargs.get("slug", "")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["section_title"] = self.section_title
-        context["section_subtitle"] = self.section_subtitle
+        category = None
+        section_slug = self.get_section_slug()
+        if section_slug:
+            category = UsefulCategory.objects.filter(slug=section_slug, is_active=True).first()
+
+        posts = UsefulPost.objects.none()
+        if category:
+            posts = category.posts.filter(is_active=True).order_by("-published_at", "order", "title")
+
+        context["section_title"] = category.title if category else self.section_title
+        context["section_subtitle"] = (
+            category.description if category and category.description else self.section_subtitle
+        )
+        context["section_category"] = category
+        context["section_posts"] = posts
         context["section_items"] = self.section_items
         return context
 
 
 class NewsView(UsefulSectionView):
+    section_slug = "news"
     section_title = "Новости"
     section_subtitle = "Обновления ассортимента, графика работы и сервисные объявления."
     section_items = [
@@ -99,6 +117,7 @@ class NewsView(UsefulSectionView):
 
 
 class CatalogsView(UsefulSectionView):
+    section_slug = "catalogs"
     section_title = "Каталоги"
     section_subtitle = "Подборки и справочные материалы для быстрого поиска нужных позиций."
     section_items = [
@@ -121,6 +140,7 @@ class CatalogsView(UsefulSectionView):
 
 
 class ArticlesView(UsefulSectionView):
+    section_slug = "articles"
     section_title = "Статьи"
     section_subtitle = "Полезные материалы по подбору и эксплуатации запчастей."
     section_items = [
@@ -140,6 +160,25 @@ class ArticlesView(UsefulSectionView):
             "meta": "Обслуживание",
         },
     ]
+
+
+class UsefulCategoryView(UsefulSectionView):
+    section_title = "Полезное"
+    section_subtitle = "Полезные материалы."
+
+
+class UsefulPostDetailView(DetailView):
+    model = UsefulPost
+    template_name = "useful_post_detail.html"
+    context_object_name = "post"
+    pk_url_kwarg = "post_id"
+
+    def get_queryset(self):
+        return UsefulPost.objects.filter(is_active=True, category__is_active=True).select_related("category")
+
+
+def legacy_useful_redirect(request, slug):
+    return redirect("pages:useful_category", slug=slug, permanent=True)
 
 
 class PageDetailView(DetailView):
