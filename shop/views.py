@@ -57,6 +57,11 @@ def _parse_search_mode(query):
     return stripped, allow_contains
 
 
+def _normalize_search_mode(value):
+    mode = (value or '').strip().lower()
+    return mode if mode in ('name', 'code') else 'name'
+
+
 @require_GET
 def search_autocomplete(request):
     """
@@ -65,10 +70,11 @@ def search_autocomplete(request):
     По номерам: по умолчанию только по началу; с % в запросе — и в середине.
     """
     q = (request.GET.get('q') or '').strip()
+    search_mode = _normalize_search_mode(request.GET.get('search_mode'))
     if len(q) < 2:
         return JsonResponse({'suggestions': []})
     brand_slug = (request.GET.get('brand') or '').strip()
-    cache_key = f'autocomplete:{q}:{brand_slug or "-"}'
+    cache_key = f'autocomplete:{q}:{search_mode}:{brand_slug or "-"}'
     cached = cache.get(cache_key)
     if cached is not None:
         return JsonResponse({'suggestions': cached})
@@ -81,27 +87,31 @@ def search_autocomplete(request):
     seen_values = set()
     max_items = 10
 
-    # Подсказки: название — по подстроке; номера — по началу, с % в запросе ещё и в середине
-    number_q = (
-        Q(catalog_number_clean__istartswith=q_clean) |
-        Q(catalog_number_clean__istartswith=q_clean_norm) |
-        Q(artikyl_number_clean__istartswith=q_clean) |
-        Q(artikyl_number_clean__istartswith=q_clean_norm) |
-        Q(catalog_number__iexact=q_work) |
-        Q(catalog_number__iexact=q_normalized) |
-        Q(artikyl_number__iexact=q_work) |
-        Q(artikyl_number__iexact=q_normalized) |
-        Q(catalog_number_clean__iexact=q_clean) |
-        Q(artikyl_number_clean__iexact=q_clean_norm)
-    )
-    if allow_contains:
-        number_q |= (
-            Q(catalog_number__icontains=q_normalized) |
-            Q(catalog_number_clean__icontains=q_clean) |
-            Q(artikyl_number__icontains=q_work) |
-            Q(artikyl_number_clean__icontains=q_clean)
+    # Режим подсказок:
+    # - name: только название;
+    # - code: только кодовые поля.
+    if search_mode == 'code':
+        product_q = (
+            Q(catalog_number_clean__istartswith=q_clean) |
+            Q(catalog_number_clean__istartswith=q_clean_norm) |
+            Q(artikyl_number_clean__istartswith=q_clean) |
+            Q(artikyl_number_clean__istartswith=q_clean_norm) |
+            Q(catalog_number__iexact=q_work) |
+            Q(catalog_number__iexact=q_normalized) |
+            Q(artikyl_number__iexact=q_work) |
+            Q(artikyl_number__iexact=q_normalized) |
+            Q(catalog_number_clean__iexact=q_clean) |
+            Q(artikyl_number_clean__iexact=q_clean_norm)
         )
-    product_q = Q(name__icontains=q_normalized) | number_q
+        if allow_contains:
+            product_q |= (
+                Q(catalog_number__icontains=q_normalized) |
+                Q(catalog_number_clean__icontains=q_clean) |
+                Q(artikyl_number__icontains=q_work) |
+                Q(artikyl_number_clean__icontains=q_clean)
+            )
+    else:
+        product_q = Q(name__icontains=q_normalized)
     products = Product.objects.filter(in_stock=True).filter(product_q)
     # Если передан бренд (напр. с каталога с выбранным фильтром) — ищем только в нём
     if brand_slug:
@@ -122,8 +132,8 @@ def search_autocomplete(request):
         if len(suggestions) >= max_items:
             break
 
-    # Подсказки по брендам (если ещё есть место)
-    if len(suggestions) < max_items:
+    # Подсказки по брендам добавляем только в режиме поиска по названию
+    if search_mode == 'name' and len(suggestions) < max_items:
         brands = (
             Brand.objects.filter(name__icontains=q_normalized)
             .distinct()[:max_items - len(suggestions)]
@@ -227,6 +237,7 @@ class CatalogView(CategorySEOMixin, ListView):
         search_priority_raw = ''
         search_priority_clean = ''
         search_priority_clean_normalized = ''
+        search_mode = _normalize_search_mode(self.request.GET.get('search_mode'))
         search = self.request.GET.get('search')
         if search:
             search = search.strip()
@@ -234,8 +245,9 @@ class CatalogView(CategorySEOMixin, ListView):
             search, allow_contains = _parse_search_mode(search)
             logger.info(f"Поисковый запрос: '{search}' (поиск в середине: {allow_contains})")
             
-            # Определяем является ли запрос поиском по номеру
-            if OeKod.is_number_search(search):
+            # Режим "по коду": ищем только по кодовым полям.
+            # Режим "по названию": ищем только по текстовым полям.
+            if search_mode == 'code':
                 search_is_number = True
                 logger.info(f"Поиск по номеру: '{search}'")
                 
@@ -309,8 +321,6 @@ class CatalogView(CategorySEOMixin, ListView):
                         Q(catalog_number__iexact=search) |
                         Q(artikyl_number__iexact=search) |
                         Q(cross_number__iexact=search) |
-                        Q(name__icontains=search) |
-                        Q(name__icontains=search_clean) |
                         Q(catalog_number_clean__iexact=search_clean) |
                         Q(artikyl_number_clean__iexact=search_clean) |
                         Q(catalog_number_clean__istartswith=search_clean) |
@@ -605,76 +615,16 @@ class CatalogView(CategorySEOMixin, ListView):
                     queryset = base_queryset.none()
                     self._found_analogs = OeKod.objects.none()
             else:
-                logger.info(f"Поиск по тексту: '{search}'")
-                
-                # НОВОЕ: Очищенная версия для поиска в очищенных полях
-                search_clean = Product.clean_number(search)
-                
-                # ПОИСК ПО НАЗВАНИЮ И БРЕНДУ - ищем по ВСЕМ товарам независимо от фильтров
-                # ИСПРАВЛЕНО: Добавлен поиск по artikyl_number и artikyl_number_clean (PROPERTY_A)
-                # ИСПРАВЛЕНО: Добавлен поиск по OE кодам в текстовой логике (для случаев типа "fynbktl")
-                # Для PostgreSQL icontains уже case-insensitive, поэтому без дублирования lower/upper.
+                logger.info(f"Поиск по названию: '{search}'")
+
+                # Режим "по названию": без смешивания с кодовыми полями.
                 text_search_query = (
                     Q(name__icontains=search) |
                     Q(brand__name__icontains=search) |
                     Q(description__icontains=search) |
-                    Q(applicability__icontains=search) |
-                    # НОВОЕ: Поиск по дополнительному номеру (PROPERTY_A) - оригинальное поле
-                    Q(artikyl_number__icontains=search) |
-                    # НОВОЕ: Поиск по очищенному дополнительному номеру (без символов и регистра)
-                    Q(artikyl_number_clean__icontains=search_clean) |
-                    # НОВОЕ: Поиск по каталожному номеру (на случай если там текст)
-                    Q(catalog_number__icontains=search) |
-                    Q(catalog_number_clean__icontains=search_clean) |
-                    # НОВОЕ: Поиск по OE кодам (для случаев типа "fynbktl" - только буквы)
-                    Q(oe_analogs__oe_kod__icontains=search) |
-                    Q(oe_analogs__oe_kod_clean__icontains=search_clean)
+                    Q(applicability__icontains=search)
                 )
-                
-                # НОВОЕ: ЛОГИКА ГРУППИРОВКИ ПО PROPERTY_A (artikyl_number)
-                # Если найдены товары (по любому полю, включая OE коды), проверяем их artikyl_number
-                # и находим ВСЕ товары с такими же значениями artikyl_number/artikyl_number_clean
-                initial_results = base_queryset.filter(text_search_query).distinct()
-                
-                # В text_search_query уже включён поиск по OE, поэтому повторный запрос не нужен.
-                all_found_products = initial_results
-                
-                # Находим уникальные значения artikyl_number и artikyl_number_clean из найденных товаров
-                # Это работает для товаров, найденных по названию, artikyl_number, OE кодам или любому другому полю
-                # ИСПРАВЛЕНО: Используем values_list вместо only() чтобы избежать конфликта с select_related
-                found_artikyl_values = set()
-                found_artikyl_clean_values = set()
-                
-                # Загружаем artikyl_number из найденных товаров (используем values_list для эффективности)
-                artikyl_data = all_found_products.values_list('artikyl_number', 'artikyl_number_clean', flat=False)
-                for artikyl_number, artikyl_number_clean in artikyl_data:
-                    if artikyl_number:
-                        found_artikyl_values.add(artikyl_number)
-                    if artikyl_number_clean:
-                        found_artikyl_clean_values.add(artikyl_number_clean)
-                
-                # Если нашли товары с artikyl_number, добавляем все товары с такими же значениями
-                if found_artikyl_values or found_artikyl_clean_values:
-                    logger.info(f"Найдено уникальных artikyl_number: {len(found_artikyl_values)}, artikyl_number_clean: {len(found_artikyl_clean_values)}")
-                    
-                    # Поиск всех товаров с такими же artikyl_number
-                    # ИСПРАВЛЕНО: Используем artikyl_number_clean для поиска всех вариантов (с точками и запятыми)
-                    artikyl_query = Q()
-                    if found_artikyl_clean_values:
-                        artikyl_query |= Q(artikyl_number_clean__in=found_artikyl_clean_values)
-                    # Также добавляем оригинальные значения для совместимости
-                    if found_artikyl_values:
-                        artikyl_query |= Q(artikyl_number__in=found_artikyl_values)
-                    
-                    # Добавляем все товары с такими же artikyl_number
-                    products_by_artikyl = base_queryset.filter(artikyl_query).distinct()
-                    
-                    logger.info("Найдены товары с такими же artikyl_number (группировка по PROPERTY_A)")
-                    # Объединяем результаты: исходные + все товары с такими же artikyl_number
-                    queryset = (all_found_products | products_by_artikyl).distinct()
-                else:
-                    queryset = all_found_products
-                
+                queryset = base_queryset.filter(text_search_query).distinct()
                 logger.info("Результат поиска по тексту сформирован")
         else:
             # Если поиска нет, применяем фильтры к базовому queryset
@@ -912,6 +862,7 @@ class CatalogView(CategorySEOMixin, ListView):
         
         # Поисковый запрос
         context['search_query'] = self.request.GET.get('search', '')
+        context['search_mode'] = _normalize_search_mode(self.request.GET.get('search_mode'))
         if context['search_query']:
             logger.info(f"Поисковый запрос в контексте: '{context['search_query']}'")
         

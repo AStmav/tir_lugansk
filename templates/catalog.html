@@ -529,7 +529,7 @@
                         <div class="catalog__search catalog__search--results-only">
                             <div class="search-info">
                                 <p>Результаты поиска по запросу: <strong>"{{ search_query }}"</strong></p>
-                                <p><small>Включены аналоги и кросс-коды товаров. Поиск по номерам производится с начала номера.</small></p>
+                                <p><small>Режим поиска: {% if search_mode == 'code' %}по коду{% else %}по названию{% endif %}.</small></p>
                             </div>
                             <a href="{% url 'shop:catalog' %}" class="search-clear-link" title="Очистить поиск">Очистить поиск</a>
                         </div>
@@ -549,6 +549,7 @@
                                     <!-- Скрытое поле для сохранения поискового запроса -->
                                     {% if search_query %}
                                     <input type="hidden" name="search" value="{{ search_query }}">
+                                    <input type="hidden" name="search_mode" value="{{ search_mode }}">
                                     {% endif %}
                                     
                                     <h3>ФИЛЬТРЫ</h3>

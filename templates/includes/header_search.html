@@ -1,14 +1,24 @@
 {# Поиск в шапке: всегда виден на всех страницах, ведёт на каталог с параметром search #}
 <div class="header__search">
     <form method="get" action="{% url 'shop:catalog' %}" class="header__search-form" id="header-search-form">
+        <div class="header__search-mode" role="radiogroup" aria-label="Режим поиска">
+            <label class="header__search-mode-item">
+                <input type="radio" name="search_mode" value="name" {% if request.GET.search_mode == 'code' %}{% else %}checked{% endif %}>
+                <span>По названию</span>
+            </label>
+            <label class="header__search-mode-item">
+                <input type="radio" name="search_mode" value="code" {% if request.GET.search_mode == 'code' %}checked{% endif %}>
+                <span>По коду</span>
+            </label>
+        </div>
         <div class="header__search-wrapper">
             <input type="text"
                    name="search"
                    class="header__search-input"
                    id="header-search-input"
-                   placeholder="Поиск по номеру детали, названию, бренду..."
+                   placeholder="Поиск по названию товара..."
                    autocomplete="off"
-                   aria-label="Поиск по номеру детали, названию, бренду"
+                   aria-label="Поиск по товарам"
                    aria-autocomplete="list"
                    aria-controls="header-search-ac-list">
             <button type="submit" class="header__search-btn" aria-label="Найти">
@@ -28,6 +38,9 @@
 <style>
 .header__search { margin: 15px 0 20px; width: 100%; max-width: 100%; position: relative; }
 .header__search-form { margin: 0; }
+.header__search-mode { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.header__search-mode-item { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #1f2428; cursor: pointer; }
+.header__search-mode-item input[type="radio"] { accent-color: #3CC14E; }
 .header__search-wrapper { display: flex; align-items: center; background: #fff; border: 2px solid #e9ecef; border-radius: 8px; transition: border-color 0.3s ease; }
 .header__search-wrapper:focus-within { border-color: #3CC14E; box-shadow: 0 0 0 3px rgba(60, 193, 78, 0.15); }
 .header__search-input { flex: 1; padding: 12px 18px; border: none; border-radius: 6px 0 0 6px; font-size: 16px; background: transparent; font-family: inherit; }
@@ -56,6 +69,8 @@
 .header__search-hint.is-visible { display: block; }
 @media (max-width: 768px) {
   .header__search { margin: 14px 0 0; }
+  .header__search-mode { gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .header__search-mode-item { font-size: 13px; }
   .header__search-wrapper { flex-wrap: wrap; }
   .header__search-input { width: 100%; border-radius: 8px 8px 0 0; padding: 10px 14px; font-size: 15px; }
   .header__search-btn { width: 100%; border-radius: 0 0 8px 8px; padding: 10px; }
@@ -124,6 +139,12 @@
     var currentSuggestions = [];
     var activeIndex = -1;
     var autocompleteBase = catalogUrl.replace(/\/catalog\/?$/, '');
+    var modeInputs = form.querySelectorAll('input[name="search_mode"]');
+
+    function getSelectedMode() {
+        var selected = form.querySelector('input[name="search_mode"]:checked');
+        return selected ? selected.value : 'name';
+    }
 
     function getCatalogParams() {
         var params = [];
@@ -137,7 +158,7 @@
         return params.join('&');
     }
     function fetchSuggestions(q, callback) {
-        var url = autocompleteBase + '/search-autocomplete/?q=' + encodeURIComponent(q);
+        var url = autocompleteBase + '/search-autocomplete/?q=' + encodeURIComponent(q) + '&search_mode=' + encodeURIComponent(getSelectedMode());
         var extra = getCatalogParams();
         if (extra) url += '&' + extra;
         var xhr = new XMLHttpRequest();
@@ -183,7 +204,7 @@
         ac.setAttribute('aria-hidden', 'true');
         var sep = catalogUrl.indexOf('?') >= 0 ? '&' : '?';
         var extra = getCatalogParams();
-        var target = catalogUrl + sep + 'search=' + encodeURIComponent(item.value);
+        var target = catalogUrl + sep + 'search=' + encodeURIComponent(item.value) + '&search_mode=' + encodeURIComponent(getSelectedMode());
         if (extra) target += '&' + extra;
         window.location.href = target;
     }
@@ -232,6 +253,24 @@
           if (window.scheduleAppHeaderMeasure) window.scheduleAppHeaderMeasure();
         }
     });
+
+    function updatePlaceholderByMode() {
+        var mode = getSelectedMode();
+        if (mode === 'code') {
+            input.placeholder = 'Поиск по коду товара...';
+            input.setAttribute('aria-label', 'Поиск по коду товара');
+        } else {
+            input.placeholder = 'Поиск по названию товара...';
+            input.setAttribute('aria-label', 'Поиск по названию товара');
+        }
+    }
+    for (var i = 0; i < modeInputs.length; i++) {
+        modeInputs[i].addEventListener('change', function() {
+            showAc([]);
+            updatePlaceholderByMode();
+        });
+    }
+    updatePlaceholderByMode();
 })();
 
 (function() {
