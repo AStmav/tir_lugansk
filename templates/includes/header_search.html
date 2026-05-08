@@ -1,17 +1,17 @@
 {# Поиск в шапке: всегда виден на всех страницах, ведёт на каталог с параметром search #}
 <div class="header__search">
     <form method="get" action="{% url 'shop:catalog' %}" class="header__search-form" id="header-search-form">
-        <div class="header__search-mode" role="radiogroup" aria-label="Режим поиска">
-            <label class="header__search-mode-item">
-                <input type="radio" name="search_mode" value="name" {% if request.GET.search_mode == 'code' %}{% else %}checked{% endif %}>
-                <span>По названию</span>
-            </label>
-            <label class="header__search-mode-item">
-                <input type="radio" name="search_mode" value="code" {% if request.GET.search_mode == 'code' %}checked{% endif %}>
-                <span>По коду</span>
-            </label>
-        </div>
         <div class="header__search-wrapper">
+            <div class="header__search-mode" role="radiogroup" aria-label="Режим поиска">
+                <label class="header__search-mode-item">
+                    <input type="radio" name="search_mode" value="name" {% if request.GET.search_mode == 'code' %}{% else %}checked{% endif %}>
+                    <span>По названию</span>
+                </label>
+                <label class="header__search-mode-item">
+                    <input type="radio" name="search_mode" value="code" {% if request.GET.search_mode == 'code' %}checked{% endif %}>
+                    <span>По коду</span>
+                </label>
+            </div>
             <input type="text"
                    name="search"
                    class="header__search-input"
@@ -38,12 +38,45 @@
 <style>
 .header__search { margin: 15px 0 20px; width: 100%; max-width: 100%; position: relative; }
 .header__search-form { margin: 0; }
-.header__search-mode { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-.header__search-mode-item { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #1f2428; cursor: pointer; }
-.header__search-mode-item input[type="radio"] { accent-color: #3CC14E; }
 .header__search-wrapper { display: flex; align-items: center; background: #fff; border: 2px solid #e9ecef; border-radius: 8px; transition: border-color 0.3s ease; }
 .header__search-wrapper:focus-within { border-color: #3CC14E; box-shadow: 0 0 0 3px rgba(60, 193, 78, 0.15); }
-.header__search-input { flex: 1; padding: 12px 18px; border: none; border-radius: 6px 0 0 6px; font-size: 16px; background: transparent; font-family: inherit; }
+.header__search-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 2px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.header__search-mode-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+.header__search-mode-item input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.header__search-mode-item span {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: #4b5563;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.header__search-mode-item input[type="radio"]:checked + span {
+  background: #3CC14E;
+  color: #fff;
+}
+.header__search-input { flex: 1; min-width: 0; padding: 12px 18px; border: none; border-radius: 6px 0 0 6px; font-size: 16px; background: transparent; font-family: inherit; }
 .header__search-input:focus { outline: none; }
 .header__search-input::placeholder { color: #6c757d; }
 .header__search-btn { display: flex; align-items: center; justify-content: center; padding: 12px 18px; background: #3CC14E; color: white; border: none; border-radius: 0 6px 6px 0; cursor: pointer; transition: background 0.3s ease; }
@@ -69,11 +102,11 @@
 .header__search-hint.is-visible { display: block; }
 @media (max-width: 768px) {
   .header__search { margin: 14px 0 0; }
-  .header__search-mode { gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-  .header__search-mode-item { font-size: 13px; }
-  .header__search-wrapper { flex-wrap: wrap; }
-  .header__search-input { width: 100%; border-radius: 8px 8px 0 0; padding: 10px 14px; font-size: 15px; }
-  .header__search-btn { width: 100%; border-radius: 0 0 8px 8px; padding: 10px; }
+  .header__search-wrapper { flex-wrap: nowrap; }
+  .header__search-mode { margin-left: 6px; }
+  .header__search-mode-item span { padding: 6px 8px; font-size: 12px; }
+  .header__search-input { width: auto; border-radius: 6px 0 0 6px; padding: 10px 12px; font-size: 15px; }
+  .header__search-btn { width: auto; border-radius: 0 6px 6px 0; padding: 10px 12px; }
   .header__search-hint { font-size: 13px; }
 }
 </style>
