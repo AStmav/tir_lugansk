@@ -59,7 +59,7 @@ def _parse_search_mode(query):
 
 def _normalize_search_mode(value):
     mode = (value or '').strip().lower()
-    return mode if mode in ('name', 'code') else 'name'
+    return mode if mode in ('name', 'code') else 'code'
 
 
 @require_GET
@@ -111,7 +111,7 @@ def search_autocomplete(request):
                 Q(artikyl_number_clean__icontains=q_clean)
             )
     else:
-        product_q = Q(name__icontains=q_normalized)
+        product_q = Q(name__icontains=q_normalized) | Q(applicability__icontains=q_normalized)
     products = Product.objects.filter(in_stock=True).filter(product_q)
     # Если передан бренд (напр. с каталога с выбранным фильтром) — ищем только в нём
     if brand_slug:
@@ -620,8 +620,6 @@ class CatalogView(CategorySEOMixin, ListView):
                 # Режим "по названию": без смешивания с кодовыми полями.
                 text_search_query = (
                     Q(name__icontains=search) |
-                    Q(brand__name__icontains=search) |
-                    Q(description__icontains=search) |
                     Q(applicability__icontains=search)
                 )
                 queryset = base_queryset.filter(text_search_query).distinct()

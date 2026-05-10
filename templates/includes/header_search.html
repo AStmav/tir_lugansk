@@ -4,19 +4,19 @@
         <div class="header__search-wrapper">
             <div class="header__search-mode" role="radiogroup" aria-label="Режим поиска">
                 <label class="header__search-mode-item">
-                    <input type="radio" name="search_mode" value="name" {% if request.GET.search_mode == 'code' %}{% else %}checked{% endif %}>
-                    <span>По названию</span>
+                    <input type="radio" name="search_mode" value="code" {% if request.GET.search_mode == 'name' %}{% else %}checked{% endif %}>
+                    <span>По коду</span>
                 </label>
                 <label class="header__search-mode-item">
-                    <input type="radio" name="search_mode" value="code" {% if request.GET.search_mode == 'code' %}checked{% endif %}>
-                    <span>По коду</span>
+                    <input type="radio" name="search_mode" value="name" {% if request.GET.search_mode == 'name' %}checked{% endif %}>
+                    <span>По названию</span>
                 </label>
             </div>
             <input type="text"
                    name="search"
                    class="header__search-input"
                    id="header-search-input"
-                   placeholder="Поиск по названию товара..."
+                   placeholder="Поиск по коду товара..."
                    autocomplete="off"
                    aria-label="Поиск по товарам"
                    aria-autocomplete="list"
@@ -176,7 +176,7 @@
 
     function getSelectedMode() {
         var selected = form.querySelector('input[name="search_mode"]:checked');
-        return selected ? selected.value : 'name';
+        return selected ? selected.value : 'code';
     }
 
     function getCatalogParams() {
