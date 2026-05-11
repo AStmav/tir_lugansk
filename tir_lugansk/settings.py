@@ -68,6 +68,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ckeditor',
+    'ckeditor_uploader',
     'shop',
     'pages',
 ]
@@ -234,6 +236,28 @@ WHITENOISE_MAX_AGE = 86400  # 1 день; при collectstatic с хешами �
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# CKEditor (WYSIWYG в админке для HTML-полей страниц и материалов «Полезное»)
+CKEDITOR_UPLOAD_PATH = 'ckeditor/'
+CKEDITOR_IMAGE_BACKEND = 'pillow'
+CKEDITOR_CONFIGS = {
+    'default': {
+        'toolbar': 'tir_default',
+        'toolbar_tir_default': [
+            ['Bold', 'Italic', 'Underline', 'Strike', '-', 'RemoveFormat'],
+            ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent'],
+            ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
+            ['Link', 'Unlink', 'Anchor'],
+            ['Image', 'Table', 'HorizontalRule'],
+            ['Format', 'FontSize'],
+            ['TextColor', 'BGColor'],
+            ['Maximize', 'ShowBlocks', 'Source'],
+        ],
+        'height': 360,
+        'width': '100%',
+        'language': 'ru',
+    },
+}
 
 # Папка, куда администратор копирует файлы по SFTP/rsync для импорта изображений.
 # Локально: проект/incoming_images. На сервере: задайте свой путь через переменную окружения INCOMING_IMAGES_DIR.
