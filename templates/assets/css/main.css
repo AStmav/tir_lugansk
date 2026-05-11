@@ -3716,3 +3716,58 @@ header:not(.header) + main {
     font-size: 13px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Контент из админки (CKEditor / HTML): единые размеры картинок и таблиц
+   Класс: .cms-html-content
+   -------------------------------------------------------------------------- */
+.cms-html-content {
+  line-height: 1.6;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.cms-html-content img {
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  display: block;
+  margin: 1.25rem auto;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+/* Чуть уже «основная» иллюстрация в тексте (не трогаем иконки в таблицах сильно) */
+.cms-html-content > p > img,
+.cms-html-content > img {
+  max-width: min(100%, 880px) !important;
+}
+
+.cms-html-content td img,
+.cms-html-content th img {
+  max-width: 100% !important;
+  margin: 0.35rem auto;
+}
+
+.cms-html-content table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 14px;
+}
+
+.cms-html-content table td,
+.cms-html-content table th {
+  border: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+  /* Широкие таблицы и блоки прокручиваются по горизонтали внутри контента */
+  .cms-html-content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

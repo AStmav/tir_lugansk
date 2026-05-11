@@ -1,5 +1,6 @@
 Django>=4.2,<5
 #Django==5.2.4
+django-ckeditor>=6.7,<7
 python-dotenv
 Pillow
 django-jazzmin>=3.0.1

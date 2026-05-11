@@ -3,6 +3,7 @@ from django import forms
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from .models import (
     Page,
     ContentBlock,
@@ -19,14 +20,34 @@ from .models import (
 )
 
 
-class ContentBlockInline(admin.TabularInline):
+class ContentBlockInlineForm(forms.ModelForm):
+    class Meta:
+        model = ContentBlock
+        fields = ['block_type', 'title', 'content', 'image', 'order', 'is_active']
+        widgets = {
+            'content': CKEditorUploadingWidget(),
+        }
+
+
+class ContentBlockInline(admin.StackedInline):
     model = ContentBlock
+    form = ContentBlockInlineForm
     extra = 1
     fields = ['block_type', 'title', 'content', 'image', 'order', 'is_active']
 
 
+class PageAdminForm(forms.ModelForm):
+    class Meta:
+        model = Page
+        fields = '__all__'
+        widgets = {
+            'content': CKEditorUploadingWidget(),
+        }
+
+
 @admin.register(Page)
 class PageAdmin(admin.ModelAdmin):
+    form = PageAdminForm
     list_display = ['title', 'page_type', 'slug', 'is_active', 'created_at', 'updated_at', 'preview_link']
     list_filter = ['page_type', 'is_active', 'created_at']
     search_fields = ['title', 'content', 'meta_title']
@@ -44,7 +65,7 @@ class PageAdmin(admin.ModelAdmin):
         }),
         ('Содержимое', {
             'fields': ('content',),
-            'description': 'Используйте HTML теги для форматирования. Например: <h2>Заголовок</h2>, <p>Параграф</p>'
+            'description': 'Визуальный редактор: форматирование, ссылки, таблицы и загрузка изображений.',
         }),
         ('Системная информация', {
             'fields': ('created_at', 'updated_at'),
@@ -71,8 +92,18 @@ class PageAdmin(admin.ModelAdmin):
         js = ('admin/js/page_admin.js',)
 
 
+class ContentBlockAdminForm(forms.ModelForm):
+    class Meta:
+        model = ContentBlock
+        fields = '__all__'
+        widgets = {
+            'content': CKEditorUploadingWidget(),
+        }
+
+
 @admin.register(ContentBlock)
 class ContentBlockAdmin(admin.ModelAdmin):
+    form = ContentBlockAdminForm
     list_display = ['page', 'block_type', 'title', 'order', 'is_active', 'created_at']
     list_filter = ['block_type', 'is_active', 'page', 'created_at']
     search_fields = ['title', 'content', 'page__title']
@@ -84,7 +115,7 @@ class ContentBlockAdmin(admin.ModelAdmin):
         }),
         ('Содержимое', {
             'fields': ('content', 'image'),
-            'description': 'Для HTML блоков используйте HTML теги. Для текстовых блоков - обычный текст.'
+            'description': 'Текст блока — в визуальном редакторе (ссылки, таблицы, картинки). Отдельное поле «Изображение» — для типов блоков с одной картинкой.',
         }),
         ('Системная информация', {
             'fields': ('order', 'created_at'),
@@ -152,15 +183,35 @@ class HelpfulMenuItemAdmin(admin.ModelAdmin):
     )
 
 
-class UsefulPostInline(admin.TabularInline):
+class UsefulPostInlineForm(forms.ModelForm):
+    class Meta:
+        model = UsefulPost
+        fields = ("title", "summary", "order", "is_active", "published_at")
+        widgets = {
+            "summary": CKEditorUploadingWidget(),
+        }
+
+
+class UsefulPostInline(admin.StackedInline):
     model = UsefulPost
+    form = UsefulPostInlineForm
     extra = 0
     fields = ("title", "summary", "order", "is_active", "published_at")
     ordering = ("-published_at", "order")
 
 
+class UsefulCategoryAdminForm(forms.ModelForm):
+    class Meta:
+        model = UsefulCategory
+        fields = '__all__'
+        widgets = {
+            'description': CKEditorUploadingWidget(),
+        }
+
+
 @admin.register(UsefulCategory)
 class UsefulCategoryAdmin(admin.ModelAdmin):
+    form = UsefulCategoryAdminForm
     list_display = ("title", "slug", "order", "is_active", "updated_at")
     list_editable = ("order", "is_active")
     search_fields = ("title", "slug", "description")
@@ -178,8 +229,19 @@ class UsefulCategoryAdmin(admin.ModelAdmin):
     )
 
 
+class UsefulPostAdminForm(forms.ModelForm):
+    class Meta:
+        model = UsefulPost
+        fields = '__all__'
+        widgets = {
+            'summary': CKEditorUploadingWidget(),
+            'content': CKEditorUploadingWidget(),
+        }
+
+
 @admin.register(UsefulPost)
 class UsefulPostAdmin(admin.ModelAdmin):
+    form = UsefulPostAdminForm
     list_display = ("title", "category", "published_at", "order", "is_active", "updated_at")
     list_editable = ("order", "is_active")
     list_filter = ("category", "is_active", "published_at")
