@@ -136,7 +136,7 @@
                                             {% if product.old_price and product.old_price > product.price %}
                                             <div class="product-badge">-{{ product.discount_percent }}%</div>
                                             {% endif %}
-                                            <div class="product-image">
+                                            <div class="product-image product-image--zoomable" data-image-lightbox>
                                                 {% if product.has_main_image %}
                                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
                                                 {% elif product.images.first %}
@@ -196,7 +196,7 @@
                                     <div class="swiper-slide">
                                         <div class="product-card">
                                             <div class="product-badge">Новый</div>
-                                            <div class="product-image">
+                                            <div class="product-image product-image--zoomable" data-image-lightbox>
                                                 {% if product.has_main_image %}
                                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
                                                 {% elif product.images.first %}
@@ -584,6 +584,7 @@
             });
         });
     </script>
+    <script src="{% static 'js/image-lightbox.js' %}"></script>
     <script src="{% static 'js/navbar-burger.js' %}"></script>
     {% include "includes/cookie_consent.html" %}
   </body>
