@@ -3727,6 +3727,78 @@ header:not(.header) + main {
   word-wrap: break-word;
 }
 
+/* Типографика HTML из CKEditor: глобальный reset (ul/ol/p) скрывает списки и сливает абзацы */
+.cms-html-content p {
+  margin: 0 0 1em;
+}
+
+.cms-html-content p:last-child {
+  margin-bottom: 0;
+}
+
+.cms-html-content h2,
+.cms-html-content h3,
+.cms-html-content h4 {
+  margin: 1.35em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1a1a1a;
+}
+
+.cms-html-content h2:first-child,
+.cms-html-content h3:first-child,
+.cms-html-content h4:first-child {
+  margin-top: 0;
+}
+
+.cms-html-content ul,
+.cms-html-content ol {
+  margin: 0 0 1em;
+  padding-left: 1.5rem;
+  list-style-position: outside;
+}
+
+.cms-html-content ul {
+  list-style-type: disc;
+}
+
+.cms-html-content ol {
+  list-style-type: decimal;
+}
+
+.cms-html-content li {
+  margin: 0.35em 0;
+}
+
+.cms-html-content ul ul,
+.cms-html-content ol ol,
+.cms-html-content ul ol,
+.cms-html-content ol ul {
+  margin-bottom: 0.35em;
+}
+
+.cms-html-content a {
+  color: #2ea83e;
+  text-decoration: underline;
+}
+
+.cms-html-content a:hover {
+  color: #248a33;
+}
+
+.cms-html-content blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-left: 4px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.cms-html-content hr {
+  margin: 1.5rem 0;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
 .cms-html-content img {
   max-width: 100% !important;
   width: auto !important;
