@@ -125,6 +125,7 @@
                                     <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
                                     <li><a href="{% url 'pages:about' %}">О компании</a></li>
                                     <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                <li><a href="{% url 'pages:page_detail' privacy_policy_slug %}">Пользовательское соглашение</a></li>
                                 </ul>
                             </nav>
                         </div>
@@ -180,7 +181,8 @@
                                 <label class="modal__label" for="userEmail">Email</label>
                                 <input class="modal__input" type="email" id="userEmail" name="userEmail" placeholder="your@email.com">
                             </div>
-                            <button class="modal__button" type="submit">Заказать звонок</button>
+                            {% include "includes/form_personal_data_consent.html" %}
+                        <button class="modal__button" type="submit">Заказать звонок</button>
                         </form>
                     </div>
                 </div>
@@ -314,6 +316,9 @@
                 
                 callForm.addEventListener('submit', function(e) {
                     e.preventDefault();
+                    if (!window.validatePersonalDataConsent || !window.validatePersonalDataConsent(callForm)) {
+                        return;
+                    }
                     
                     const formData = new FormData(callForm);
                     const name = formData.get('userName');

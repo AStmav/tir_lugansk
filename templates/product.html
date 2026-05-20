@@ -400,6 +400,7 @@
                                     {% include "includes/header_useful_menu.html" %}
                                     <li><a href="{% url 'pages:about' %}">О компании</a></li>
                                     <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                                    <li><a href="{% url 'pages:page_detail' privacy_policy_slug %}">Пользовательское соглашение</a></li>
                                 </ul>
                             </nav>
                         </div>
@@ -814,6 +815,7 @@
                                     <small>Код: {{ product.code }}</small>
                                 </div>
                             </div>
+                        {% include "includes/form_personal_data_consent.html" %}
                             <button class="modal__button" type="submit">Узнать цену и наличие</button>
                         </form>
                     </div>
@@ -1134,6 +1136,9 @@
                 
                 priceInquiryForm.addEventListener('submit', function(e) {
                     e.preventDefault();
+                    if (!window.validatePersonalDataConsent || !window.validatePersonalDataConsent(priceInquiryForm)) {
+                        return;
+                    }
                     
                     const formData = new FormData(priceInquiryForm);
                     const name = formData.get('userName');

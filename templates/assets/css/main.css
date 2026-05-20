@@ -3844,6 +3844,49 @@ header:not(.header) + main {
   }
 }
 
+/* Согласие на обработку ПД в формах заявок */
+.modal__field--consent {
+  margin-top: 4px;
+}
+
+.modal__consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #4b5563;
+}
+
+.modal__consent-input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #3CC14E;
+  cursor: pointer;
+}
+
+.modal__consent-text a {
+  color: #2ea83e;
+  text-decoration: underline;
+}
+
+.modal__consent-text a:hover {
+  color: #248a33;
+}
+
+.modal__consent-error {
+  margin: 8px 0 0 28px;
+  font-size: 13px;
+  color: #dc3545;
+}
+
+.modal__consent-error[hidden] {
+  display: none;
+}
+
 /* --------------------------------------------------------------------------
    Просмотр изображений товаров в отдельном lightbox
    -------------------------------------------------------------------------- */

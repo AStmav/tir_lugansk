@@ -1,6 +1,7 @@
 from django.utils import timezone
 from django.db.models import Q
 
+from .constants import PERSONAL_DATA_POLICY_SLUG
 from .models import HeaderNotice, HelpfulMenuItem
 
 
@@ -22,4 +23,5 @@ def header_notice(request):
     return {
         "header_notice": notice,
         "helpful_menu_items": helpful_menu_items,
+        "privacy_policy_slug": PERSONAL_DATA_POLICY_SLUG,
     }

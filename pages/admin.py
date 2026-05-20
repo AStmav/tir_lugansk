@@ -301,7 +301,7 @@ class PriceInquiryAdmin(admin.ModelAdmin):
         DeliveryErrorFilter,
     ]
     search_fields = ['name', 'phone', 'email', 'comment', 'product_name', 'product_code']
-    readonly_fields = ['created_at']
+    readonly_fields = ['created_at', 'consent_at']
     list_editable = ['is_processed']
     
     def get_list_filter(self, request):
@@ -327,7 +327,7 @@ class PriceInquiryAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Контактная информация', {
-            'fields': ('name', 'phone', 'email', 'comment', 'request_type')
+            'fields': ('name', 'phone', 'email', 'comment', 'request_type', 'personal_data_consent', 'consent_at')
         }),
         ('Информация о товаре', {
             'fields': ('product_name', 'product_code', 'product_id'),

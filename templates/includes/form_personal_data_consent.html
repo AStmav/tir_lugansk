@@ -1,0 +1,18 @@
+<div class="modal__field modal__field--consent">
+    <label class="modal__consent">
+        <input
+            class="modal__consent-input"
+            type="checkbox"
+            name="personal_data_consent"
+            value="1"
+            required
+            aria-required="true"
+        >
+        <span class="modal__consent-text">
+            Я даю согласие на
+            <a href="{% url 'pages:page_detail' privacy_policy_slug %}" target="_blank" rel="noopener noreferrer">обработку персональных данных</a>
+            в соответствии с пользовательским соглашением.
+        </span>
+    </label>
+    <p class="modal__consent-error" role="alert" hidden>Необходимо согласие на обработку персональных данных.</p>
+</div>

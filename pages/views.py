@@ -5,7 +5,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.db import transaction
+from django.utils import timezone
 from shop.models import Product
+from .inquiry_consent import CONSENT_REQUIRED_MESSAGE, is_personal_data_consent_given
 from .models import Page, PriceInquiry, UsefulCategory, UsefulPost
 from .tasks import enqueue_inquiry_notifications
 
@@ -211,6 +213,12 @@ class CallRequestView(View):
                     'success': False,
                     'message': 'Пожалуйста, заполните обязательные поля (Имя и Телефон)'
                 })
+
+            if not is_personal_data_consent_given(request.POST):
+                return JsonResponse({
+                    'success': False,
+                    'message': CONSENT_REQUIRED_MESSAGE,
+                })
             
             # Создаем новую заявку на звонок в PriceInquiry
             call_request = PriceInquiry.objects.create(
@@ -218,7 +226,9 @@ class CallRequestView(View):
                 phone=phone,
                 email=email,
                 comment=comment,
-                request_type='call'
+                request_type='call',
+                personal_data_consent=True,
+                consent_at=timezone.now(),
             )
             def _enqueue():
                 try:
@@ -267,6 +277,12 @@ class PriceInquiryView(View):
                     'success': False,
                     'message': 'Пожалуйста, заполните обязательные поля (Имя и Телефон)'
                 })
+
+            if not is_personal_data_consent_given(request.POST):
+                return JsonResponse({
+                    'success': False,
+                    'message': CONSENT_REQUIRED_MESSAGE,
+                })
             
             if not product_id or not product_name:
                 print("ERROR: Missing product info")
@@ -284,7 +300,9 @@ class PriceInquiryView(View):
                 request_type='price',
                 product_id=product_id,
                 product_name=product_name,
-                product_code=product_code or ''
+                product_code=product_code or '',
+                personal_data_consent=True,
+                consent_at=timezone.now(),
             )
             def _enqueue():
                 try:

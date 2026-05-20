@@ -211,6 +211,15 @@ class PriceInquiry(models.Model):
     phone = models.CharField(max_length=20, verbose_name='Телефон')
     email = models.EmailField(blank=True, verbose_name='Email')
     comment = models.TextField(blank=True, verbose_name='Комментарий')
+    personal_data_consent = models.BooleanField(
+        default=False,
+        verbose_name='Согласие на обработку ПД',
+    )
+    consent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата согласия',
+    )
     request_type = models.CharField(max_length=10, choices=REQUEST_TYPES, default='call', verbose_name='Тип заявки')
     
     # Поля для запроса цены товара (необязательные)

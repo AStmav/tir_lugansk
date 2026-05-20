@@ -1,3 +1,4 @@
+{% load static %}
 {# Баннер согласия на использование cookies. Показывается один раз, выбор сохраняется в localStorage. #}
 <div id="cookie-consent-banner" class="cookie-consent" role="dialog" aria-label="Уведомление о cookies" style="display: none;">
     <div class="cookie-consent__inner">
@@ -31,3 +32,4 @@
     });
 })();
 </script>
+<script src="{% static 'js/inquiry-form-consent.js' %}"></script>
