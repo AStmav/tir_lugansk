@@ -3844,6 +3844,117 @@ header:not(.header) + main {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Текстовые страницы (соглашение, Page, «Полезное»): документальный стиль
+   Перебивает глобальный h2 (центр, 28px) для юридического и статейного текста
+   -------------------------------------------------------------------------- */
+.page-content {
+  padding: 48px 0 64px;
+}
+
+.page-content__wrapper {
+  max-width: 820px;
+}
+
+.page-content__wrapper > h1 {
+  text-align: left;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 1.25rem;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.page-content .cms-html-content {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #2a2a2a;
+  text-align: left;
+}
+
+.page-content .cms-html-content p {
+  margin: 0 0 0.85em;
+  text-align: left;
+}
+
+.page-content .cms-html-content h2,
+.page-content .cms-html-content h3,
+.page-content .cms-html-content h4 {
+  text-align: left;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0;
+}
+
+.page-content .cms-html-content h2 {
+  margin-top: 1.75rem;
+  margin-bottom: 0.65rem;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.page-content .cms-html-content h3 {
+  margin-top: 1.35rem;
+  margin-bottom: 0.5rem;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.page-content .cms-html-content h4 {
+  margin-top: 1.15rem;
+  margin-bottom: 0.45rem;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.page-content .cms-html-content h2:first-child,
+.page-content .cms-html-content h3:first-child,
+.page-content .cms-html-content h4:first-child {
+  margin-top: 0;
+}
+
+.page-content .cms-html-content ul,
+.page-content .cms-html-content ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.35rem;
+}
+
+.page-content .cms-html-content li {
+  margin: 0.2em 0;
+}
+
+.page-content .cms-html-content a {
+  color: #1a1a1a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.page-content .cms-html-content a:hover {
+  color: #4b5563;
+}
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 32px 0 48px;
+  }
+
+  .page-content__wrapper > h1 {
+    font-size: 22px;
+  }
+
+  .page-content .cms-html-content {
+    font-size: 14px;
+  }
+
+  .page-content .cms-html-content h2 {
+    font-size: 16px;
+  }
+}
+
 /* Согласие на обработку ПД в формах заявок */
 .modal__field--consent {
   margin-top: 4px;
