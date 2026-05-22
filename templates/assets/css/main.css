@@ -307,13 +307,25 @@ header:not(.header) {
 }
 
 header:not(.header) + main {
-  padding-top: 220px;
+  /* Высота задаётся JS (header_search.html → --app-header-height): шапка + поиск + подсказка */
+  padding-top: calc(var(--app-header-height, 220px) + env(safe-area-inset-top, 0px));
   position: relative;
   z-index: 1;
 }
-/* Только страница товара: меньше пустого блока под шапкой */
+
+/* Каталог: зазор между поиском в шапке и блоком «КАТЕГОРИИ» */
+.page-catalog {
+  --catalog-gap-after-search: 16px;
+}
+.page-catalog header:not(.header) + main {
+  padding-top: calc(
+    var(--app-header-height, 248px) + env(safe-area-inset-top, 0px) + var(--catalog-gap-after-search)
+  );
+}
+
+/* Страница товара: компактнее, но тоже от фактической высоты шапки */
 .page-product header:not(.header) + main {
-  padding-top: 150px;
+  padding-top: calc(var(--app-header-height, 180px) + env(safe-area-inset-top, 0px));
 }
 
 /* Главная: фиксируем только верхнюю полосу (.navbar), блок .info остаётся в потоке */
@@ -3519,17 +3531,9 @@ header:not(.header) + main {
   .page-product header:not(.header) + main {
     padding-top: calc(var(--app-header-height, 248px) + env(safe-area-inset-top, 0px));
   }
-  /*
-   * Каталог (ассортимент): дополнительный зазор между нижним краем блока поиска в шапке и блоком «ФИЛЬТРЫ».
-   * Меняйте --catalog-gap-after-search на body.page-catalog (ниже) или здесь — значение в px.
-   */
+  /* На узких экранах чуть меньше зазор под поиском */
   .page-catalog {
     --catalog-gap-after-search: 12px;
-  }
-  .page-catalog header:not(.header) + main {
-    padding-top: calc(
-      var(--app-header-height, 248px) + env(safe-area-inset-top, 0px) + var(--catalog-gap-after-search)
-    );
   }
   .header {
     padding-top: 540px !important;
