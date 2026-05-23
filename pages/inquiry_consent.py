@@ -1,5 +1,7 @@
 CONSENT_FIELD = "personal_data_consent"
-CONSENT_REQUIRED_MESSAGE = "Необходимо согласие на обработку персональных данных."
+CONSENT_REQUIRED_MESSAGE = (
+    "Отметьте согласие на обработку персональных данных, чтобы отправить заявку."
+)
 
 _CONSENT_TRUTHY = frozenset({"on", "1", "true", "yes"})
 

@@ -414,6 +414,9 @@
                             // Сброс формы
                             callForm.reset();
                         } else {
+                            if (window.handleInquiryFormError && window.handleInquiryFormError(callForm, data)) {
+                                return;
+                            }
                             alert(data.message || 'Произошла ошибка при отправке заявки');
                         }
                     })
