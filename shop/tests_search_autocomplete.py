@@ -6,11 +6,16 @@ from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
 from shop.models import Product, Category, Brand
-from shop.views import _parse_search_mode
+from shop.views import _parse_search_mode, _normalize_search_mode
 
 
 class ParseSearchModeTests(TestCase):
     """Парсинг режима поиска: % даёт поиск в середине."""
+
+    def test_normalize_search_mode_defaults_to_code(self):
+        self.assertEqual(_normalize_search_mode(''), 'code')
+        self.assertEqual(_normalize_search_mode(None), 'code')
+        self.assertEqual(_normalize_search_mode('invalid'), 'code')
 
     def test_empty_returns_false(self):
         stripped, allow = _parse_search_mode('')
@@ -241,3 +246,40 @@ class SearchModeSeparationTests(TestCase):
         product_ids = {p.id for p in products}
         self.assertIn(self.code_only_product.id, product_ids)
         self.assertNotIn(self.name_only_product.id, product_ids)
+
+    def test_catalog_without_search_mode_defaults_to_code(self):
+        """Без search_mode в URL используется режим по коду (как в форме по умолчанию)."""
+        resp = self.client.get(reverse('shop:catalog'), {'search': '12345'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['search_mode'], 'code')
+        product_ids = {p.id for p in resp.context['products']}
+        self.assertIn(self.code_only_product.id, product_ids)
+        self.assertNotIn(self.name_only_product.id, product_ids)
+
+    def test_name_mode_finds_by_applicability(self):
+        cat = Category.objects.get(slug='test-cat-search-mode')
+        brand = Brand.objects.get(code='TBMODE')
+        p = Product.objects.create(
+            name='Деталь без марки в названии',
+            slug='product-applicability-volvo',
+            code='APP-VOLVO-1',
+            tmp_id='APP-VOLVO-1',
+            catalog_number='APP-001',
+            artikyl_number='',
+            applicability='Volvo FH12, задняя ось',
+            category=cat,
+            brand=brand,
+            price=80,
+            stock_quantity=1,
+            in_stock=True,
+        )
+        try:
+            resp = self.client.get(
+                reverse('shop:catalog'),
+                {'search': 'Volvo FH12', 'search_mode': 'name'},
+            )
+            self.assertEqual(resp.status_code, 200)
+            product_ids = {x.id for x in resp.context['products']}
+            self.assertIn(p.id, product_ids)
+        finally:
+            Product.objects.filter(slug='product-applicability-volvo').delete()

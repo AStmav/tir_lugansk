@@ -22,7 +22,11 @@ from django.views.static import serve
 import os
 
 # SEO: импорт для sitemap и robots
-from shop.sitemap_views import SitemapView, RobotsView
+from shop.sitemap_views import (
+    RobotsView,
+    SitemapIndexView,
+    SitemapSectionView,
+)
 from shop.feeds import CatalogUpdatesFeed
 
 urlpatterns = [
@@ -31,8 +35,26 @@ urlpatterns = [
     path('', include('pages.urls')),
     path('shop/', include('shop.urls')),
     
-    # SEO: sitemap и robots
-    path('sitemap.xml', SitemapView.as_view(), name='sitemap'),
+    # SEO: sitemap index, дочерние карты и robots
+    path('sitemap.xml', SitemapIndexView.as_view(), name='sitemap'),
+    path(
+        'sitemap-products.xml',
+        SitemapSectionView.as_view(),
+        {'section': 'products'},
+        name='sitemap_products',
+    ),
+    path(
+        'sitemap-categories.xml',
+        SitemapSectionView.as_view(),
+        {'section': 'categories'},
+        name='sitemap_categories',
+    ),
+    path(
+        'sitemap-pages.xml',
+        SitemapSectionView.as_view(),
+        {'section': 'pages'},
+        name='sitemap_pages',
+    ),
     path('robots.txt', RobotsView.as_view(), name='robots'),
     path('rss.xml', CatalogUpdatesFeed(), name='rss'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
