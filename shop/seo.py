@@ -180,56 +180,113 @@ class CategorySEOMixin(SEOMixin):
         return super().get_seo_description()
 
 
+def _sitemap_entry(loc, changefreq, priority, lastmod=None):
+    return {
+        "loc": loc,
+        "changefreq": changefreq,
+        "priority": priority,
+        "lastmod": lastmod,
+    }
+
+
 def generate_sitemap_urls():
     """
-    Генерация списка URL для sitemap.xml
+    Список относительных URL для sitemap.xml (корень сайта, каталог, страницы, «Полезное», товары).
     """
-    from shop.models import Product, Category, Brand
+    import logging
+
     from django.urls import reverse
-    
+
+    from pages.models import Page, UsefulCategory, UsefulPost
+    from shop.models import Brand, Category, Product
+
+    logger = logging.getLogger(__name__)
     urls = []
-    
-    # Главная страница
-    urls.append({
-        'loc': '/',
-        'changefreq': 'daily',
-        'priority': '1.0'
-    })
-    
-    # Каталог
-    urls.append({
-        'loc': '/catalog/',
-        'changefreq': 'daily',
-        'priority': '0.9'
-    })
-    
-    # Категории (только если есть URL паттерн)
-    try:
-        for category in Category.objects.filter(is_active=True)[:50]:
-            urls.append({
-                'loc': f'/shop/catalog/?category={category.id}',
-                'changefreq': 'weekly',
-                'priority': '0.8'
-            })
-    except Exception as e:
-        logger.warning(f"Не удалось добавить категории в sitemap: {e}")
-    
-    # Бренды
-    for brand in Brand.objects.all()[:100]:  # Ограничиваем для производительности
-        urls.append({
-            'loc': f'/catalog/?brand={brand.slug}',
-            'changefreq': 'weekly',
-            'priority': '0.7'
-        })
-    
-    # Товары (только доступные)
-    for product in Product.objects.filter(in_stock=True).select_related('category', 'brand')[:5000]:
-        urls.append({
-            'loc': product.get_absolute_url(),
-            'changefreq': 'weekly',
-            'priority': '0.6',
-            'lastmod': product.updated_at if hasattr(product, 'updated_at') else None
-        })
-    
+
+    urls.append(_sitemap_entry(reverse("pages:home"), "daily", "1.0"))
+    catalog_path = reverse("shop:catalog")
+    urls.append(_sitemap_entry(catalog_path, "daily", "0.9"))
+    urls.append(_sitemap_entry(reverse("pages:about"), "monthly", "0.7"))
+    urls.append(_sitemap_entry(reverse("pages:contacts"), "monthly", "0.7"))
+
+    def _extend(section_name, builder):
+        try:
+            builder()
+        except Exception as exc:
+            logger.warning("Sitemap: пропущен блок «%s»: %s", section_name, exc)
+
+    def _add_categories():
+        for category in Category.objects.filter(is_active=True).only("slug"):
+            urls.append(
+                _sitemap_entry(
+                    f"{catalog_path}?category={category.slug}",
+                    "weekly",
+                    "0.8",
+                )
+            )
+
+    def _add_brands():
+        for brand in Brand.objects.only("slug").iterator(chunk_size=500):
+            urls.append(
+                _sitemap_entry(f"{catalog_path}?brand={brand.slug}", "weekly", "0.7")
+            )
+
+    def _add_pages():
+        for page in Page.objects.filter(is_active=True).only("slug", "updated_at"):
+            urls.append(
+                _sitemap_entry(
+                    reverse("pages:page_detail", kwargs={"slug": page.slug}),
+                    "monthly",
+                    "0.5",
+                    page.updated_at,
+                )
+            )
+
+    def _add_useful_categories():
+        for useful_category in UsefulCategory.objects.filter(is_active=True).only(
+            "slug", "updated_at"
+        ):
+            urls.append(
+                _sitemap_entry(
+                    reverse("pages:useful_category", kwargs={"slug": useful_category.slug}),
+                    "weekly",
+                    "0.6",
+                    useful_category.updated_at,
+                )
+            )
+
+    def _add_useful_posts():
+        for post in (
+            UsefulPost.objects.filter(is_active=True)
+            .only("id", "updated_at", "published_at")
+            .iterator(chunk_size=500)
+        ):
+            lastmod = post.updated_at or post.published_at
+            urls.append(
+                _sitemap_entry(post.get_absolute_url(), "monthly", "0.5", lastmod)
+            )
+
+    def _add_products():
+        for product in (
+            Product.objects.filter(in_stock=True)
+            .only("slug", "updated_at")
+            .iterator(chunk_size=2000)
+        ):
+            urls.append(
+                _sitemap_entry(
+                    product.get_absolute_url(),
+                    "weekly",
+                    "0.6",
+                    product.updated_at,
+                )
+            )
+
+    _extend("categories", _add_categories)
+    _extend("brands", _add_brands)
+    _extend("pages", _add_pages)
+    _extend("useful_categories", _add_useful_categories)
+    _extend("useful_posts", _add_useful_posts)
+    _extend("products", _add_products)
+
     return urls
 
