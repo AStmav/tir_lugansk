@@ -179,6 +179,15 @@ class CategorySEOMixin(SEOMixin):
             return desc
         return super().get_seo_description()
 
+    def get_canonical_url(self):
+        if hasattr(self, 'category') and self.category:
+            from shop.category_urls import category_canonical_url
+
+            return self.request.build_absolute_uri(
+                category_canonical_url(self.category.slug, self.request.GET)
+            )
+        return super().get_canonical_url()
+
 
 def _sitemap_entry(loc, changefreq, priority, lastmod=None):
     return {
@@ -254,7 +263,7 @@ def generate_sitemap_categories_urls():
         for category in Category.objects.filter(is_active=True).only("slug"):
             urls_list.append(
                 _sitemap_entry(
-                    f"{catalog_path}?category={category.slug}",
+                    reverse("shop:category", kwargs={"category_slug": category.slug}),
                     "weekly",
                     "0.8",
                 )

@@ -492,7 +492,7 @@
                                         {% if nav_root_categories %}
                                         <ul class="menu-catalog__dropdown">
                                             {% for nav_cat in nav_root_categories %}
-                                            <li><a href="{% url 'shop:catalog' %}?category={{ nav_cat.slug }}">{{ nav_cat.name }}</a></li>
+                                            <li><a href="{% url 'shop:category' category_slug=nav_cat.slug %}">{{ nav_cat.name }}</a></li>
                                             {% endfor %}
                                         </ul>
                                         {% endif %}
@@ -545,7 +545,7 @@
                                     </button>
                                 </div>
                                 <div class="catalog__filter-dropdown">
-                                <form method="get" id="filterForm" class="catalog__filters">
+                                <form method="get" id="filterForm" class="catalog__filters" action="{{ catalog_form_action }}">
                                     <!-- Скрытое поле для сохранения поискового запроса -->
                                     {% if search_query %}
                                     <input type="hidden" name="search" value="{{ search_query }}">

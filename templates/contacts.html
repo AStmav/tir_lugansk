@@ -36,7 +36,7 @@
                                         {% if nav_root_categories %}
                                         <ul class="menu-catalog__dropdown">
                                             {% for nav_cat in nav_root_categories %}
-                                            <li><a href="{% url 'shop:catalog' %}?category={{ nav_cat.slug }}">{{ nav_cat.name }}</a></li>
+                                            <li><a href="{% url 'shop:category' category_slug=nav_cat.slug %}">{{ nav_cat.name }}</a></li>
                                             {% endfor %}
                                         </ul>
                                         {% endif %}

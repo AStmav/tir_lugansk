@@ -1,6 +1,8 @@
 from collections import defaultdict
 
 from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponsePermanentRedirect
+from django.urls import reverse
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q, Prefetch
 from django.db import models
@@ -9,6 +11,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from .models import Product, Category, Brand, OeKod
+from .category_urls import build_catalog_category_redirect, category_canonical_url
 from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
 import logging
 import re
@@ -152,12 +155,42 @@ def search_autocomplete(request):
 
 class CatalogView(CategorySEOMixin, ListView):
     """
-    Каталог товаров с SEO оптимизацией
+    Каталог товаров с SEO оптимизацией.
+    Страница категории: /shop/category/<slug>/ (тот же шаблон и фильтры).
     """
     model = Product
     template_name = 'catalog.html'
     context_object_name = 'products'
     paginate_by = 100
+
+    def setup(self, request, *args, **kwargs):
+        super().setup(request, *args, **kwargs)
+        self.category = None
+        category_slug = kwargs.get('category_slug')
+        if category_slug:
+            self.category = get_object_or_404(
+                Category,
+                slug=category_slug,
+                is_active=True,
+            )
+
+    def get(self, request, *args, **kwargs):
+        if not kwargs.get('category_slug'):
+            redirect_url = build_catalog_category_redirect(request)
+            if redirect_url:
+                return HttpResponsePermanentRedirect(redirect_url)
+        return super().get(request, *args, **kwargs)
+
+    def _get_category_filter_values(self):
+        """Список slug/id категорий для фильтрации и отображения чекбоксов."""
+        if (self.request.GET.get('search') or '').strip():
+            return self.request.GET.getlist('category')
+        get_cats = self.request.GET.getlist('category')
+        if get_cats:
+            return get_cats
+        if getattr(self, 'category', None):
+            return [self.category.slug]
+        return []
 
     def _build_catalog_cache_key(self):
         """
@@ -167,7 +200,7 @@ class CatalogView(CategorySEOMixin, ListView):
         if (self.request.GET.get('search') or '').strip():
             return None
 
-        category_slugs = sorted(self.request.GET.getlist('category'))
+        category_slugs = sorted(self._get_category_filter_values())
         brand_slugs = sorted(self.request.GET.getlist('brand'))
         min_price = (self.request.GET.get('min_price') or '').strip()
         max_price = (self.request.GET.get('max_price') or '').strip()
@@ -633,7 +666,7 @@ class CatalogView(CategorySEOMixin, ListView):
         # Для пустого queryset это безопасно и не меняет результат, но избегает лишнего EXISTS().
         # Фильтр по категории (множественный выбор).
         # Поддерживаем и slug, и id; при выборе родителя включаем товары его подкатегорий.
-        category_params = self.request.GET.getlist('category')
+        category_params = self._get_category_filter_values()
         if category_params:
             raw_values = [(v or '').strip() for v in category_params if (v or '').strip()]
             numeric_ids = [int(v) for v in raw_values if v.isdigit()]
@@ -846,7 +879,15 @@ class CatalogView(CategorySEOMixin, ListView):
         )
         
         # Выбранные фильтры для template
-        context['selected_categories'] = self.request.GET.getlist('category')
+        context['current_category'] = getattr(self, 'category', None)
+        if self.category:
+            context['catalog_form_action'] = reverse(
+                'shop:category',
+                kwargs={'category_slug': self.category.slug},
+            )
+        else:
+            context['catalog_form_action'] = reverse('shop:catalog')
+        context['selected_categories'] = self._get_category_filter_values()
         context['selected_brands'] = self.request.GET.getlist('brand')
         # Количество активных фильтров (для мобильной кнопки «ФИЛЬТРЫ (N)»)
         n = len(context['selected_categories']) + len(context['selected_brands'])

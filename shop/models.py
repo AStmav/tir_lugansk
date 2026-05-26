@@ -29,9 +29,8 @@ class Category(models.Model):
         return self.name
     
     def get_absolute_url(self):
-        """Возвращает URL каталога с фильтром по категории"""
-        from django.urls import reverse
-        return f"{reverse('shop:catalog')}?category={self.id}"
+        """Канонический URL страницы категории."""
+        return reverse('shop:category', kwargs={'category_slug': self.slug})
     
     @property
     def level(self):
@@ -73,9 +72,8 @@ class SubCategory(models.Model):
         return f"{self.parent.name} → {self.name}"
     
     def get_absolute_url(self):
-        """Возвращает URL каталога с фильтром по подкатегории"""
-        from django.urls import reverse
-        return f"{reverse('shop:catalog')}?category={self.parent.id}"
+        """Канонический URL родительской категории."""
+        return reverse('shop:category', kwargs={'category_slug': self.parent.slug})
 
 
 class Brand(models.Model):
