@@ -161,6 +161,48 @@ class ProductSEOMixin(SEOMixin):
         return schema
 
 
+class BrandSEOMixin(SEOMixin):
+    """SEO-миксин для страниц бренда в каталоге."""
+
+    def get_seo_title(self):
+        if hasattr(self, 'brand') and self.brand:
+            if self.brand.meta_title:
+                return self.brand.meta_title
+            return f"{self.brand.name} — автозапчасти | TIR-Lugansk"
+        return super().get_seo_title()
+
+    def get_seo_description(self):
+        if hasattr(self, 'brand') and self.brand:
+            if self.brand.meta_description:
+                return self.brand.meta_description
+            desc = f"Купить автозапчасти {self.brand.name} в интернет-магазине TIR-Lugansk. "
+            desc += f"Оригинальные и аналоговые детали бренда {self.brand.name}. "
+            desc += "Доставка по Луганску и области."
+            return desc
+        return super().get_seo_description()
+
+    def get_seo_keywords(self):
+        if hasattr(self, 'brand') and self.brand:
+            if self.brand.meta_keywords:
+                return self.brand.meta_keywords
+            return f"{self.brand.name}, автозапчасти {self.brand.name}, купить {self.brand.name}, Луганск"
+        return super().get_seo_keywords()
+
+    def get_og_image(self):
+        if hasattr(self, 'brand') and self.brand and self.brand.logo:
+            return self.request.build_absolute_uri(self.brand.logo.url)
+        return super().get_og_image()
+
+    def get_canonical_url(self):
+        if hasattr(self, 'brand') and self.brand:
+            from shop.brand_urls import brand_canonical_url
+
+            return self.request.build_absolute_uri(
+                brand_canonical_url(self.brand.slug, self.request.GET)
+            )
+        return super().get_canonical_url()
+
+
 class CategorySEOMixin(SEOMixin):
     """
     Специализированный SEO-миксин для страниц категорий
@@ -272,7 +314,11 @@ def generate_sitemap_categories_urls():
     def _add_brands(urls_list):
         for brand in Brand.objects.only("slug").iterator(chunk_size=500):
             urls_list.append(
-                _sitemap_entry(f"{catalog_path}?brand={brand.slug}", "weekly", "0.7")
+                _sitemap_entry(
+                    reverse("shop:brand", kwargs={"brand_slug": brand.slug}),
+                    "weekly",
+                    "0.7",
+                )
             )
 
     _run_sitemap_builder("catalog_categories", _add_categories, urls)

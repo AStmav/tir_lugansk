@@ -18,10 +18,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from django.views.static import serve
 import os
 
 # SEO: импорт для sitemap и robots
+from shop.views import legacy_supplier_brand_redirect
 from shop.sitemap_views import (
     RobotsView,
     SitemapIndexView,
@@ -34,6 +36,12 @@ urlpatterns = [
     path('ckeditor/', include('ckeditor_uploader.urls')),
     path('', include('pages.urls')),
     path('shop/', include('shop.urls')),
+    # SEO: редиректы со старого раздела поставщиков
+    path(
+        'suppliers/',
+        RedirectView.as_view(pattern_name='shop:catalog', permanent=True),
+    ),
+    path('suppliers/<slug:brand_slug>/', legacy_supplier_brand_redirect),
     
     # SEO: sitemap index, дочерние карты и robots
     path('sitemap.xml', SitemapIndexView.as_view(), name='sitemap'),

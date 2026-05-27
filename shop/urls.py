@@ -10,6 +10,11 @@ urlpatterns = [
         views.CatalogView.as_view(),
         name='category',
     ),
+    path(
+        'brand/<slug:brand_slug>/',
+        views.CatalogView.as_view(),
+        name='brand',
+    ),
     path('search-autocomplete/', views.search_autocomplete, name='search_autocomplete'),
     path('product/<slug:slug>/', views.ProductView.as_view(), name='product'),
 ] 

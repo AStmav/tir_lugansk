@@ -11,8 +11,9 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from .models import Product, Category, Brand, OeKod
+from .brand_urls import build_catalog_brand_redirect
 from .category_urls import build_catalog_category_redirect, category_canonical_url
-from .seo import ProductSEOMixin, CategorySEOMixin, SEOMixin
+from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin
 import logging
 import re
 import hashlib
@@ -153,10 +154,17 @@ def search_autocomplete(request):
     return JsonResponse({'suggestions': suggestions})
 
 
-class CatalogView(CategorySEOMixin, ListView):
+def legacy_supplier_brand_redirect(request, brand_slug):
+    """301 со старого /suppliers/<slug>/ на /shop/brand/<slug>/."""
+    return HttpResponsePermanentRedirect(
+        reverse('shop:brand', kwargs={'brand_slug': brand_slug})
+    )
+
+
+class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
     """
     Каталог товаров с SEO оптимизацией.
-    Страница категории: /shop/category/<slug>/ (тот же шаблон и фильтры).
+    Категория: /shop/category/<slug>/, бренд: /shop/brand/<slug>/ (тот же шаблон и фильтры).
     """
     model = Product
     template_name = 'catalog.html'
@@ -166,6 +174,7 @@ class CatalogView(CategorySEOMixin, ListView):
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
         self.category = None
+        self.brand = None
         category_slug = kwargs.get('category_slug')
         if category_slug:
             self.category = get_object_or_404(
@@ -173,10 +182,16 @@ class CatalogView(CategorySEOMixin, ListView):
                 slug=category_slug,
                 is_active=True,
             )
+        brand_slug = kwargs.get('brand_slug')
+        if brand_slug:
+            self.brand = get_object_or_404(Brand, slug=brand_slug)
 
     def get(self, request, *args, **kwargs):
-        if not kwargs.get('category_slug'):
+        if not kwargs.get('category_slug') and not kwargs.get('brand_slug'):
             redirect_url = build_catalog_category_redirect(request)
+            if redirect_url:
+                return HttpResponsePermanentRedirect(redirect_url)
+            redirect_url = build_catalog_brand_redirect(request)
             if redirect_url:
                 return HttpResponsePermanentRedirect(redirect_url)
         return super().get(request, *args, **kwargs)
@@ -192,6 +207,17 @@ class CatalogView(CategorySEOMixin, ListView):
             return [self.category.slug]
         return []
 
+    def _get_brand_filter_values(self):
+        """Список slug брендов для фильтрации и чекбоксов."""
+        if (self.request.GET.get('search') or '').strip():
+            return self.request.GET.getlist('brand')
+        get_brands = self.request.GET.getlist('brand')
+        if get_brands:
+            return get_brands
+        if getattr(self, 'brand', None):
+            return [self.brand.slug]
+        return []
+
     def _build_catalog_cache_key(self):
         """
         Кэшируем только листинг без search (иначе рискуем затронуть сложную логику found_analogs).
@@ -201,7 +227,7 @@ class CatalogView(CategorySEOMixin, ListView):
             return None
 
         category_slugs = sorted(self._get_category_filter_values())
-        brand_slugs = sorted(self.request.GET.getlist('brand'))
+        brand_slugs = sorted(self._get_brand_filter_values())
         min_price = (self.request.GET.get('min_price') or '').strip()
         max_price = (self.request.GET.get('max_price') or '').strip()
         sort = (self.request.GET.get('sort') or 'newest').strip()
@@ -704,7 +730,7 @@ class CatalogView(CategorySEOMixin, ListView):
                 )
         
         # Фильтр по бренду (множественный выбор)
-        brand_slugs = self.request.GET.getlist('brand')
+        brand_slugs = self._get_brand_filter_values()
         if brand_slugs:
             logger.info(f"Применяем фильтр по брендам: {brand_slugs}")
             queryset = queryset.filter(brand__slug__in=brand_slugs)
@@ -880,7 +906,13 @@ class CatalogView(CategorySEOMixin, ListView):
         
         # Выбранные фильтры для template
         context['current_category'] = getattr(self, 'category', None)
-        if self.category:
+        context['current_brand'] = getattr(self, 'brand', None)
+        if self.brand:
+            context['catalog_form_action'] = reverse(
+                'shop:brand',
+                kwargs={'brand_slug': self.brand.slug},
+            )
+        elif self.category:
             context['catalog_form_action'] = reverse(
                 'shop:category',
                 kwargs={'category_slug': self.category.slug},
@@ -888,7 +920,7 @@ class CatalogView(CategorySEOMixin, ListView):
         else:
             context['catalog_form_action'] = reverse('shop:catalog')
         context['selected_categories'] = self._get_category_filter_values()
-        context['selected_brands'] = self.request.GET.getlist('brand')
+        context['selected_brands'] = self._get_brand_filter_values()
         # Количество активных фильтров (для мобильной кнопки «ФИЛЬТРЫ (N)»)
         n = len(context['selected_categories']) + len(context['selected_brands'])
         if self.request.GET.get('min_price') or self.request.GET.get('max_price'):

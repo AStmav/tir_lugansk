@@ -476,7 +476,11 @@
                                 <div class="product__specs">
                                 <div class="product__spec">
                                     <span class="spec-label">Бренд</span>
-                                    <span class="spec-value">{{ product.brand.name }}</span>
+                                    <span class="spec-value">
+                                        {% if product.brand %}
+                                        <a href="{{ product.brand.get_absolute_url }}">{{ product.brand.name }}</a>
+                                        {% else %}—{% endif %}
+                                    </span>
                                     <span class="spec-code">{{ product.code }}</span>
                                 </div>
                                 <div class="product__spec">

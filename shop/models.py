@@ -99,6 +99,10 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        """Канонический URL страницы бренда в каталоге."""
+        return reverse('shop:brand', kwargs={'brand_slug': self.slug})
+
 
 class Product(models.Model):
     tmp_id = models.CharField(max_length=100, blank=True, verbose_name='ID в 1С', db_index=True)
