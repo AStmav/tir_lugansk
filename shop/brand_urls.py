@@ -7,12 +7,24 @@ from .models import Brand
 
 
 def resolve_active_brand_slug(value):
-    """Преобразует slug бренда из query в валидный slug."""
+    """
+    Находит slug бренда в БД по значению из URL или query.
+    Поддерживает короткие slug со старого сайта (/suppliers/bosch/),
+    если в БД запись вида «00000000552-bosch».
+    """
     raw = (value or "").strip()
     if not raw:
         return None
     if Brand.objects.filter(slug=raw).exists():
         return raw
+    # Импорт из 1С: slug «<id>-bosch», старый сайт — «bosch»
+    suffix = Brand.objects.filter(slug__iendswith=f"-{raw}").order_by("id").only("slug").first()
+    if suffix:
+        return suffix.slug
+    # Точное совпадение по названию (Bosch, MANN-FILTER и т.д.)
+    by_name = Brand.objects.filter(name__iexact=raw).only("slug").first()
+    if by_name:
+        return by_name.slug
     return None
 
 

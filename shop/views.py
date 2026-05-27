@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponsePermanentRedirect
+from django.http import Http404, HttpResponsePermanentRedirect
 from django.urls import reverse
 from django.views.generic import TemplateView, ListView, DetailView
 from django.db.models import Q, Prefetch
@@ -11,7 +11,11 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from .models import Product, Category, Brand, OeKod
-from .brand_urls import build_catalog_brand_redirect
+from .brand_urls import (
+    brand_canonical_url,
+    build_catalog_brand_redirect,
+    resolve_active_brand_slug,
+)
 from .category_urls import build_catalog_category_redirect, category_canonical_url
 from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin
 import logging
@@ -155,10 +159,11 @@ def search_autocomplete(request):
 
 
 def legacy_supplier_brand_redirect(request, brand_slug):
-    """301 со старого /suppliers/<slug>/ на /shop/brand/<slug>/."""
-    return HttpResponsePermanentRedirect(
-        reverse('shop:brand', kwargs={'brand_slug': brand_slug})
-    )
+    """301 со старого /suppliers/<slug>/ на канонический /shop/brand/<slug>/."""
+    resolved_slug = resolve_active_brand_slug(brand_slug)
+    if not resolved_slug:
+        return HttpResponsePermanentRedirect(reverse('shop:catalog'))
+    return HttpResponsePermanentRedirect(brand_canonical_url(resolved_slug))
 
 
 class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
@@ -184,9 +189,21 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             )
         brand_slug = kwargs.get('brand_slug')
         if brand_slug:
-            self.brand = get_object_or_404(Brand, slug=brand_slug)
+            resolved_slug = resolve_active_brand_slug(brand_slug)
+            if not resolved_slug:
+                raise Http404("Бренд не найден")
+            self.brand = Brand.objects.filter(slug=resolved_slug).first()
 
     def get(self, request, *args, **kwargs):
+        brand_slug = kwargs.get('brand_slug')
+        if brand_slug:
+            resolved_slug = resolve_active_brand_slug(brand_slug)
+            if not resolved_slug:
+                raise Http404("Бренд не найден")
+            if resolved_slug != brand_slug:
+                return HttpResponsePermanentRedirect(
+                    brand_canonical_url(resolved_slug, request.GET)
+                )
         if not kwargs.get('category_slug') and not kwargs.get('brand_slug'):
             redirect_url = build_catalog_category_redirect(request)
             if redirect_url:
