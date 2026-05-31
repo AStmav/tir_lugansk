@@ -30,6 +30,7 @@ from shop.sitemap_views import (
     SitemapSectionView,
 )
 from shop.feeds import CatalogUpdatesFeed
+from pages.views import server_error
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -83,4 +84,11 @@ else:
         path('images/<path:path>', serve, {
             'document_root': os.path.join(settings.BASE_DIR, 'images'),
         }),
+    ]
+
+handler500 = 'pages.views.server_error'
+
+if settings.DEBUG:
+    urlpatterns += [
+        path('__preview__/500/', server_error, name='preview_500'),
     ]

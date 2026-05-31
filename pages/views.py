@@ -325,3 +325,8 @@ class PriceInquiryView(View):
                 'success': False,
                 'message': 'Произошла ошибка при отправке запроса'
             })
+
+
+def server_error(request, *args, **kwargs):
+    """Пользовательская страница 500 (DEBUG=False)."""
+    return render(request, '500.html', status=500)

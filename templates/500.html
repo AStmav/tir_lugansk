@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Ошибка сервера — TIR-Lugansk</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Oswald", sans-serif;
+            color: #282828;
+            background: #f5f8fa;
+            padding: 24px;
+        }
+        .error-page {
+            max-width: 560px;
+            width: 100%;
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 40px 32px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(169, 175, 180, 0.15);
+        }
+        .error-page__logo { margin-bottom: 28px; }
+        .error-page__logo img { max-width: 220px; height: auto; }
+        .error-page__title {
+            margin: 0 0 16px;
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .error-page__text {
+            margin: 0 0 28px;
+            font-size: 17px;
+            line-height: 1.5;
+            color: #555;
+        }
+        .error-page__contacts {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .error-page__link {
+            color: #282828;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .error-page__link:hover { color: #FF2E3B; }
+        .error-page__btn {
+            display: inline-block;
+            padding: 14px 28px;
+            background: #FF2E3B;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-page">
+        <div class="error-page__logo">
+            <img src="{% static 'img/logo.png' %}" alt="TIR-Lugansk" width="220">
+        </div>
+        <h1 class="error-page__title">Что-то пошло не так</h1>
+        <p class="error-page__text">
+            На сайте произошла техническая ошибка. Мы уже работаем над её устранением.
+            Попробуйте обновить страницу или свяжитесь с нами по телефону.
+        </p>
+        <div class="error-page__contacts">
+            <a class="error-page__link" href="tel:+79590029073">+7 (959) 002-90-73</a>
+            <a class="error-page__link" href="mailto:sales@tir-lugansk.ru">sales@tir-lugansk.ru</a>
+        </div>
+        <a class="error-page__btn" href="/">На главную</a>
+    </div>
+</body>
+</html>
