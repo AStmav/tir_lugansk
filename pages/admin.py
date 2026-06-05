@@ -184,8 +184,8 @@ class HelpfulMenuItemAdmin(admin.ModelAdmin):
             {
                 "fields": ("title", "useful_category", "url", "order", "is_active", "open_in_new_tab"),
                 "description": (
-                    "Категория полезного → /useful/slug/. "
-                    "Страница из раздела «Страницы» → укажите URL вручную, например /page/codestmc/ "
+                    "Категория полезного → короткий /slug/ или /useful/slug/ (см. настройки категории). "
+                    "Страница из раздела «Страницы» → URL вручную, например /page/codestmc/ "
                     "(категорию оставьте пустой)."
                 ),
             },
@@ -226,8 +226,8 @@ class UsefulCategoryAdminForm(forms.ModelForm):
 @admin.register(UsefulCategory)
 class UsefulCategoryAdmin(admin.ModelAdmin):
     form = UsefulCategoryAdminForm
-    list_display = ("title", "slug", "order", "is_active", "updated_at")
-    list_editable = ("order", "is_active")
+    list_display = ("title", "slug", "posts_per_page", "use_short_url", "order", "is_active", "updated_at")
+    list_editable = ("order", "is_active", "use_short_url")
     search_fields = ("title", "slug", "description")
     ordering = ("order", "title")
     readonly_fields = ("created_at", "updated_at")
@@ -238,10 +238,18 @@ class UsefulCategoryAdmin(admin.ModelAdmin):
         (
             "Основное",
             {
-                "fields": ("title", "slug", "description", "order", "is_active"),
+                "fields": (
+                    "title",
+                    "slug",
+                    "description",
+                    "posts_per_page",
+                    "use_short_url",
+                    "order",
+                    "is_active",
+                ),
                 "description": (
-                    "Раздел «Полезное» со списком материалов: /useful/slug/. "
-                    "Одна большая HTML-страница без списка записей — модель «Страницы» (/page/slug/)."
+                    "Список материалов: короткий URL /slug/ (если включён) или /useful/slug/. "
+                    "Одна большая HTML-страница — модель «Страницы» (/page/slug/)."
                 ),
             },
         ),

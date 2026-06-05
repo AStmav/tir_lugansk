@@ -1,6 +1,7 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import TemplateView, DetailView
-from django.http import JsonResponse
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.http import Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.generic import DetailView, TemplateView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -10,6 +11,32 @@ from shop.models import Product
 from .inquiry_consent import CONSENT_REQUIRED_MESSAGE, is_personal_data_consent_given
 from .models import Page, PriceInquiry, UsefulCategory, UsefulPost
 from .tasks import enqueue_inquiry_notifications
+
+DEFAULT_USEFUL_POSTS_PER_PAGE = 12
+
+RESERVED_USEFUL_SHORT_SLUGS = frozenset(
+    {
+        "about",
+        "contacts",
+        "shop",
+        "page",
+        "useful",
+        "admin",
+        "ckeditor",
+        "call-request",
+        "price-inquiry",
+        "suppliers",
+        "images",
+        "media",
+        "static",
+        "sitemap.xml",
+        "robots.txt",
+        "rss.xml",
+        "news",
+        "catalogs",
+        "articles",
+    }
+)
 
 
 class HomeView(TemplateView):
@@ -64,6 +91,18 @@ class ContactsView(TemplateView):
         return context
 
 
+def paginate_queryset(request, queryset, per_page):
+    paginator = Paginator(queryset, per_page)
+    page_number = request.GET.get("page", 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages or 1)
+    return page_obj
+
+
 class UsefulSectionView(TemplateView):
     template_name = "useful_section.html"
     section_title = ""
@@ -74,6 +113,11 @@ class UsefulSectionView(TemplateView):
     def get_section_slug(self):
         return self.section_slug or self.kwargs.get("slug", "")
 
+    def get_posts_queryset(self, category):
+        if not category:
+            return UsefulPost.objects.none()
+        return category.posts.filter(is_active=True).order_by("-published_at", "order", "title")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         category = None
@@ -81,17 +125,27 @@ class UsefulSectionView(TemplateView):
         if section_slug:
             category = UsefulCategory.objects.filter(slug=section_slug, is_active=True).first()
 
-        posts = UsefulPost.objects.none()
-        if category:
-            posts = category.posts.filter(is_active=True).order_by("-published_at", "order", "title")
-
+        posts_qs = self.get_posts_queryset(category)
         context["section_title"] = category.title if category else self.section_title
         context["section_subtitle"] = (
             category.description if category and category.description else self.section_subtitle
         )
         context["section_category"] = category
-        context["section_posts"] = posts
         context["section_items"] = self.section_items
+
+        if category and posts_qs.exists():
+            per_page = category.posts_per_page or DEFAULT_USEFUL_POSTS_PER_PAGE
+            page_obj = paginate_queryset(self.request, posts_qs, per_page)
+            context["section_posts"] = page_obj.object_list
+            context["page_obj"] = page_obj
+            context["paginator"] = page_obj.paginator
+            context["is_paginated"] = page_obj.has_other_pages()
+        else:
+            context["section_posts"] = posts_qs
+            context["page_obj"] = None
+            context["paginator"] = None
+            context["is_paginated"] = False
+
         return context
 
 
@@ -179,8 +233,23 @@ class UsefulPostDetailView(DetailView):
         return UsefulPost.objects.filter(is_active=True, category__is_active=True).select_related("category")
 
 
-def legacy_useful_redirect(request, slug):
-    return redirect("pages:useful_category", slug=slug, permanent=True)
+def useful_category_prefixed_view(request, slug):
+    category = get_object_or_404(UsefulCategory, slug=slug, is_active=True)
+    if category.use_short_url:
+        target = category.get_absolute_url()
+        if request.GET:
+            target = f"{target}?{request.GET.urlencode()}"
+        return redirect(target, permanent=True)
+    return UsefulCategoryView.as_view()(request, slug=slug)
+
+
+def useful_short_category_view(request, slug):
+    if slug in RESERVED_USEFUL_SHORT_SLUGS:
+        raise Http404
+    category = UsefulCategory.objects.filter(slug=slug, is_active=True, use_short_url=True).first()
+    if not category:
+        raise Http404
+    return UsefulCategoryView.as_view()(request, slug=slug)
 
 
 class PageDetailView(DetailView):

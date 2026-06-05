@@ -1,0 +1,39 @@
+{% if is_paginated %}
+<nav class="catalog__pagination" aria-label="{{ pagination_aria_label|default:'Страницы' }}">
+    {% if page_obj.has_previous %}
+    <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="pagination__prev" aria-label="Предыдущая страница">←</a>
+    {% endif %}
+
+    <div class="pagination__pages">
+        {% if page_obj.number > 4 %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">1</a>
+        {% if page_obj.number > 5 %}
+        <span class="pagination__dots" aria-hidden="true">...</span>
+        {% endif %}
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if num >= page_obj.number|add:'-3' and num <= page_obj.number|add:'3' %}
+            {% if page_obj.number == num %}
+            <span class="pagination__current" aria-current="page">{{ num }}</span>
+            {% else %}
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+            {% endif %}
+            {% endif %}
+        {% endfor %}
+
+        {% with total_pages=page_obj.paginator.num_pages %}
+        {% if page_obj.number < total_pages|add:'-3' %}
+        {% if page_obj.number < total_pages|add:'-4' %}
+        <span class="pagination__dots" aria-hidden="true">...</span>
+        {% endif %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ total_pages }}">{{ total_pages }}</a>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    {% if page_obj.has_next %}
+    <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="pagination__next" aria-label="Следующая страница">→</a>
+    {% endif %}
+</nav>
+{% endif %}

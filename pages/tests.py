@@ -5,7 +5,7 @@ from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
-from pages.models import HelpfulMenuItem, PriceInquiry, UsefulCategory
+from pages.models import HelpfulMenuItem, PriceInquiry, UsefulCategory, UsefulPost
 from pages.notifications import _build_body, send_inquiry_email_notification, send_inquiry_telegram_notification
 
 
@@ -163,9 +163,63 @@ class PublicTemplateConsistencyTests(TestCase):
     def test_useful_category_page_has_favicon_in_html(self):
         UsefulCategory.objects.update_or_create(
             slug="news",
-            defaults={"title": "Новости", "is_active": True},
+            defaults={"title": "Новости", "is_active": True, "use_short_url": True},
         )
-        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "news"}))
+        response = self.client.get(reverse("pages:news"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "favicon")
         self.assertContains(response, "apple-touch-icon")
+
+    def test_useful_prefixed_url_redirects_to_short_url(self):
+        UsefulCategory.objects.update_or_create(
+            slug="news",
+            defaults={"title": "Новости", "is_active": True, "use_short_url": True},
+        )
+        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "news"}))
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], reverse("pages:news"))
+
+    def test_useful_category_without_short_url_keeps_prefixed_path(self):
+        category = UsefulCategory.objects.create(
+            title="Коды",
+            slug="codes",
+            is_active=True,
+            use_short_url=False,
+        )
+        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "codes"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, category.title)
+
+    def test_useful_category_pagination(self):
+        category = UsefulCategory.objects.create(
+            title="Статьи тест",
+            slug="articles-test",
+            is_active=True,
+            posts_per_page=2,
+            use_short_url=False,
+        )
+        for index in range(5):
+            UsefulPost.objects.create(
+                category=category,
+                title=f"Материал {index + 1}",
+                summary=f"Текст {index + 1}",
+                is_active=True,
+            )
+
+        first_page = self.client.get(reverse("pages:useful_category", kwargs={"slug": "articles-test"}))
+        self.assertEqual(first_page.status_code, 200)
+        self.assertContains(first_page, "Материал 1")
+        self.assertContains(first_page, "Материал 2")
+        self.assertNotContains(first_page, "Материал 3")
+        self.assertContains(first_page, "pagination__current")
+
+        second_page = self.client.get(
+            reverse("pages:useful_category", kwargs={"slug": "articles-test"}) + "?page=2"
+        )
+        self.assertEqual(second_page.status_code, 200)
+        self.assertContains(second_page, "Материал 3")
+        self.assertNotContains(second_page, "Материал 1")
+
+    def test_shop_urls_are_not_shadowed_by_useful_short_routes(self):
+        response = self.client.get("/shop/catalog/")
+        self.assertEqual(response.status_code, 200)

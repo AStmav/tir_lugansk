@@ -35,7 +35,6 @@ from pages.views import server_error
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('ckeditor/', include('ckeditor_uploader.urls')),
-    path('', include('pages.urls')),
     path('shop/', include('shop.urls')),
     # SEO: редиректы со старого раздела поставщиков
     path(
@@ -43,8 +42,7 @@ urlpatterns = [
         RedirectView.as_view(pattern_name='shop:catalog', permanent=True),
     ),
     path('suppliers/<slug:brand_slug>/', legacy_supplier_brand_redirect),
-    
-    # SEO: sitemap index, дочерние карты и robots
+    # SEO: sitemap index, дочерние карты и robots (до catch-all в pages.urls)
     path('sitemap.xml', SitemapIndexView.as_view(), name='sitemap'),
     path(
         'sitemap-products.xml',
@@ -66,6 +64,7 @@ urlpatterns = [
     ),
     path('robots.txt', RobotsView.as_view(), name='robots'),
     path('rss.xml', CatalogUpdatesFeed(), name='rss'),
+    path('', include('pages.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Добавляем обслуживание статических файлов для продакшн

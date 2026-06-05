@@ -108,6 +108,9 @@ class HeaderNotice(models.Model):
             raise ValidationError({"link_text": "Укажите текст ссылки."})
 
 
+USEFUL_LEGACY_SHORT_SLUGS = frozenset({"news", "catalogs", "articles"})
+
+
 class HelpfulMenuItem(models.Model):
     title = models.CharField(max_length=80, verbose_name="Название")
     useful_category = models.ForeignKey(
@@ -137,11 +140,26 @@ class HelpfulMenuItem(models.Model):
     def __str__(self):
         return self.title
 
+    def get_menu_url(self):
+        if self.useful_category_id:
+            return self.useful_category.get_absolute_url()
+        return self.url
+
 
 class UsefulCategory(models.Model):
     title = models.CharField(max_length=120, verbose_name="Название категории")
     slug = models.SlugField(unique=True, verbose_name="Slug")
     description = models.TextField(blank=True, verbose_name="Описание")
+    posts_per_page = models.PositiveIntegerField(
+        default=12,
+        verbose_name="Материалов на странице",
+        help_text="Сколько записей показывать в списке до пагинации.",
+    )
+    use_short_url = models.BooleanField(
+        default=False,
+        verbose_name="Короткий URL",
+        help_text="Категория открывается по адресу /slug/ вместо /useful/slug/ (как /news/).",
+    )
     order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
@@ -154,6 +172,13 @@ class UsefulCategory(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_absolute_url(self):
+        if self.use_short_url:
+            if self.slug in USEFUL_LEGACY_SHORT_SLUGS:
+                return reverse(f"pages:{self.slug}")
+            return reverse("pages:useful_category_short", kwargs={"slug": self.slug})
+        return reverse("pages:useful_category", kwargs={"slug": self.slug})
 
 
 class UsefulPost(models.Model):

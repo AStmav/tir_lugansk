@@ -90,6 +90,12 @@
                         </article>
                         {% endfor %}
                     </div>
+                    {% if is_paginated %}
+                    <p style="margin: 18px 0 0; color: #6b7280; font-size: 14px;">
+                        Показано {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ paginator.count }}
+                    </p>
+                    {% include "includes/pagination.html" with pagination_aria_label="Страницы раздела" %}
+                    {% endif %}
                     {% else %}
                     <div class="reviews__list" style="margin-top: 26px; flex-wrap: wrap; justify-content: flex-start;">
                         {% for item in section_items %}

@@ -5,7 +5,7 @@
         <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
         {% for useful_item in helpful_menu_items %}
         <li>
-            <a href="{% if useful_item.useful_category %}{% url 'pages:useful_category' useful_item.useful_category.slug %}{% else %}{{ useful_item.url }}{% endif %}"{% if useful_item.open_in_new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ useful_item.title }}</a>
+            <a href="{{ useful_item.get_menu_url }}"{% if useful_item.open_in_new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ useful_item.title }}</a>
         </li>
         {% endfor %}
         <li><a href="{% url 'pages:about' %}">О компании</a></li>
