@@ -126,9 +126,8 @@ class PublicTemplateConsistencyTests(TestCase):
     def test_public_templates_use_shared_includes(self):
         required = (
             "includes/header_useful_menu.html",
-            "includes/favicon_links.html",
+            "includes/head_common.html",
             "includes/footer_links.html",
-            "includes/analytics_scripts_head.html",
             "includes/analytics_scripts.html",
         )
         for name in PUBLIC_PAGE_TEMPLATES:
@@ -160,3 +159,13 @@ class PublicTemplateConsistencyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Тест меню")
         self.assertContains(response, reverse("pages:useful_category", kwargs={"slug": "test-useful"}))
+
+    def test_useful_category_page_has_favicon_in_html(self):
+        UsefulCategory.objects.update_or_create(
+            slug="news",
+            defaults={"title": "Новости", "is_active": True},
+        )
+        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "news"}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "favicon")
+        self.assertContains(response, "apple-touch-icon")
