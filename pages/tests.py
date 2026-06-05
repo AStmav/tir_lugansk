@@ -1,9 +1,11 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 
-from pages.models import PriceInquiry
+from pages.models import HelpfulMenuItem, PriceInquiry, UsefulCategory
 from pages.notifications import _build_body, send_inquiry_email_notification, send_inquiry_telegram_notification
 
 
@@ -99,3 +101,62 @@ class CallRequestCommentNotificationTests(TestCase):
         sent = bot_instance.send_message.await_args.kwargs["text"]
         self.assertIn("Комментарий: Оставьте сообщение в Telegram, если не дозвонитесь", sent)
         self.assertIn("Заявка на звонок", sent)
+
+
+PUBLIC_PAGE_TEMPLATES = (
+    "index.html",
+    "catalog.html",
+    "product.html",
+    "about.html",
+    "contacts.html",
+    "page_detail.html",
+    "useful_section.html",
+    "useful_post_detail.html",
+)
+
+
+class PublicTemplateConsistencyTests(TestCase):
+    """Общие include: меню «Полезное», favicon, подвал, счётчики."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.templates_dir = Path(settings.BASE_DIR) / "templates"
+
+    def test_public_templates_use_shared_includes(self):
+        required = (
+            "includes/header_useful_menu.html",
+            "includes/favicon_links.html",
+            "includes/footer_links.html",
+            "includes/analytics_scripts_head.html",
+            "includes/analytics_scripts.html",
+        )
+        for name in PUBLIC_PAGE_TEMPLATES:
+            content = (self.templates_dir / name).read_text(encoding="utf-8")
+            for include_path in required:
+                with self.subTest(template=name, include=include_path):
+                    self.assertIn(include_path, content)
+
+    def test_useful_section_has_no_hardcoded_legacy_menu(self):
+        content = (self.templates_dir / "useful_section.html").read_text(encoding="utf-8")
+        self.assertNotIn("{% url 'pages:news' %}", content)
+        self.assertNotIn("{% url 'pages:catalogs' %}", content)
+        self.assertNotIn("{% url 'pages:articles' %}", content)
+
+    def test_helpful_menu_item_renders_on_home(self):
+        category = UsefulCategory.objects.create(
+            title="Тестовый раздел",
+            slug="test-useful",
+            is_active=True,
+        )
+        HelpfulMenuItem.objects.create(
+            title="Тест меню",
+            useful_category=category,
+            url="/news/",
+            is_active=True,
+            order=1,
+        )
+        response = self.client.get(reverse("pages:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Тест меню")
+        self.assertContains(response, reverse("pages:useful_category", kwargs={"slug": "test-useful"}))

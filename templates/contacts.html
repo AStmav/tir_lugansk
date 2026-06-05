@@ -8,10 +8,7 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
         <link rel="stylesheet" href="{% static 'css/main.css' %}">
     
-        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon_io/apple-touch-icon.png' %}">
-        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon_io/favicon-32x32.png' %}">
-        <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon_io/favicon-16x16.png' %}">
-        <link rel="manifest" href="{% static 'img/favicon_io/site.webmanifest' %}">
+        {% include "includes/favicon_links.html" %}
         {% include "includes/analytics_scripts_head.html" %}
     </head>
     <body>
@@ -119,16 +116,7 @@
                     </div>
                     <div class="footer__block">
                         <div class="footer__links">
-                            <h3>Ссылки</h3>
-                            <nav>
-                                <ul>
-                                    <li><a href="{% url 'pages:home' %}">Главная</a></li>
-                                    <li><a href="{% url 'shop:catalog' %}">Ассортимент</a></li>
-                                    <li><a href="{% url 'pages:about' %}">О компании</a></li>
-                                    <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
-                                <li><a href="{% url 'pages:page_detail' privacy_policy_slug %}">Пользовательское соглашение</a></li>
-                                </ul>
-                            </nav>
+                            {% include "includes/footer_links.html" %}
                         </div>
                     </div>
                     <div class="footer__block">

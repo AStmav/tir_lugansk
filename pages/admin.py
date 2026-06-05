@@ -57,7 +57,11 @@ class PageAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Основная информация', {
-            'fields': ('title', 'slug', 'page_type', 'is_active')
+            'fields': ('title', 'slug', 'page_type', 'is_active'),
+            'description': (
+                'Одна страница по адресу /page/slug/ (например /page/codestmc/). '
+                'Для раздела с несколькими материалами используйте «Категории полезного» (/useful/slug/).'
+            ),
         }),
         ('SEO', {
             'fields': ('meta_title', 'meta_description'),
@@ -175,7 +179,17 @@ class HelpfulMenuItemAdmin(admin.ModelAdmin):
     readonly_fields = ["created_at", "updated_at"]
 
     fieldsets = (
-        ("Пункт меню", {"fields": ("title", "useful_category", "url", "order", "is_active", "open_in_new_tab")}),
+        (
+            "Пункт меню",
+            {
+                "fields": ("title", "useful_category", "url", "order", "is_active", "open_in_new_tab"),
+                "description": (
+                    "Категория полезного → /useful/slug/. "
+                    "Страница из раздела «Страницы» → укажите URL вручную, например /page/codestmc/ "
+                    "(категорию оставьте пустой)."
+                ),
+            },
+        ),
         (
             "Системная информация",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
@@ -221,7 +235,16 @@ class UsefulCategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
 
     fieldsets = (
-        ("Основное", {"fields": ("title", "slug", "description", "order", "is_active")}),
+        (
+            "Основное",
+            {
+                "fields": ("title", "slug", "description", "order", "is_active"),
+                "description": (
+                    "Раздел «Полезное» со списком материалов: /useful/slug/. "
+                    "Одна большая HTML-страница без списка записей — модель «Страницы» (/page/slug/)."
+                ),
+            },
+        ),
         (
             "Системная информация",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
