@@ -43,10 +43,12 @@ ADMIN_ALLOWED_HOSTS = [
     'localhost',
 ]
 
-# Админка: большие HTML-страницы в CKEditor (по умолчанию Django — 2.5 МБ).
-# На nginx в server {} также нужно: client_max_body_size 20M;
-DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
+# Лимит POST для админки (наследуется из settings.py; дублируем для явности на prod).
+# На nginx: client_max_body_size 50M;
+DATA_UPLOAD_MAX_MB = int(os.environ.get('DATA_UPLOAD_MAX_MB', '50'))
+DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.environ.get('DATA_UPLOAD_MAX_NUMBER_FIELDS', '10000'))
 
 CSRF_TRUSTED_ORIGINS = [
     'https://tir-lugansk.ru',
