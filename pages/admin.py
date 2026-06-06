@@ -184,7 +184,7 @@ class HelpfulMenuItemAdmin(admin.ModelAdmin):
             {
                 "fields": ("title", "useful_category", "url", "order", "is_active", "open_in_new_tab"),
                 "description": (
-                    "Категория полезного → короткий /slug/ или /useful/slug/ (см. настройки категории). "
+                    "Категория полезного → /slug/ (ссылка подставится из категории). "
                     "Страница из раздела «Страницы» → URL вручную, например /page/codestmc/ "
                     "(категорию оставьте пустой)."
                 ),
@@ -226,8 +226,8 @@ class UsefulCategoryAdminForm(forms.ModelForm):
 @admin.register(UsefulCategory)
 class UsefulCategoryAdmin(admin.ModelAdmin):
     form = UsefulCategoryAdminForm
-    list_display = ("title", "slug", "posts_per_page", "use_short_url", "order", "is_active", "updated_at")
-    list_editable = ("order", "is_active", "use_short_url")
+    list_display = ("title", "slug", "posts_per_page", "order", "is_active", "updated_at")
+    list_editable = ("order", "is_active")
     search_fields = ("title", "slug", "description")
     ordering = ("order", "title")
     readonly_fields = ("created_at", "updated_at")
@@ -238,17 +238,10 @@ class UsefulCategoryAdmin(admin.ModelAdmin):
         (
             "Основное",
             {
-                "fields": (
-                    "title",
-                    "slug",
-                    "description",
-                    "posts_per_page",
-                    "use_short_url",
-                    "order",
-                    "is_active",
-                ),
+                "fields": ("title", "slug", "description", "posts_per_page", "order", "is_active"),
                 "description": (
-                    "Список материалов: короткий URL /slug/ (если включён) или /useful/slug/. "
+                    "Список материалов открывается по адресу /slug/ (например /news/, /codestmc/). "
+                    "Старый путь /useful/slug/ перенаправляется автоматически. "
                     "Одна большая HTML-страница — модель «Страницы» (/page/slug/)."
                 ),
             },

@@ -108,9 +108,6 @@ class HeaderNotice(models.Model):
             raise ValidationError({"link_text": "Укажите текст ссылки."})
 
 
-USEFUL_LEGACY_SHORT_SLUGS = frozenset({"news", "catalogs", "articles"})
-
-
 class HelpfulMenuItem(models.Model):
     title = models.CharField(max_length=80, verbose_name="Название")
     useful_category = models.ForeignKey(
@@ -155,11 +152,6 @@ class UsefulCategory(models.Model):
         verbose_name="Материалов на странице",
         help_text="Сколько записей показывать в списке до пагинации.",
     )
-    use_short_url = models.BooleanField(
-        default=False,
-        verbose_name="Короткий URL",
-        help_text="Категория открывается по адресу /slug/ вместо /useful/slug/ (как /news/).",
-    )
     order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
@@ -174,10 +166,6 @@ class UsefulCategory(models.Model):
         return self.title
 
     def get_absolute_url(self):
-        if self.use_short_url:
-            if self.slug in USEFUL_LEGACY_SHORT_SLUGS:
-                return reverse(f"pages:{self.slug}")
-            return reverse("pages:useful_category_short", kwargs={"slug": self.slug})
         return reverse("pages:useful_category", kwargs={"slug": self.slug})
 
 

@@ -163,32 +163,32 @@ class PublicTemplateConsistencyTests(TestCase):
     def test_useful_category_page_has_favicon_in_html(self):
         UsefulCategory.objects.update_or_create(
             slug="news",
-            defaults={"title": "Новости", "is_active": True, "use_short_url": True},
+            defaults={"title": "Новости", "is_active": True},
         )
-        response = self.client.get(reverse("pages:news"))
+        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "news"}))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "favicon")
         self.assertContains(response, "apple-touch-icon")
 
-    def test_useful_prefixed_url_redirects_to_short_url(self):
+    def test_useful_legacy_url_redirects_to_short_url(self):
         UsefulCategory.objects.update_or_create(
-            slug="news",
-            defaults={"title": "Новости", "is_active": True, "use_short_url": True},
+            slug="codestmc",
+            defaults={"title": "Коды номенклатуры", "is_active": True},
         )
-        response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "news"}))
+        response = self.client.get(reverse("pages:useful_category_legacy", kwargs={"slug": "codestmc"}))
         self.assertEqual(response.status_code, 301)
-        self.assertEqual(response["Location"], reverse("pages:news"))
+        self.assertEqual(response["Location"], reverse("pages:useful_category", kwargs={"slug": "codestmc"}))
 
-    def test_useful_category_without_short_url_keeps_prefixed_path(self):
+    def test_new_useful_category_uses_short_url_by_default(self):
         category = UsefulCategory.objects.create(
             title="Коды",
             slug="codes",
             is_active=True,
-            use_short_url=False,
         )
         response = self.client.get(reverse("pages:useful_category", kwargs={"slug": "codes"}))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, category.title)
+        self.assertEqual(category.get_absolute_url(), "/codes/")
 
     def test_useful_category_pagination(self):
         category = UsefulCategory.objects.create(
@@ -196,7 +196,6 @@ class PublicTemplateConsistencyTests(TestCase):
             slug="articles-test",
             is_active=True,
             posts_per_page=2,
-            use_short_url=False,
         )
         for index in range(5):
             UsefulPost.objects.create(

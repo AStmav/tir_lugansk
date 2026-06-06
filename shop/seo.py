@@ -350,7 +350,7 @@ def generate_sitemap_pages_urls():
 
     def _add_useful_categories(urls_list):
         for useful_category in UsefulCategory.objects.filter(is_active=True).only(
-            "slug", "updated_at", "use_short_url"
+            "slug", "updated_at"
         ):
             urls_list.append(
                 _sitemap_entry(

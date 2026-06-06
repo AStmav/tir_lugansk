@@ -1,6 +1,7 @@
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.generic import DetailView, TemplateView
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -32,9 +33,6 @@ RESERVED_USEFUL_SHORT_SLUGS = frozenset(
         "sitemap.xml",
         "robots.txt",
         "rss.xml",
-        "news",
-        "catalogs",
-        "articles",
     }
 )
 
@@ -233,22 +231,19 @@ class UsefulPostDetailView(DetailView):
         return UsefulPost.objects.filter(is_active=True, category__is_active=True).select_related("category")
 
 
-def useful_category_prefixed_view(request, slug):
-    category = get_object_or_404(UsefulCategory, slug=slug, is_active=True)
-    if category.use_short_url:
-        target = category.get_absolute_url()
-        if request.GET:
-            target = f"{target}?{request.GET.urlencode()}"
-        return redirect(target, permanent=True)
-    return UsefulCategoryView.as_view()(request, slug=slug)
+def useful_category_legacy_redirect(request, slug):
+    """Старый путь /useful/slug/ → канонический /slug/."""
+    get_object_or_404(UsefulCategory, slug=slug, is_active=True)
+    target = reverse("pages:useful_category", kwargs={"slug": slug})
+    if request.GET:
+        target = f"{target}?{request.GET.urlencode()}"
+    return redirect(target, permanent=True)
 
 
-def useful_short_category_view(request, slug):
+def useful_category_by_slug(request, slug):
     if slug in RESERVED_USEFUL_SHORT_SLUGS:
         raise Http404
-    category = UsefulCategory.objects.filter(slug=slug, is_active=True, use_short_url=True).first()
-    if not category:
-        raise Http404
+    get_object_or_404(UsefulCategory, slug=slug, is_active=True)
     return UsefulCategoryView.as_view()(request, slug=slug)
 
 
