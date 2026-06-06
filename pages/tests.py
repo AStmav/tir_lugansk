@@ -128,6 +128,7 @@ class PublicTemplateConsistencyTests(TestCase):
             "includes/header_useful_menu.html",
             "includes/head_common.html",
             "includes/footer_links.html",
+            "includes/footer_contacts.html",
             "includes/footer_social.html",
             "includes/analytics_scripts.html",
         )
