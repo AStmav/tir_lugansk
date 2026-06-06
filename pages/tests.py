@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from pages.models import HelpfulMenuItem, PriceInquiry, UsefulCategory, UsefulPost
@@ -126,6 +126,7 @@ class PublicTemplateConsistencyTests(TestCase):
     def test_public_templates_use_shared_includes(self):
         required = (
             "includes/header_useful_menu.html",
+            "includes/head_styles.html",
             "includes/head_common.html",
             "includes/footer_links.html",
             "includes/footer_contacts.html",
@@ -224,3 +225,39 @@ class PublicTemplateConsistencyTests(TestCase):
     def test_shop_urls_are_not_shadowed_by_useful_short_routes(self):
         response = self.client.get("/shop/catalog/")
         self.assertEqual(response.status_code, 200)
+
+
+class HeadPerformanceTests(SimpleTestCase):
+    """Проверки оптимизации CSS/шрифтов/hero без БД."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.templates_dir = Path(settings.BASE_DIR) / "templates"
+        cls.assets_dir = cls.templates_dir / "assets"
+
+    def test_main_css_has_no_google_fonts_import(self):
+        css = (self.assets_dir / "css" / "main.css").read_text(encoding="utf-8")
+        self.assertNotIn("fonts.googleapis.com", css)
+        self.assertNotIn("@import url", css)
+
+    def test_intro_bg_webp_exists(self):
+        webp = self.assets_dir / "img" / "intro_bg.webp"
+        png = self.assets_dir / "img" / "intro_bg.png"
+        self.assertTrue(webp.is_file())
+        self.assertLess(webp.stat().st_size, png.stat().st_size)
+
+    def test_index_preloads_hero_and_defers_swiper(self):
+        content = (self.templates_dir / "index.html").read_text(encoding="utf-8")
+        self.assertIn("intro_bg.webp", content)
+        self.assertIn('fetchpriority="high"', content)
+        self.assertIn("includes/swiper_css_deferred.html", content)
+        self.assertNotIn('swiper-bundle.min.css"/>', content)
+
+    def test_pages_without_slider_skip_blocking_swiper_css(self):
+        for name in ("contacts.html", "about.html", "catalog.html", "page_detail.html"):
+            content = (self.templates_dir / name).read_text(encoding="utf-8")
+            with self.subTest(template=name):
+                self.assertIn("includes/head_styles.html", content)
+                self.assertNotIn("swiper_css_deferred", content)
+                self.assertNotIn('swiper-bundle.min.css"/>', content)

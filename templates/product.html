@@ -37,9 +37,8 @@
             <title>{{ product.name }} - Tir Lugansk</title>
         {% endif %}
         
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" media="print" onload="this.media='all'"/>
-        <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/></noscript>
-        <link rel="stylesheet" href="{% static 'css/main.css' %}">
+        {% include "includes/head_styles.html" %}
+        {% include "includes/swiper_css_deferred.html" %}
     
         <style>
             @media (max-width: 768px) {

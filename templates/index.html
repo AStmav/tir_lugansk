@@ -23,8 +23,9 @@
     <meta name="twitter:title" content="TIR-Lugansk - Автозапчасти в Луганске" />
     <meta name="twitter:description" content="Интернет-магазин автозапчастей TIR-Lugansk. Широкий ассортимент оригинальных запчастей и аналогов." />
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="preload" as="image" href="{% static 'img/intro_bg.webp' %}" type="image/webp" fetchpriority="high">
+    {% include "includes/head_styles.html" %}
+    {% include "includes/swiper_css_deferred.html" %}
 
     {% include "includes/head_common.html" %}
   </head>
