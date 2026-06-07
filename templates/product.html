@@ -396,7 +396,7 @@
                     {% render_breadcrumbs product=product %}
                     
                     <div class="product__content">
-                        <div class="product__gallery">
+                        <div class="product__gallery" data-image-lightbox-gallery>
                             <div class="product__image-main product-image--zoomable" data-image-lightbox>
                                 {% if product.has_main_image %}
                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">

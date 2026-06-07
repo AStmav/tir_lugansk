@@ -268,3 +268,12 @@ class HeadPerformanceTests(SimpleTestCase):
             content = (self.templates_dir / name).read_text(encoding="utf-8")
             with self.subTest(template=name):
                 self.assertIn("includes/seo_head.html", content)
+
+    def test_product_template_has_lightbox_gallery(self):
+        content = (self.templates_dir / "product.html").read_text(encoding="utf-8")
+        self.assertIn("data-image-lightbox-gallery", content)
+
+        for name in PUBLIC_PAGE_TEMPLATES:
+            content = (self.templates_dir / name).read_text(encoding="utf-8")
+            with self.subTest(template=name):
+                self.assertIn("includes/seo_head.html", content)
