@@ -11,6 +11,15 @@ from django.utils import timezone
 from shop.models import Product
 from .inquiry_consent import CONSENT_REQUIRED_MESSAGE, is_personal_data_consent_given
 from .models import Page, PriceInquiry, UsefulCategory, UsefulPost
+from .seo import (
+    seo_about,
+    seo_contacts,
+    seo_cms_page,
+    seo_home,
+    seo_useful_category,
+    seo_useful_post,
+    seo_useful_section_fallback,
+)
 from .tasks import enqueue_inquiry_notifications
 
 DEFAULT_USEFUL_POSTS_PER_PAGE = 12
@@ -54,6 +63,7 @@ class HomeView(TemplateView):
             in_stock=True
         )[:15]
         
+        context['seo'] = seo_home(self.request)
         return context
 
 
@@ -68,8 +78,10 @@ class AboutView(TemplateView):
             context['page_content'] = about_page.content
             context['page_title'] = about_page.title
         except Page.DoesNotExist:
+            about_page = None
             context['page_content'] = None
             context['page_title'] = 'О компании'
+        context['seo'] = seo_about(self.request, about_page)
         return context
 
 
@@ -84,8 +96,10 @@ class ContactsView(TemplateView):
             context['page_content'] = contacts_page.content
             context['page_title'] = contacts_page.title
         except Page.DoesNotExist:
+            contacts_page = None
             context['page_content'] = None
             context['page_title'] = 'Контакты'
+        context['seo'] = seo_contacts(self.request, contacts_page)
         return context
 
 
@@ -143,6 +157,19 @@ class UsefulSectionView(TemplateView):
             context["page_obj"] = None
             context["paginator"] = None
             context["is_paginated"] = False
+
+        if category:
+            context["seo"] = seo_useful_category(
+                self.request,
+                category,
+                fallback_subtitle=self.section_subtitle,
+            )
+        elif self.section_title:
+            context["seo"] = seo_useful_section_fallback(
+                self.request,
+                self.section_title,
+                self.section_subtitle,
+            )
 
         return context
 
@@ -230,6 +257,11 @@ class UsefulPostDetailView(DetailView):
     def get_queryset(self):
         return UsefulPost.objects.filter(is_active=True, category__is_active=True).select_related("category")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["seo"] = seo_useful_post(self.request, self.object)
+        return context
+
 
 def useful_category_legacy_redirect(request, slug):
     """Старый путь /useful/slug/ → канонический /slug/."""
@@ -255,6 +287,11 @@ class PageDetailView(DetailView):
     
     def get_queryset(self):
         return Page.objects.filter(is_active=True)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["seo"] = seo_cms_page(self.request, self.object)
+        return context
 
 
 @method_decorator(csrf_exempt, name='dispatch')

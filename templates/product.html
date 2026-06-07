@@ -5,36 +5,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        
-        {# SEO Meta-теги #}
         {% if seo %}
-            <title>{{ seo.title }}</title>
-            <meta name="description" content="{{ seo.description }}" />
-            <meta name="keywords" content="{{ seo.keywords }}" />
-            <link rel="canonical" href="{{ seo.canonical_url }}" />
-            
-            {# Open Graph для социальных сетей #}
-            <meta property="og:type" content="{{ seo.og_type }}" />
-            <meta property="og:title" content="{{ seo.title }}" />
-            <meta property="og:description" content="{{ seo.description }}" />
-            <meta property="og:image" content="{{ seo.og_image }}" />
-            <meta property="og:url" content="{{ seo.canonical_url }}" />
-            <meta property="og:site_name" content="TIR-Lugansk" />
-            
-            {# Twitter Card #}
-            <meta name="twitter:card" content="{{ seo.twitter_card }}" />
-            <meta name="twitter:title" content="{{ seo.title }}" />
-            <meta name="twitter:description" content="{{ seo.description }}" />
-            <meta name="twitter:image" content="{{ seo.og_image }}" />
-            
-            {# Schema.org разметка для товара #}
-            {% if seo.structured_data %}
-                <script type="application/ld+json">
-                {{ seo.structured_data|json_script:"product-schema" }}
-                </script>
-            {% endif %}
+            {% include "includes/seo_head.html" %}
         {% else %}
-            <title>{{ product.name }} - Tir Lugansk</title>
+            <title>{{ product.name }} | TIR-Lugansk</title>
         {% endif %}
         
         {% include "includes/head_styles.html" %}

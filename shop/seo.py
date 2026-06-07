@@ -1,8 +1,80 @@
 """
 SEO утилиты и миксины для оптимизации сайта под поисковые системы
 """
-from django.conf import settings
+from urllib.parse import urlencode
+
+from django.templatetags.static import static
 from django.urls import reverse
+
+SITE_NAME = "TIR-Lugansk"
+DEFAULT_OG_IMAGE_PATH = "img/logo.png"
+CANONICAL_EXCLUDE_PARAMS = frozenset({"page"})
+
+
+def truncate_meta_text(text, length=160):
+    text = " ".join((text or "").split())
+    if len(text) <= length:
+        return text
+    truncated = text[:length].rsplit(" ", 1)[0]
+    return f"{truncated}..."
+
+
+def format_page_title(title, include_site=True):
+    title = (title or "").strip()
+    if not title:
+        return SITE_NAME
+    if not include_site or SITE_NAME in title:
+        return title
+    return f"{title} | {SITE_NAME}"
+
+
+def default_og_image_url(request):
+    return request.build_absolute_uri(static(DEFAULT_OG_IMAGE_PATH))
+
+
+def build_canonical_url(request, path=None, query_dict=None, exclude_params=CANONICAL_EXCLUDE_PARAMS):
+    path = path if path is not None else request.path
+    query = query_dict if query_dict is not None else request.GET
+    pairs = [
+        (key, val)
+        for key, values in query.lists()
+        for val in values
+        if key not in exclude_params
+    ]
+    if pairs:
+        return request.build_absolute_uri(f"{path}?{urlencode(pairs, doseq=True)}")
+    return request.build_absolute_uri(path)
+
+
+def build_seo_context(
+    request,
+    *,
+    title,
+    description="",
+    keywords="",
+    canonical_url=None,
+    og_type="website",
+    og_image=None,
+    twitter_card="summary_large_image",
+    structured_data=None,
+):
+    if og_image is None:
+        og_image = default_og_image_url(request)
+    if canonical_url is None:
+        canonical_url = build_canonical_url(request)
+    elif isinstance(canonical_url, str) and canonical_url.startswith("/"):
+        canonical_url = request.build_absolute_uri(canonical_url)
+
+    return {
+        "title": title,
+        "description": description,
+        "keywords": keywords,
+        "og_image": og_image,
+        "canonical_url": canonical_url,
+        "og_type": og_type,
+        "twitter_card": twitter_card,
+        "structured_data": structured_data,
+    }
 
 
 class SEOMixin:
@@ -26,13 +98,13 @@ class SEOMixin:
     
     def get_og_image(self):
         """Open Graph изображение"""
-        return getattr(self, 'og_image', f"{settings.STATIC_URL}images/og-default.jpg")
+        return getattr(self, 'og_image', default_og_image_url(self.request))
     
     def get_canonical_url(self):
         """Канонический URL страницы"""
         if hasattr(self, 'object') and self.object:
             return self.request.build_absolute_uri(self.object.get_absolute_url())
-        return self.request.build_absolute_uri()
+        return build_canonical_url(self.request)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -210,16 +282,25 @@ class CategorySEOMixin(SEOMixin):
     
     def get_seo_title(self):
         if hasattr(self, 'category') and self.category:
-            return f"{self.category.name} - Автозапчасти | TIR-Lugansk"
+            if self.category.meta_title:
+                return self.category.meta_title
+            return f"{self.category.name} - Автозапчасти | {SITE_NAME}"
         return super().get_seo_title()
     
     def get_seo_description(self):
         if hasattr(self, 'category') and self.category:
-            desc = f"Купить {self.category.name.lower()} в интернет-магазине TIR-Lugansk. "
+            if self.category.meta_description:
+                return self.category.meta_description
+            desc = f"Купить {self.category.name.lower()} в интернет-магазине {SITE_NAME}. "
             desc += f"Широкий выбор автозапчастей категории {self.category.name}. "
             desc += "Доставка по Луганску и области."
             return desc
         return super().get_seo_description()
+
+    def get_seo_keywords(self):
+        if hasattr(self, 'category') and self.category and self.category.meta_keywords:
+            return self.category.meta_keywords
+        return super().get_seo_keywords()
 
     def get_canonical_url(self):
         if hasattr(self, 'category') and self.category:

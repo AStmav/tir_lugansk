@@ -25,7 +25,12 @@ def category_canonical_url(category_slug, query_dict=None):
     url = reverse("shop:category", kwargs={"category_slug": category_slug})
     if not query_dict:
         return url
-    pairs = [(key, val) for key, values in query_dict.lists() if key != "category" for val in values]
+    pairs = [
+        (key, val)
+        for key, values in query_dict.lists()
+        if key not in ("category", "page")
+        for val in values
+    ]
     if not pairs:
         return url
     return f"{url}?{urlencode(pairs, doseq=True)}"

@@ -127,6 +127,7 @@ class PublicTemplateConsistencyTests(TestCase):
         required = (
             "includes/header_useful_menu.html",
             "includes/head_styles.html",
+            "includes/seo_head.html",
             "includes/head_common.html",
             "includes/footer_links.html",
             "includes/footer_contacts.html",
@@ -261,3 +262,9 @@ class HeadPerformanceTests(SimpleTestCase):
                 self.assertIn("includes/head_styles.html", content)
                 self.assertNotIn("swiper_css_deferred", content)
                 self.assertNotIn('swiper-bundle.min.css"/>', content)
+
+    def test_seo_head_include_present_in_public_templates(self):
+        for name in PUBLIC_PAGE_TEMPLATES:
+            content = (self.templates_dir / name).read_text(encoding="utf-8")
+            with self.subTest(template=name):
+                self.assertIn("includes/seo_head.html", content)

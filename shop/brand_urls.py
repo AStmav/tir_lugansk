@@ -33,7 +33,12 @@ def brand_canonical_url(brand_slug, query_dict=None):
     url = reverse("shop:brand", kwargs={"brand_slug": brand_slug})
     if not query_dict:
         return url
-    pairs = [(key, val) for key, values in query_dict.lists() if key != "brand" for val in values]
+    pairs = [
+        (key, val)
+        for key, values in query_dict.lists()
+        if key not in ("brand", "page")
+        for val in values
+    ]
     if not pairs:
         return url
     return f"{url}?{urlencode(pairs, doseq=True)}"

@@ -1,0 +1,24 @@
+{# SEO: title, description, canonical, Open Graph, Twitter. Требует context.seo #}
+{% if seo.title %}<title>{{ seo.title }}</title>{% endif %}
+{% if seo.description %}
+<meta name="description" content="{{ seo.description }}">
+<meta property="og:description" content="{{ seo.description }}">
+<meta name="twitter:description" content="{{ seo.description }}">
+{% endif %}
+{% if seo.keywords %}<meta name="keywords" content="{{ seo.keywords }}">{% endif %}
+{% if seo.canonical_url %}
+<link rel="canonical" href="{{ seo.canonical_url }}">
+<meta property="og:url" content="{{ seo.canonical_url }}">
+{% endif %}
+{% if seo.title %}
+<meta property="og:title" content="{{ seo.title }}">
+<meta name="twitter:title" content="{{ seo.title }}">
+{% endif %}
+<meta property="og:site_name" content="TIR-Lugansk">
+{% if seo.og_type %}<meta property="og:type" content="{{ seo.og_type }}">{% endif %}
+{% if seo.og_image %}
+<meta property="og:image" content="{{ seo.og_image }}">
+<meta name="twitter:image" content="{{ seo.og_image }}">
+{% endif %}
+{% if seo.twitter_card %}<meta name="twitter:card" content="{{ seo.twitter_card }}">{% endif %}
+{% if seo.structured_data %}{{ seo.structured_data|json_script:"structured-data" }}{% endif %}

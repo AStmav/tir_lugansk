@@ -4,24 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    {# SEO Meta-теги для главной страницы #}
-    <title>TIR-Lugansk - Автозапчасти в Луганске | Каталог запчастей</title>
-    <meta name="description" content="Интернет-магазин автозапчастей TIR-Lugansk. Широкий ассортимент оригинальных запчастей и аналогов от проверенных производителей. Доставка по Луганску и области." />
-    <meta name="keywords" content="автозапчасти, запчасти Луганск, автомагазин, автодетали, оригинальные запчасти, аналоги, TIR-Lugansk" />
-    <link rel="canonical" href="https://tir-lugansk.ru/" />
-    
-    {# Open Graph #}
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="TIR-Lugansk - Автозапчасти в Луганске" />
-    <meta property="og:description" content="Интернет-магазин автозапчастей TIR-Lugansk. Широкий ассортимент оригинальных запчастей и аналогов." />
-    <meta property="og:url" content="https://tir-lugansk.ru/" />
-    <meta property="og:site_name" content="TIR-Lugansk" />
-    
-    {# Twitter Card #}
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="TIR-Lugansk - Автозапчасти в Луганске" />
-    <meta name="twitter:description" content="Интернет-магазин автозапчастей TIR-Lugansk. Широкий ассортимент оригинальных запчастей и аналогов." />
+    {% include "includes/seo_head.html" %}
     
     <link rel="preload" as="image" href="{% static 'img/intro_bg.webp' %}" type="image/webp" fetchpriority="high">
     {% include "includes/head_styles.html" %}
