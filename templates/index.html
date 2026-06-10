@@ -1,4 +1,5 @@
 {% load static %}
+{% load product_tags %}
 <!DOCTYPE html>
 <html lang="ru">
   <head>
@@ -117,15 +118,7 @@
                                             {% if product.old_price and product.old_price > product.price %}
                                             <div class="product-badge">-{{ product.discount_percent }}%</div>
                                             {% endif %}
-                                            <div class="product-image product-image--zoomable" data-image-lightbox>
-                                                {% if product.has_main_image %}
-                                                <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
-                                                {% elif product.images.first %}
-                                                <img src="{{ product.images.first.url }}" alt="{{ product.name }}">
-                                                {% else %}
-                                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
-                                                {% endif %}
-                                            </div>
+                                            {% include "includes/product_card_lightbox_image.html" %}
                                             <div class="product-content">
                                                 <h3 class="product-title">{{ product.name }} / {{ product.brand.name }}</h3>
                                                 <div class="product-details">
@@ -177,15 +170,7 @@
                                     <div class="swiper-slide">
                                         <div class="product-card">
                                             <div class="product-badge">Новый</div>
-                                            <div class="product-image product-image--zoomable" data-image-lightbox>
-                                                {% if product.has_main_image %}
-                                                <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
-                                                {% elif product.images.first %}
-                                                <img src="{{ product.images.first.url }}" alt="{{ product.name }}">
-                                                {% else %}
-                                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
-                                                {% endif %}
-                                            </div>
+                                            {% include "includes/product_card_lightbox_image.html" %}
                                             <div class="product-content">
                                                 <h3 class="product-title">{{ product.name }} / {{ product.brand.name }}</h3>
                                                 <div class="product-details">

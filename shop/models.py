@@ -303,6 +303,23 @@ class Product(models.Model):
             return f'/images/{self.main_image_path}'
         return None
 
+    def get_lightbox_image_urls(self, max_images=10):
+        """Уникальные URL для лайтбокса: main_image_path + галерея ProductImage."""
+        urls = []
+        seen = set()
+
+        def add(url):
+            if not url or url in seen:
+                return
+            seen.add(url)
+            urls.append(url)
+
+        if self.has_main_image:
+            add(self.main_image_url)
+        for product_image in self.images.all()[:max_images]:
+            add(product_image.url)
+        return urls[:max_images]
+
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images', verbose_name='Товар')

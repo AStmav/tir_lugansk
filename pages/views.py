@@ -53,15 +53,14 @@ class HomeView(TemplateView):
         context = super().get_context_data(**kwargs)
         # Popular products (with is_featured flag)
         context['featured_products'] = Product.objects.filter(
-            is_featured=True, 
-            in_stock=True
-        )[:15]
-        
-        # New products (with is_new flag)
+            is_featured=True,
+            in_stock=True,
+        ).prefetch_related('images')[:15]
+
         context['new_products'] = Product.objects.filter(
-            is_new=True, 
-            in_stock=True
-        )[:15]
+            is_new=True,
+            in_stock=True,
+        ).prefetch_related('images')[:15]
         
         context['seo'] = seo_home(self.request)
         return context

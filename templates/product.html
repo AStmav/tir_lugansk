@@ -1,5 +1,6 @@
 {% load static %}
 {% load seo_tags %}
+{% load product_tags %}
 <!DOCTYPE html>
 <html lang="ru">
     <head>
@@ -397,7 +398,11 @@
                     
                     <div class="product__content">
                         <div class="product__gallery" data-image-lightbox-gallery>
-                            <div class="product__image-main product-image--zoomable" data-image-lightbox>
+                            <div class="product__image-main product-image--zoomable" data-image-lightbox
+                                 data-lightbox-alt="{{ product.name }}"
+                                 {% with lightbox_urls=product.get_lightbox_image_urls %}
+                                 {% if lightbox_urls|length > 1 %}data-lightbox-images="{{ lightbox_urls|lightbox_images_json }}"{% endif %}
+                                 {% endwith %}>
                                 {% if product.has_main_image %}
                                 <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
                                 {% elif product.images.first %}
@@ -611,15 +616,9 @@
                                         {% if related_product.is_new %}
                                         <div class="product-badge">НОВИНКА</div>
                                         {% endif %}
-                                        <div class="product-image product-image--zoomable" data-image-lightbox>
-                                            {% if related_product.has_main_image %}
-                                            <img src="{{ related_product.main_image_url }}" alt="{{ related_product.name }}" loading="lazy">
-                                        {% elif related_product.images.first %}
-                                            <img src="{{ related_product.images.first.url }}" alt="{{ related_product.name }}" loading="lazy">
-                                        {% else %}
-                                            <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ related_product.name }}" loading="lazy">
-                                            {% endif %}
-                                        </div>
+                                        {% with product=related_product img_loading="lazy" %}
+                                        {% include "includes/product_card_lightbox_image.html" %}
+                                        {% endwith %}
                                         <div class="product-content">
                                             <h3 class="product-title">{{ related_product.name }}</h3>
                                             <div class="product-details">

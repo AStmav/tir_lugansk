@@ -120,7 +120,41 @@
     return img ? (img.getAttribute("alt") || "Изображение товара") : "Изображение товара";
   }
 
+  function parseDataLightboxImages(triggerEl) {
+    const raw = triggerEl.getAttribute("data-lightbox-images");
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || !parsed.length) {
+        return null;
+      }
+
+      const defaultAlt = extractAlt(triggerEl);
+      return parsed
+        .map((entry) => {
+          if (typeof entry === "string") {
+            return { src: entry, alt: defaultAlt };
+          }
+          if (entry && typeof entry === "object" && entry.src) {
+            return { src: entry.src, alt: entry.alt || defaultAlt };
+          }
+          return null;
+        })
+        .filter(Boolean);
+    } catch (_error) {
+      return null;
+    }
+  }
+
   function collectGalleryItems(triggerEl) {
+    const fromData = parseDataLightboxImages(triggerEl);
+    if (fromData && fromData.length) {
+      return fromData;
+    }
+
     const gallery = triggerEl.closest(GALLERY_SELECTOR);
     if (!gallery) {
       return [

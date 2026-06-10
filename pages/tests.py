@@ -273,6 +273,12 @@ class HeadPerformanceTests(SimpleTestCase):
         content = (self.templates_dir / "product.html").read_text(encoding="utf-8")
         self.assertIn("data-image-lightbox-gallery", content)
 
+    def test_list_templates_use_product_card_lightbox_include(self):
+        for name in ("catalog.html", "index.html", "product.html"):
+            content = (self.templates_dir / name).read_text(encoding="utf-8")
+            with self.subTest(template=name):
+                self.assertIn("includes/product_card_lightbox_image.html", content)
+
         for name in PUBLIC_PAGE_TEMPLATES:
             content = (self.templates_dir / name).read_text(encoding="utf-8")
             with self.subTest(template=name):
