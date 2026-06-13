@@ -6,7 +6,7 @@ from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
 from shop.models import Product, Category, Brand
-from shop.views import _parse_search_mode, _normalize_search_mode
+from shop.views import _parse_search_mode, _normalize_search_mode, _parse_search_pick
 
 
 class ParseSearchModeTests(TestCase):
@@ -283,3 +283,122 @@ class SearchModeSeparationTests(TestCase):
             self.assertIn(p.id, product_ids)
         finally:
             Product.objects.filter(slug='product-applicability-volvo').delete()
+
+
+class ParseSearchPickTests(TestCase):
+    def test_valid_id(self):
+        self.assertEqual(_parse_search_pick('42'), 42)
+
+    def test_invalid_values(self):
+        self.assertIsNone(_parse_search_pick(''))
+        self.assertIsNone(_parse_search_pick(None))
+        self.assertIsNone(_parse_search_pick('abc'))
+        self.assertIsNone(_parse_search_pick('0'))
+        self.assertIsNone(_parse_search_pick('-1'))
+
+
+class SearchPickBehaviorTests(TestCase):
+    """Точный выбор из подсказки: search_pick показывает только выбранный товар."""
+
+    def setUp(self):
+        self.client = Client()
+        cat = Category.objects.create(name='ТестКатPick', slug='test-cat-search-pick')
+        self.brand_wing = Brand.objects.create(
+            name='Kahveci Pick Test', code='KAHVPICK', slug='kahveci-pick-test',
+        )
+        self.brand_oil = Brand.objects.create(
+            name='Ravenol Pick Test', code='RAVPICK', slug='ravenol-pick-test',
+        )
+
+        self.wing_product = Product.objects.create(
+            name='Крыло заднее (средняя часть)',
+            slug='product-wing-1212108',
+            code='WING-12108',
+            tmp_id='WING-12108',
+            catalog_number='12.12108',
+            artikyl_number='',
+            category=cat,
+            brand=self.brand_wing,
+            price=5000,
+            stock_quantity=1,
+            in_stock=True,
+        )
+        self.oil_product = Product.objects.create(
+            name='Масло ATF Ravenol ULV-D-M',
+            slug='product-oil-1212108',
+            code='OIL-12108',
+            tmp_id='OIL-12108',
+            catalog_number='121210800401999',
+            artikyl_number='',
+            category=cat,
+            brand=self.brand_oil,
+            price=1200,
+            stock_quantity=1,
+            in_stock=True,
+        )
+
+    def tearDown(self):
+        Product.objects.filter(slug__in=['product-wing-1212108', 'product-oil-1212108']).delete()
+        Brand.objects.filter(code__in=['KAHVPICK', 'RAVPICK']).delete()
+        Category.objects.filter(slug='test-cat-search-pick').delete()
+
+    def test_autocomplete_returns_product_id(self):
+        resp = self.client.get(
+            reverse('shop:search_autocomplete'),
+            {'q': '12.12108', 'search_mode': 'code'},
+        )
+        self.assertEqual(resp.status_code, 200)
+        suggestions = resp.json().get('suggestions', [])
+        by_value = {s['value']: s for s in suggestions}
+        self.assertEqual(by_value['12.12108']['product_id'], self.wing_product.id)
+        self.assertEqual(by_value['121210800401999']['product_id'], self.oil_product.id)
+
+    def test_broad_search_without_pick_returns_multiple(self):
+        resp = self.client.get(
+            reverse('shop:catalog'),
+            {'search': '12.12108', 'search_mode': 'code'},
+        )
+        self.assertEqual(resp.status_code, 200)
+        product_ids = {p.id for p in resp.context['products']}
+        self.assertIn(self.wing_product.id, product_ids)
+        self.assertIn(self.oil_product.id, product_ids)
+
+    def test_search_pick_returns_only_selected_product(self):
+        resp = self.client.get(
+            reverse('shop:catalog'),
+            {
+                'search': '12.12108',
+                'search_mode': 'code',
+                'search_pick': self.wing_product.id,
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        product_ids = {p.id for p in resp.context['products']}
+        self.assertEqual(product_ids, {self.wing_product.id})
+
+    def test_search_pick_for_oil_returns_only_oil(self):
+        resp = self.client.get(
+            reverse('shop:catalog'),
+            {
+                'search': '12.12108',
+                'search_mode': 'code',
+                'search_pick': self.oil_product.id,
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        product_ids = {p.id for p in resp.context['products']}
+        self.assertEqual(product_ids, {self.oil_product.id})
+
+    def test_invalid_search_pick_falls_back_to_broad_search(self):
+        resp = self.client.get(
+            reverse('shop:catalog'),
+            {
+                'search': '12.12108',
+                'search_mode': 'code',
+                'search_pick': 999999999,
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        product_ids = {p.id for p in resp.context['products']}
+        self.assertIn(self.wing_product.id, product_ids)
+        self.assertIn(self.oil_product.id, product_ids)

@@ -70,6 +70,17 @@ def _normalize_search_mode(value):
     return mode if mode in ('name', 'code') else 'code'
 
 
+def _parse_search_pick(value):
+    """ID товара из подсказки поиска (search_pick). Невалидные значения → None."""
+    if value in (None, ''):
+        return None
+    try:
+        product_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return product_id if product_id > 0 else None
+
+
 @require_GET
 def search_autocomplete(request):
     """
@@ -82,7 +93,7 @@ def search_autocomplete(request):
     if len(q) < 2:
         return JsonResponse({'suggestions': []})
     brand_slug = (request.GET.get('brand') or '').strip()
-    cache_key = f'autocomplete:{q}:{search_mode}:{brand_slug or "-"}'
+    cache_key = f'autocomplete:v2:{q}:{search_mode}:{brand_slug or "-"}'
     cached = cache.get(cache_key)
     if cached is not None:
         return JsonResponse({'suggestions': cached})
@@ -136,7 +147,11 @@ def search_autocomplete(request):
             text += ' (' + p.catalog_number + ')'
         if brand_name:
             text += ' — ' + brand_name
-        suggestions.append({'text': text[:80] + ('…' if len(text) > 80 else ''), 'value': val[:120]})
+        suggestions.append({
+            'text': text[:80] + ('…' if len(text) > 80 else ''),
+            'value': val[:120],
+            'product_id': p.id,
+        })
         if len(suggestions) >= max_items:
             break
 
@@ -314,16 +329,29 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
         search_priority_clean = ''
         search_priority_clean_normalized = ''
         search_mode = _normalize_search_mode(self.request.GET.get('search_mode'))
+        search_pick = _parse_search_pick(self.request.GET.get('search_pick'))
         search = self.request.GET.get('search')
+        used_search_pick = False
         if search:
             search = search.strip()
             # Без % — только по началу номера; с % — и в середине (как в подсказках)
             search, allow_contains = _parse_search_mode(search)
             logger.info(f"Поисковый запрос: '{search}' (поиск в середине: {allow_contains})")
-            
+
+            if search_pick:
+                picked_product = base_queryset.filter(id=search_pick).first()
+                if picked_product:
+                    used_search_pick = True
+                    self._found_analogs = OeKod.objects.none()
+                    queryset = base_queryset.filter(id=search_pick)
+                    logger.info(
+                        f"Точный выбор из подсказки: product_id={search_pick}, "
+                        f"номер='{picked_product.catalog_number or picked_product.artikyl_number}'"
+                    )
+
             # Режим "по коду": ищем только по кодовым полям.
             # Режим "по названию": ищем только по текстовым полям.
-            if search_mode == 'code':
+            if not used_search_pick and search_mode == 'code':
                 search_is_number = True
                 logger.info(f"Поиск по номеру: '{search}'")
                 
@@ -690,7 +718,7 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
                     logger.warning(f"По номеру '{search}' ничего не найдено")
                     queryset = base_queryset.none()
                     self._found_analogs = OeKod.objects.none()
-            else:
+            elif not used_search_pick:
                 logger.info(f"Поиск по названию: '{search}'")
 
                 # Режим "по названию": без смешивания с кодовыми полями.

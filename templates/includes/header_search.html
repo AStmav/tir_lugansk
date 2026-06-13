@@ -238,6 +238,9 @@
         var sep = catalogUrl.indexOf('?') >= 0 ? '&' : '?';
         var extra = getCatalogParams();
         var target = catalogUrl + sep + 'search=' + encodeURIComponent(item.value) + '&search_mode=' + encodeURIComponent(getSelectedMode());
+        if (item.product_id) {
+            target += '&search_pick=' + encodeURIComponent(item.product_id);
+        }
         if (extra) target += '&' + extra;
         window.location.href = target;
     }
