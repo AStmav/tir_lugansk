@@ -12,46 +12,38 @@ register = template.Library()
 @register.simple_tag(takes_context=True)
 def render_breadcrumbs(context, product=None, category=None):
     """
-    Генерация хлебных крошек (breadcrumbs) с Schema.org разметкой
+    Горизонтальные хлебные крошки: Каталог → родительская категория → подкатегория.
+    Каждый элемент — кликабельная ссылка.
     """
     request = context['request']
-    items = [
-        {'name': 'Главная', 'url': '/'}
-    ]
-    
-    # Добавляем каталог
-    items.append({'name': 'Каталог', 'url': reverse('shop:catalog')})
-    
-    # Если есть категория
-    if category:
-        items.append({'name': category.name, 'url': category.get_absolute_url()})
-    elif product and product.category:
-        items.append({'name': product.category.name, 'url': product.category.get_absolute_url()})
-    
-    # Если есть товар
-    if product:
-        items.append({'name': product.name, 'url': product.get_absolute_url()})
-    
-    # Генерируем HTML
-    html = '<nav aria-label="breadcrumb"><ol class="breadcrumb">'
-    
+    items = [{'name': 'Каталог', 'url': reverse('shop:catalog')}]
+
+    target_category = category
+    if not target_category and product and getattr(product, 'category_id', None):
+        target_category = product.category
+
+    if target_category:
+        for cat in target_category.get_breadcrumb_chain():
+            items.append({'name': cat.name, 'url': cat.get_absolute_url()})
+
+    parts = []
     for i, item in enumerate(items):
-        is_last = (i == len(items) - 1)
-        
-        if is_last:
-            html += f'<li class="breadcrumb-item active" aria-current="page">{item["name"]}</li>'
-        else:
-            html += f'<li class="breadcrumb-item"><a href="{item["url"]}">{item["name"]}</a></li>'
-    
-    html += '</ol></nav>'
-    
-    # Добавляем Schema.org разметку
+        if i > 0:
+            parts.append('<span> - </span>')
+        parts.append(f'<a href="{item["url"]}">{item["name"]}</a>')
+
+    html = (
+        '<nav aria-label="breadcrumb">'
+        f'<div class="product__breadcrumbs">{"".join(parts)}</div>'
+        '</nav>'
+    )
+
     schema = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         "itemListElement": []
     }
-    
+
     for i, item in enumerate(items):
         schema["itemListElement"].append({
             "@type": "ListItem",
@@ -59,9 +51,9 @@ def render_breadcrumbs(context, product=None, category=None):
             "name": item["name"],
             "item": request.build_absolute_uri(item["url"])
         })
-    
+
     html += f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False)}</script>'
-    
+
     return mark_safe(html)
 
 

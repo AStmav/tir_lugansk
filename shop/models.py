@@ -52,6 +52,19 @@ class Category(models.Model):
                 
         return level
 
+    def get_breadcrumb_chain(self):
+        """Цепочка категорий от корня до текущей (для хлебных крошек)."""
+        chain = []
+        current = self
+        visited = set()
+        while current:
+            if current.id in visited:
+                break
+            visited.add(current.id)
+            chain.append(current)
+            current = current.parent
+        return list(reversed(chain))
+
 
 class SubCategory(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название')
