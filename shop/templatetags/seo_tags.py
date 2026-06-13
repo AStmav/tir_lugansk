@@ -2,6 +2,7 @@
 Template tags для SEO оптимизации
 """
 from django import template
+from django.urls import reverse
 from django.utils.safestring import mark_safe
 import json
 
@@ -19,7 +20,7 @@ def render_breadcrumbs(context, product=None, category=None):
     ]
     
     # Добавляем каталог
-    items.append({'name': 'Каталог', 'url': '/catalog/'})
+    items.append({'name': 'Каталог', 'url': reverse('shop:catalog')})
     
     # Если есть категория
     if category:
