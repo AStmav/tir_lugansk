@@ -312,6 +312,26 @@ class CategorySEOMixin(SEOMixin):
         return super().get_canonical_url()
 
 
+def seo_brands_list(request, brands_count=0):
+    title = format_page_title("Производители автозапчастей")
+    description = (
+        "Полный список брендов и производителей автозапчастей "
+        "в интернет-магазине TIR-Lugansk. Выберите производителя и перейдите в каталог."
+    )
+    if brands_count:
+        description = (
+            f"Каталог из {brands_count} производителей автозапчастей. "
+            "Выберите бренд и перейдите к товарам в наличии."
+        )
+    return build_seo_context(
+        request,
+        title=title,
+        description=truncate_meta_text(description),
+        keywords="производители автозапчастей, бренды запчастей, поставщики, TIR-Lugansk",
+        canonical_url=reverse("shop:brands"),
+    )
+
+
 def _sitemap_entry(loc, changefreq, priority, lastmod=None):
     return {
         "loc": loc,
@@ -381,6 +401,7 @@ def generate_sitemap_categories_urls():
     urls = []
     catalog_path = reverse("shop:catalog")
     urls.append(_sitemap_entry(catalog_path, "daily", "0.9"))
+    urls.append(_sitemap_entry(reverse("shop:brands"), "weekly", "0.8"))
 
     def _add_categories(urls_list):
         for category in Category.objects.filter(is_active=True).only("slug"):

@@ -1,0 +1,199 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {% include "includes/seo_head.html" %}
+    {% include "includes/head_styles.html" %}
+    {% include "includes/head_common.html" %}
+    <style>
+        .brands-page { margin: 50px 0 70px; }
+        .brands-page__intro { margin-bottom: 24px; color: #666; font-size: 15px; }
+        .brands-page__nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+        .brands-page__nav a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #374151;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .brands-page__nav a:hover,
+        .brands-page__nav a.is-active {
+            border-color: #3CC14E;
+            color: #3CC14E;
+            background: #f0f9f0;
+        }
+        .brands-page__group {
+            margin-bottom: 28px;
+            scroll-margin-top: 120px;
+        }
+        .brands-page__group.is-highlighted .brands-page__letter {
+            color: #3CC14E;
+        }
+        .brands-page__letter {
+            margin: 0 0 12px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        .brands-page__list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px 18px;
+        }
+        .brands-page__item a {
+            color: #374151;
+            text-decoration: none;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .brands-page__item a:hover { color: #3CC14E; }
+        @media (max-width: 767px) {
+            .brands-page { margin: 30px 0 50px; }
+            .brands-page__list { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header style="box-shadow: 0px 0px 25px 0px #A9AFB41F;">
+        {% include "includes/header_notice.html" %}
+        <div class="navbar">
+            <div class="container">
+                <div class="navbar__content">
+                    <div class="navbar__block">
+                        <div class="navbar__block-brand">
+                            <a href="{% url 'pages:home' %}"><img src="{% static 'img/logo.png' %}" alt="Tir Lugansk"></a>
+                        </div>
+                        <button type="button" class="navbar__burger" aria-label="Меню" aria-expanded="false">
+                            <span></span><span></span><span></span>
+                        </button>
+                    </div>
+                    <div class="menu__links navbar__menu">
+                        <nav>
+                            <ul>
+                                <li><a href="{% url 'pages:home' %}">Главная</a></li>
+                                <li class="menu-catalog">
+                                    <a href="{% url 'shop:catalog' %}" class="menu-catalog__toggle" aria-haspopup="true" aria-expanded="false">Ассортимент запчастей</a>
+                                    {% if nav_root_categories %}
+                                    <ul class="menu-catalog__dropdown">
+                                        {% for nav_cat in nav_root_categories %}
+                                        <li><a href="{% url 'shop:category' category_slug=nav_cat.slug %}">{{ nav_cat.name }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </li>
+                                {% include "includes/header_useful_menu.html" %}
+                                <li><a href="{% url 'pages:about' %}">О компании</a></li>
+                                <li><a href="{% url 'pages:contacts' %}">Наши контакты</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                    <div class="navbar__block">
+                        <div class="navbar__block-contact">
+                            <div class="navbar__block-contact-item">
+                                <a class="navbar__block-contact-item-link" href="tel:+79590029073">
+                                    <img src="{% static 'img/ico/phone.svg' %}" alt="Phone" />+7 (959) 002 90 73
+                                </a>
+                                <a href="#" class="call-modal-trigger">Заказать звонок</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="menu__content">
+                    {% include "includes/header_search.html" %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="brands-page">
+            <div class="container">
+                <nav class="product__breadcrumbs" aria-label="breadcrumb">
+                    <a href="{% url 'shop:catalog' %}">Каталог</a>
+                    <span> - </span>
+                    <span>Производители</span>
+                </nav>
+
+                <h1>Производители автозапчастей</h1>
+                <p class="brands-page__intro">
+                    Выберите бренд из списка — откроется каталог товаров этого производителя.
+                    {% if brands_count %}Всего производителей: {{ brands_count }}.{% endif %}
+                </p>
+
+                {% if brand_groups %}
+                <nav class="brands-page__nav" aria-label="Буквы алфавита">
+                    {% for letter, letter_brands in brand_groups %}
+                    <a href="?letter={{ letter|urlencode }}"
+                       class="{% if active_letter == letter %}is-active{% endif %}"
+                       id="letter-{{ letter }}">{{ letter }}</a>
+                    {% endfor %}
+                </nav>
+
+                {% for letter, letter_brands in brand_groups %}
+                <section class="brands-page__group{% if active_letter == letter %} is-highlighted{% endif %}"
+                         id="group-{{ letter }}">
+                    <h2 class="brands-page__letter">{{ letter }} <span>({{ letter_brands|length }})</span></h2>
+                    <div class="brands-page__list">
+                        {% for brand in letter_brands %}
+                        <div class="brands-page__item">
+                            <a href="{{ brand.get_absolute_url }}">{{ brand.name }}</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+                {% else %}
+                <p>Список производителей пока пуст.</p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer__content">
+                <div class="footer__block">
+                    <div class="footer__block-brand">
+                        <a href="{% url 'pages:home' %}">
+                            <img src="{% static 'img/logo_footer.png' %}" alt="TIR-LUGANSK">
+                        </a>
+                    </div>
+                </div>
+                <div class="footer__block">
+                    <div class="footer__links">
+                        {% include "includes/footer_links.html" %}
+                    </div>
+                </div>
+                <div class="footer__block">
+                    {% include "includes/footer_contacts.html" %}
+                </div>
+                <div class="footer__block">
+                    {% include "includes/footer_social.html" %}
+                </div>
+            </div>
+            <div class="footer__copy">
+                <p>© 2025 tir-lugansk.ru</p>
+                {% include "includes/footer_counters.html" %}
+            </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/navbar-burger.js' %}"></script>
+    {% include "includes/analytics_scripts.html" %}
+</body>
+</html>

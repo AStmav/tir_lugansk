@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404, HttpResponsePermanentRedirect
 from django.urls import reverse
@@ -16,8 +14,9 @@ from .brand_urls import (
     build_catalog_brand_redirect,
     resolve_active_brand_slug,
 )
+from .brand_utils import get_cached_all_brands, group_brands_by_letter
 from .category_urls import build_catalog_category_redirect, category_canonical_url
-from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin
+from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin, seo_brands_list
 import logging
 import re
 import hashlib
@@ -179,6 +178,17 @@ def legacy_supplier_brand_redirect(request, brand_slug):
     if not resolved_slug:
         return HttpResponsePermanentRedirect(reverse('shop:catalog'))
     return HttpResponsePermanentRedirect(brand_canonical_url(resolved_slug))
+
+
+def legacy_suppliers_letter_redirect(request, letter):
+    """301 со старого /suppliers/letter-X/ на /shop/brands/?letter=X."""
+    from urllib.parse import unquote, urlencode
+
+    raw = unquote(letter or '').strip()
+    if len(raw) == 1:
+        target = reverse('shop:brands') + '?' + urlencode({'letter': raw.upper()})
+        return HttpResponsePermanentRedirect(target)
+    return HttpResponsePermanentRedirect(reverse('shop:brands'))
 
 
 class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
@@ -926,28 +936,9 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             all_brands = list(Brand.objects.filter(id__in=brand_ids_qs).order_by('name'))
             logger.info(f"Бренды фильтра (по результатам поиска): {len(all_brands)}")
         else:
-            all_brands = cache.get('all_brands')
-            if all_brands is None:
-                all_brands = list(Brand.objects.all().order_by('name'))
-                cache.set('all_brands', all_brands, settings.BRAND_CACHE_TIMEOUT)
-                logger.info(f"Бренды загружены из БД: {len(all_brands)}")
-            else:
-                logger.info(f"Бренды загружены из кеша: {len(all_brands)}")
+            all_brands = get_cached_all_brands()
         context['brands'] = all_brands
-        # Группировка брендов по первой букве для удобного dropdown-отображения в фильтре
-        brand_groups_map = defaultdict(list)
-        for brand in all_brands:
-            first_char = (brand.name or '').strip()[:1].upper()
-            if not first_char:
-                first_char = '#'
-            # Небуквенные названия отправляем в служебную группу "#"
-            if not (('A' <= first_char <= 'Z') or ('А' <= first_char <= 'Я') or first_char == 'Ё'):
-                first_char = '#'
-            brand_groups_map[first_char].append(brand)
-        context['brand_groups'] = sorted(
-            brand_groups_map.items(),
-            key=lambda item: (item[0] == '#', item[0]),
-        )
+        context['brand_groups'] = group_brands_by_letter(all_brands)
         
         # Выбранные фильтры для template
         context['current_category'] = getattr(self, 'category', None)
@@ -989,6 +980,30 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             logger.info(f"Диапазон цен: {context['min_price']} - {context['max_price']}")
         
         logger.info("Контекст каталога сформирован")
+        return context
+
+
+class BrandsListView(TemplateView):
+    """Список всех производителей (/shop/brands/)."""
+
+    template_name = 'brands.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        all_brands = get_cached_all_brands()
+        letter = (self.request.GET.get('letter') or '').strip().upper()
+        brand_groups = group_brands_by_letter(all_brands)
+        active_letter = letter[:1] if len(letter) == 1 else ''
+        if active_letter:
+            brand_groups = [
+                (group_letter, group_brands)
+                for group_letter, group_brands in brand_groups
+                if group_letter == active_letter
+            ]
+        context['brand_groups'] = brand_groups
+        context['brands_count'] = len(all_brands)
+        context['active_letter'] = active_letter
+        context['seo'] = seo_brands_list(self.request, brands_count=len(all_brands))
         return context
 
 

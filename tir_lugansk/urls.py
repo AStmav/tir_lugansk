@@ -23,7 +23,7 @@ from django.views.static import serve
 import os
 
 # SEO: импорт для sitemap и robots
-from shop.views import legacy_supplier_brand_redirect
+from shop.views import legacy_supplier_brand_redirect, legacy_suppliers_letter_redirect
 from shop.sitemap_views import (
     RobotsView,
     SitemapIndexView,
@@ -39,8 +39,9 @@ urlpatterns = [
     # SEO: редиректы со старого раздела поставщиков
     path(
         'suppliers/',
-        RedirectView.as_view(pattern_name='shop:catalog', permanent=True),
+        RedirectView.as_view(pattern_name='shop:brands', permanent=True),
     ),
+    path('suppliers/letter-<str:letter>/', legacy_suppliers_letter_redirect),
     path('suppliers/<slug:brand_slug>/', legacy_supplier_brand_redirect),
     # SEO: sitemap index, дочерние карты и robots (до catch-all в pages.urls)
     path('sitemap.xml', SitemapIndexView.as_view(), name='sitemap'),
