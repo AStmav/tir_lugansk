@@ -1,4 +1,5 @@
 {% load static %}
+{% load seo_tags %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -123,11 +124,7 @@
     <main>
         <section class="brands-page">
             <div class="container">
-                <nav class="product__breadcrumbs" aria-label="breadcrumb">
-                    <a href="{% url 'shop:catalog' %}">Каталог</a>
-                    <span> - </span>
-                    <span>Производители</span>
-                </nav>
+                {% render_breadcrumbs trail_label="Производители" %}
 
                 <h1>Производители автозапчастей</h1>
                 <p class="brands-page__intro">

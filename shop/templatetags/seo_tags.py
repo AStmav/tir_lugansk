@@ -10,10 +10,10 @@ register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
-def render_breadcrumbs(context, product=None, category=None):
+def render_breadcrumbs(context, product=None, category=None, brand=None, trail_label=None):
     """
-    Горизонтальные хлебные крошки: Каталог → родительская категория → подкатегория.
-    Каждый элемент — кликабельная ссылка.
+    Горизонтальные хлебные крошки: Каталог → категории → бренд.
+    trail_label — необязательный последний элемент без ссылки (напр. «Производители»).
     """
     request = context['request']
     items = [{'name': 'Каталог', 'url': reverse('shop:catalog')}]
@@ -26,11 +26,18 @@ def render_breadcrumbs(context, product=None, category=None):
         for cat in target_category.get_breadcrumb_chain():
             items.append({'name': cat.name, 'url': cat.get_absolute_url()})
 
+    if brand:
+        items.append({'name': brand.name, 'url': brand.get_absolute_url()})
+
     parts = []
     for i, item in enumerate(items):
         if i > 0:
             parts.append('<span> - </span>')
         parts.append(f'<a href="{item["url"]}">{item["name"]}</a>')
+
+    if trail_label:
+        parts.append('<span> - </span>')
+        parts.append(f'<span>{trail_label}</span>')
 
     html = (
         '<nav aria-label="breadcrumb">'

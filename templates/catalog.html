@@ -503,6 +503,9 @@
             <section class="catalog">
                 <div class="container">
                     <div class="catalog__content">
+                        {% if current_category or current_brand %}
+                        {% render_breadcrumbs category=current_category brand=current_brand %}
+                        {% endif %}
                         <!-- Информация о текущем поиске (само поле поиска — только в хедере) -->
                         {% if search_query %}
                         <div class="catalog__search catalog__search--results-only">
