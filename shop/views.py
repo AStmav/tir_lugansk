@@ -15,6 +15,7 @@ from .brand_urls import (
     resolve_active_brand_slug,
 )
 from .brand_utils import get_cached_all_brands, group_brands_by_letter
+from .search_pick import expand_product_group
 from .category_urls import build_catalog_category_redirect, category_canonical_url
 from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin, seo_brands_list
 import logging
@@ -353,9 +354,11 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
                 if picked_product:
                     used_search_pick = True
                     self._found_analogs = OeKod.objects.none()
-                    queryset = base_queryset.filter(id=search_pick)
+                    picked_ids = expand_product_group(base_queryset, [picked_product.id])
+                    queryset = base_queryset.filter(id__in=picked_ids)
                     logger.info(
                         f"Точный выбор из подсказки: product_id={search_pick}, "
+                        f"группа товаров: {len(picked_ids)} шт., "
                         f"номер='{picked_product.catalog_number or picked_product.artikyl_number}'"
                     )
 
@@ -590,124 +593,17 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
                         'product', 'brand', 'product__brand', 'product__category'
                     ).distinct()
                 
-                # НОВОЕ: ЛОГИКА ГРУППИРОВКИ для поиска по номерам
-                # Согласно ТЗ заказчика:
-                # 1. Найти код в artikyl_number_clean (PROPERTY_A) и oe_kod_clean (Name_STR в аналогах)
-                # 2. Найти владельцев аналогов (id_tovar)
-                # 3. По кодам владельцев (catalog_number_clean/PROPERTY_T и artikyl_number_clean/PROPERTY_A) найти товары
-                # 4. По cross_number (PROPERTY_C) найти все товары с одинаковыми значениями
+                # Группировка: по artikyl_number_clean, catalog_number_clean, cross_number
                 if has_found_products:
-                    # Собираем коды из ВСЕХ найденных товаров (напрямую + через OE аналоги + через id_tovar)
-                    found_artikyl_clean_values = set()
-                    found_catalog_clean_values = set()  # НОВОЕ: Для поиска по catalog_number_clean (PROPERTY_T)
-                    found_catalog_numbers = set()  # Для группировки по catalog_number (Majorsell/CEI)
-                    found_cross_numbers = set()  # НОВОЕ: Для поиска по cross_number (PROPERTY_C)
-                    
-                    # Используем ВСЕ найденные товары для группировки
                     all_found_for_grouping_ids = set(found_product_ids_set)
                     if has_products_by_id_tovar:
-                        # Добавляем товары, найденные через id_tovar, если они еще не включены
-                        all_found_for_grouping_ids.update(products_by_id_tovar.values_list('id', flat=True))
-                    
-                    # Собираем artikyl_number_clean (PROPERTY_A) из всех найденных товаров
-                    all_found_for_grouping = base_queryset.filter(id__in=all_found_for_grouping_ids)
-                    artikyl_clean_data = all_found_for_grouping.values_list('artikyl_number_clean', flat=True)
-                    for artikyl_number_clean in artikyl_clean_data:
-                        if artikyl_number_clean:
-                            found_artikyl_clean_values.add(artikyl_number_clean)
-                    
-                    # НОВОЕ: Собираем catalog_number_clean (PROPERTY_T) из всех найденных товаров
-                    # Это нужно для поиска товаров по кодам владельцев аналогов
-                    catalog_clean_data = all_found_for_grouping.values_list('catalog_number_clean', flat=True)
-                    for catalog_number_clean in catalog_clean_data:
-                        if catalog_number_clean:
-                            found_catalog_clean_values.add(catalog_number_clean)
-                    
-                    # Собираем catalog_number для группировки по Majorsell/CEI
-                    catalog_data = all_found_for_grouping.values_list('catalog_number', 'catalog_number_clean', flat=False)
-                    for catalog_number, catalog_number_clean in catalog_data:
-                        if catalog_number:
-                            found_catalog_numbers.add(catalog_number)
-                        if catalog_number_clean:
-                            found_catalog_numbers.add(catalog_number_clean)
-                    
-                    # НОВОЕ: Собираем cross_number (PROPERTY_C) из всех найденных товаров
-                    cross_data = all_found_for_grouping.values_list('cross_number', flat=True)
-                    for cross_number in cross_data:
-                        if cross_number and cross_number.strip():
-                            found_cross_numbers.add(cross_number.strip())
-                    
-                    # НОВОЕ: Находим товары по catalog_number_clean (PROPERTY_T) владельцев аналогов
-                    # Согласно ТЗ: по кодам владельца найти товары по PROPERTY_T (catalog_number_clean)
-                    products_by_catalog_clean = base_queryset.none()
-                    if found_catalog_clean_values:
-                        products_by_catalog_clean = base_queryset.filter(
-                            catalog_number_clean__in=found_catalog_clean_values
-                        ).distinct()
-                        logger.info("Найдены товары по catalog_number_clean (PROPERTY_T) владельцев аналогов")
-                    
-                    # НОВОЕ: Находим товары с такими же catalog_number (Majorsell/CEI)
-                    # Например, "220169" и "220.169" считаются одинаковыми
-                    products_by_catalog = base_queryset.none()
-                    if found_catalog_numbers:
-                        # Создаем запрос для поиска по catalog_number (с точкой и без)
-                        catalog_query = Q()
-                        for cat_num in found_catalog_numbers:
-                            # Ищем точное совпадение
-                            catalog_query |= Q(catalog_number__iexact=cat_num)
-                            # Ищем варианты с точкой и без (например, "220169" и "220.169")
-                            if '.' in cat_num:
-                                # Если есть точка, ищем без точки
-                                cat_num_no_dot = cat_num.replace('.', '')
-                                catalog_query |= Q(catalog_number__iexact=cat_num_no_dot)
-                            else:
-                                # Если нет точки, ищем с точкой (добавляем точку в разных местах)
-                                # Для "220169" ищем "220.169", "22.0169", "2201.69" и т.д.
-                                if len(cat_num) >= 4:
-                                    # Простой вариант: добавляем точку после первых 3 символов
-                                    cat_num_with_dot = cat_num[:3] + '.' + cat_num[3:]
-                                    catalog_query |= Q(catalog_number__iexact=cat_num_with_dot)
-                        
-                        products_by_catalog = base_queryset.filter(catalog_query).distinct()
-                        logger.info("Найдены товары с такими же catalog_number (Majorsell/CEI группировка)")
-                    
-                    # НОВОЕ: Находим товары по cross_number (PROPERTY_C) владельцев аналогов
-                    # Согласно ТЗ: по cross_number найти все товары с одинаковыми значениями
-                    products_by_cross = base_queryset.none()
-                    if found_cross_numbers:
-                        products_by_cross = base_queryset.filter(
-                            cross_number__in=found_cross_numbers
-                        ).exclude(cross_number='').distinct()
-                        logger.info("Найдены товары по cross_number (PROPERTY_C) владельцев аналогов")
-                    
-                    # Если нашли товары с artikyl_number_clean, находим ВСЕ товары с такими же значениями
-                    # ИСПРАВЛЕНО: Группировка по artikyl_number_clean применяется ТОЛЬКО к товарам, найденным напрямую или через OE аналоги
-                    if found_artikyl_clean_values:
-                        logger.info(f"Найдено уникальных artikyl_number_clean в товарах (напрямую/OE): {len(found_artikyl_clean_values)}")
-                        logger.info(f"Значения artikyl_number_clean: {list(found_artikyl_clean_values)[:5]}")
-                        
-                        # ИСПРАВЛЕНО: Используем artikyl_number_clean для группировки
-                        # Это позволяет находить все варианты (с точками и запятыми)
-                        products_by_artikyl = base_queryset.filter(
-                            artikyl_number_clean__in=found_artikyl_clean_values
-                        ).distinct()
-                        
-                        logger.info("Найдены товары с такими же artikyl_number_clean (группировка по PROPERTY_A)")
-                        
-                        # Объединяем результаты через id, чтобы избежать дорогих UNION/distinct queryset
-                        grouped_ids = set(all_found_for_grouping_ids)
-                        grouped_ids.update(products_by_artikyl.values_list('id', flat=True))
-                        grouped_ids.update(products_by_catalog_clean.values_list('id', flat=True))
-                        grouped_ids.update(products_by_catalog.values_list('id', flat=True))
-                        grouped_ids.update(products_by_cross.values_list('id', flat=True))
-                        found_product_ids_set = grouped_ids
-                        logger.info("Выполнена группировка результатов по PROPERTY_A / PROPERTY_T / PROPERTY_C")
-                    else:
-                        grouped_ids = set(all_found_for_grouping_ids)
-                        grouped_ids.update(products_by_catalog_clean.values_list('id', flat=True))
-                        grouped_ids.update(products_by_catalog.values_list('id', flat=True))
-                        grouped_ids.update(products_by_cross.values_list('id', flat=True))
-                        found_product_ids_set = grouped_ids
+                        all_found_for_grouping_ids.update(
+                            products_by_id_tovar.values_list('id', flat=True)
+                        )
+                    found_product_ids_set = expand_product_group(
+                        base_queryset, all_found_for_grouping_ids
+                    )
+                    logger.info("Выполнена группировка результатов по PROPERTY_A / PROPERTY_T / PROPERTY_C")
                 
                 # Принудительная дедупликация по id: union в SQLite может давать дубликаты строк
                 found_product_ids = list(found_product_ids_set)
