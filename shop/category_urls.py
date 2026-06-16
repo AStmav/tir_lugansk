@@ -1,10 +1,50 @@
 """Канонические URL категорий каталога: /shop/category/<slug>/"""
 from urllib.parse import urlencode
 
-from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
 from .models import Category
+
+# Старые slug подразделов assortment → актуальный slug категории в новом каталоге.
+LEGACY_CATEGORY_SLUG_ALIASES = {
+    "mototehnika-elektro": "mototehnika",
+    "mototehnika-benzo": "mototehnika",
+    "mototehnika-generatory-elektrostancii": "mototehnika",
+    "rulevoe-upravlenie": "kabina-kuzovnoe",
+    "rulevoe-upravlenie-kabina": "kabina-kuzovnoe",
+    "rulevoe-upravlenie-kuzovnoe": "kabina-kuzovnoe",
+}
+
+
+def resolve_legacy_category_slug(value):
+    """
+    Преобразует slug из старого /assortment/ в slug активной категории.
+    Возвращает None, если подходящей категории нет.
+    """
+    raw = (value or "").strip().strip("/")
+    if not raw:
+        return None
+
+    candidates = []
+    alias = LEGACY_CATEGORY_SLUG_ALIASES.get(raw)
+    if alias:
+        candidates.append(alias)
+    candidates.append(raw)
+
+    if raw.startswith("rulevoe-upravlenie-"):
+        candidates.append("kabina-kuzovnoe-" + raw[len("rulevoe-upravlenie-"):])
+    if raw == "rulevoe-upravlenie":
+        candidates.append("kabina-kuzovnoe")
+
+    seen = set()
+    for slug in candidates:
+        if slug in seen:
+            continue
+        seen.add(slug)
+        if Category.objects.filter(slug=slug, is_active=True).exists():
+            return slug
+
+    return None
 
 
 def resolve_active_category_slug(value):
@@ -15,6 +55,9 @@ def resolve_active_category_slug(value):
     if raw.isdigit():
         category = Category.objects.filter(id=int(raw), is_active=True).only("slug").first()
         return category.slug if category else None
+    legacy = resolve_legacy_category_slug(raw)
+    if legacy:
+        return legacy
     if Category.objects.filter(slug=raw, is_active=True).exists():
         return raw
     return None

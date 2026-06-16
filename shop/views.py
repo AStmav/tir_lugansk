@@ -16,7 +16,7 @@ from .brand_urls import (
 )
 from .brand_utils import get_cached_all_brands, group_brands_by_letter
 from .search_pick import expand_product_group
-from .category_urls import build_catalog_category_redirect, category_canonical_url
+from .category_urls import build_catalog_category_redirect, category_canonical_url, resolve_legacy_category_slug
 from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin, seo_brands_list
 import logging
 import re
@@ -208,9 +208,10 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
         self.brand = None
         category_slug = kwargs.get('category_slug')
         if category_slug:
+            resolved_slug = resolve_legacy_category_slug(category_slug) or category_slug
             self.category = get_object_or_404(
                 Category,
-                slug=category_slug,
+                slug=resolved_slug,
                 is_active=True,
             )
         brand_slug = kwargs.get('brand_slug')
@@ -221,6 +222,13 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             self.brand = Brand.objects.filter(slug=resolved_slug).first()
 
     def get(self, request, *args, **kwargs):
+        category_slug = kwargs.get('category_slug')
+        if category_slug:
+            resolved_slug = resolve_legacy_category_slug(category_slug)
+            if resolved_slug and resolved_slug != category_slug:
+                return HttpResponsePermanentRedirect(
+                    category_canonical_url(resolved_slug, request.GET)
+                )
         brand_slug = kwargs.get('brand_slug')
         if brand_slug:
             resolved_slug = resolve_active_brand_slug(brand_slug)

@@ -36,6 +36,9 @@ RESERVED_USEFUL_SHORT_SLUGS = frozenset(
         "call-request",
         "price-inquiry",
         "suppliers",
+        "information",
+        "assortment",
+        "company",
         "images",
         "media",
         "static",
@@ -430,3 +433,8 @@ class PriceInquiryView(View):
 def server_error(request, *args, **kwargs):
     """Пользовательская страница 500 (DEBUG=False)."""
     return render(request, '500.html', status=500)
+
+
+def page_not_found(request, exception, *args, **kwargs):
+    """Пользовательская страница 404 (DEBUG=False). Без блока «Статьи»."""
+    return render(request, '404.html', status=404)
