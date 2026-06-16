@@ -81,6 +81,52 @@ def _parse_search_pick(value):
     return product_id if product_id > 0 else None
 
 
+def _search_priority_terms(search, search_mode):
+    """Параметры для сортировки: точное совпадение номера — первым в выдаче."""
+    if search_mode != 'code' or not search:
+        return False, '', '', ''
+    search_clean = Product.clean_number(search)
+    search_normalized = normalize_latin_to_cyrillic(search)
+    search_clean_normalized = Product.clean_number(search_normalized)
+    return True, search, search_clean, search_clean_normalized
+
+
+def _annotate_search_priority(queryset, search_priority_raw, search_priority_clean, search_priority_clean_normalized):
+    """
+    Приоритет в выдаче поиска по номеру:
+    0 — каталожный номер точно как в запросе (12.12108);
+    1 — тот же номер в очищенном виде (1212108);
+    2 — доп. номер точно;
+    3+ — аналоги/группировки и частичные совпадения.
+    """
+    priority_when = [
+        models.When(Q(catalog_number__iexact=search_priority_raw), then=models.Value(0)),
+        models.When(Q(catalog_number_clean__iexact=search_priority_clean), then=models.Value(1)),
+        models.When(
+            Q(artikyl_number__iexact=search_priority_raw)
+            | Q(artikyl_number_clean__iexact=search_priority_clean),
+            then=models.Value(2),
+        ),
+    ]
+    default_priority = 3
+    if search_priority_clean_normalized and search_priority_clean_normalized != search_priority_clean:
+        priority_when.append(
+            models.When(
+                Q(catalog_number_clean__iexact=search_priority_clean_normalized)
+                | Q(artikyl_number_clean__iexact=search_priority_clean_normalized),
+                then=models.Value(2),
+            )
+        )
+        default_priority = 4
+    return queryset.annotate(
+        _search_priority=models.Case(
+            *priority_when,
+            default=models.Value(default_priority),
+            output_field=models.IntegerField(),
+        )
+    )
+
+
 @require_GET
 def search_autocomplete(request):
     """
@@ -357,6 +403,10 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             search, allow_contains = _parse_search_mode(search)
             logger.info(f"Поисковый запрос: '{search}' (поиск в середине: {allow_contains})")
 
+            search_is_number, search_priority_raw, search_priority_clean, search_priority_clean_normalized = (
+                _search_priority_terms(search, search_mode)
+            )
+
             if search_pick:
                 picked_product = base_queryset.filter(id=search_pick).first()
                 if picked_product:
@@ -373,20 +423,15 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             # Режим "по коду": ищем только по кодовым полям.
             # Режим "по названию": ищем только по текстовым полям.
             if not used_search_pick and search_mode == 'code':
-                search_is_number = True
                 logger.info(f"Поиск по номеру: '{search}'")
                 
                 # КРИТИЧНО: Очищаем поисковый запрос от символов
-                search_clean = Product.clean_number(search)
-                search_priority_raw = search
-                search_priority_clean = search_clean
+                search_clean = search_priority_clean
                 logger.info(f"Очищенный запрос: '{search_clean}'")
                 
                 # ИСПРАВЛЕНИЕ: Создаем нормализованную версию (Latin → Cyrillic)
-                # Для случаев типа "Яблоко M16/8" (Latin M) → "Яблоко М16/8" (Cyrillic М)
                 search_normalized = normalize_latin_to_cyrillic(search)
-                search_clean_normalized = Product.clean_number(search_normalized)
-                search_priority_clean_normalized = search_clean_normalized
+                search_clean_normalized = search_priority_clean_normalized
                 
                 # Проверяем нужна ли нормализация (избегаем дублирования условий)
                 needs_normalization = (search_clean != search_clean_normalized)
@@ -707,36 +752,13 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
             queryset = queryset.filter(price__lte=max_price)
             logger.info("Применён фильтр по максимальной цене")
 
-        # Для поиска по номеру: искомый товар (точное совпадение каталожного номера) всегда первым.
-        # Остальные результаты (аналоги/группировки) сортируются после него.
+        # Для поиска по номеру: товар с точным каталожным номером из запроса — всегда первым.
         if search and search_is_number and search_priority_clean:
-            priority_when = [
-                models.When(
-                    Q(catalog_number__iexact=search_priority_raw) | Q(catalog_number_clean__iexact=search_priority_clean),
-                    then=models.Value(0),
-                ),
-                models.When(
-                    Q(artikyl_number__iexact=search_priority_raw) | Q(artikyl_number_clean__iexact=search_priority_clean),
-                    then=models.Value(1),
-                ),
-            ]
-            if search_priority_clean_normalized and search_priority_clean_normalized != search_priority_clean:
-                priority_when.append(
-                    models.When(
-                        Q(catalog_number_clean__iexact=search_priority_clean_normalized) |
-                        Q(artikyl_number_clean__iexact=search_priority_clean_normalized),
-                        then=models.Value(2),
-                    )
-                )
-                default_priority = 3
-            else:
-                default_priority = 2
-            queryset = queryset.annotate(
-                _search_priority=models.Case(
-                    *priority_when,
-                    default=models.Value(default_priority),
-                    output_field=models.IntegerField(),
-                )
+            queryset = _annotate_search_priority(
+                queryset,
+                search_priority_raw,
+                search_priority_clean,
+                search_priority_clean_normalized,
             )
         
         # Сортировка
