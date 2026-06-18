@@ -399,26 +399,26 @@
                     <div class="product__content">
                         <div class="product__gallery" data-image-lightbox-gallery>
                             <div class="product__image-main product-image--zoomable" data-image-lightbox
-                                 data-lightbox-alt="{{ product.name }}"
+                                 data-lightbox-alt="{{ product.image_alt }}"
                                  {% with lightbox_urls=product.get_lightbox_image_urls %}
                                  {% if lightbox_urls|length > 1 %}data-lightbox-images="{{ lightbox_urls|lightbox_images_json }}"{% endif %}
                                  {% endwith %}>
                                 {% if product.has_main_image %}
-                                <img src="{{ product.main_image_url }}" alt="{{ product.name }}">
+                                <img src="{{ product.main_image_url }}" alt="{{ product.image_alt }}">
                                 {% elif product.images.first %}
-                                <img src="{{ product.images.first.url }}" alt="{{ product.name }}">
+                                <img src="{{ product.images.first.url }}" alt="{{ product.image_alt }}">
                                 {% else %}
-                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}">
+                                <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.image_alt }}">
                                 {% endif %}
                             </div>
                             <div class="product__thumbnails">
                                 {% for image in product.images.all|slice:":10" %}
                                 <div class="product__thumbnail {% if forloop.first %}product__thumbnail--active{% endif %}">
-                                    <img src="{{ image.url }}" alt="{{ product.name }}" loading="lazy">
+                                    <img src="{{ image.url }}" alt="{{ product.image_alt }}" loading="lazy">
                                 </div>
                                 {% empty %}
                                 <div class="product__thumbnail product__thumbnail--active">
-                                    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}" loading="lazy">
+                                    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.image_alt }}" loading="lazy">
                                 </div>
                                 {% endfor %}
                             </div>

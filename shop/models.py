@@ -219,6 +219,33 @@ class Product(models.Model):
     
     def get_absolute_url(self):
         return reverse('shop:product', kwargs={'slug': self.slug})
+
+    def get_image_alt(self, max_length=150):
+        """
+        Подпись изображения для alt: каталожный номер, название, производитель.
+        Формат: «NS03-G2, Штуцер топл. трубки — Auger».
+        """
+        parts = []
+        catalog_number = (self.catalog_number or '').strip()
+        name = (self.name or '').strip()
+        if catalog_number:
+            parts.append(catalog_number)
+        if name:
+            parts.append(name)
+        if parts:
+            alt = ', '.join(parts)
+        else:
+            alt = 'Товар'
+        brand_name = ''
+        if self.brand_id:
+            brand_name = (self.brand.name or '').strip()
+        if brand_name:
+            alt = f'{alt} — {brand_name}'
+        return alt[:max_length]
+
+    @property
+    def image_alt(self):
+        return self.get_image_alt()
     
     @property
     def discount_percent(self):

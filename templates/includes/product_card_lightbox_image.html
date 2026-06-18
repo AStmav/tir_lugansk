@@ -1,15 +1,15 @@
 {# Изображение карточки товара + скрытый список URL для лайтбокса (план A). #}
 {% load static product_tags %}
 <div class="product-image product-image--zoomable" data-image-lightbox
-     data-lightbox-alt="{{ product.name }}"
+     data-lightbox-alt="{{ product.image_alt }}"
      {% with lightbox_urls=product.get_lightbox_image_urls %}
      {% if lightbox_urls|length > 1 %}data-lightbox-images="{{ lightbox_urls|lightbox_images_json }}"{% endif %}
      {% endwith %}>
     {% if product.has_main_image %}
-    <img src="{{ product.main_image_url }}" alt="{{ product.name }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
+    <img src="{{ product.main_image_url }}" alt="{{ product.image_alt }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
     {% elif product.images.first %}
-    <img src="{{ product.images.first.url }}" alt="{{ product.name }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
+    <img src="{{ product.images.first.url }}" alt="{{ product.image_alt }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
     {% else %}
-    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.name }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
+    <img src="{% static 'img/zaglushka.jpg' %}" alt="{{ product.image_alt }}"{% if img_loading %} loading="{{ img_loading }}"{% endif %}>
     {% endif %}
 </div>
