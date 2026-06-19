@@ -1,6 +1,7 @@
 """
 SEO утилиты и миксины для оптимизации сайта под поисковые системы
 """
+import random
 from urllib.parse import urlencode
 
 from django.templatetags.static import static
@@ -9,6 +10,44 @@ from django.urls import reverse
 SITE_NAME = "TIR-Lugansk"
 DEFAULT_OG_IMAGE_PATH = "img/logo.png"
 CANONICAL_EXCLUDE_PARAMS = frozenset({"page"})
+
+DELIVERY_REGIONS = (
+    'ЛНР',
+    'Луганск',
+    'Алчевск',
+    'Стаханов',
+    'Красный луч',
+    'Северодонецк',
+    'Марковка',
+    'Беловодск',
+    'Ростов',
+    'Донецк',
+    'ДНР',
+    'Мариуполь',
+    'Горловка',
+)
+
+
+def delivery_regions_sample(seed=0, count=5):
+    """
+    Стабильная «случайная» подборка регионов для meta.
+    Один и тот же seed всегда даёт один набор — удобно для SEO и разнообразия по страницам.
+    """
+    count = min(max(count, 1), len(DELIVERY_REGIONS))
+    regions = list(DELIVERY_REGIONS)
+    rng = random.Random(seed)
+    rng.shuffle(regions)
+    return regions[:count]
+
+
+def format_delivery_meta_phrase(seed=0, count=5):
+    regions = delivery_regions_sample(seed, count)
+    return f"Доставка: {', '.join(regions)}."
+
+
+def delivery_region_keywords(seed=0, count=4):
+    """Регионы для meta keywords (отдельный seed — другой набор, чем в description)."""
+    return delivery_regions_sample(seed + 7919, count)
 
 
 def truncate_meta_text(text, length=160):
@@ -88,8 +127,13 @@ class SEOMixin:
     
     def get_seo_description(self):
         """Генерация SEO-описания"""
-        return getattr(self, 'seo_description', 
-                      'Интернет-магазин автозапчастей в Луганске. Широкий ассортимент запчастей от проверенных производителей.')
+        return getattr(
+            self,
+            'seo_description',
+            'Интернет-магазин автозапчастей в Луганске. '
+            'Широкий ассортимент запчастей от проверенных производителей. '
+            f'{format_delivery_meta_phrase(seed=0)}',
+        )
     
     def get_seo_keywords(self):
         """Генерация SEO-ключевых слов"""
@@ -151,7 +195,10 @@ class ProductSEOMixin(SEOMixin):
                 desc += f" (арт. {product.catalog_number})"
             if product.price:
                 desc += f". Цена: {product.price} руб."
-            desc += " в интернет-магазине TIR-Lugansk. Доставка по Луганску."
+            desc += (
+                f" в интернет-магазине TIR-Lugansk. "
+                f"{format_delivery_meta_phrase(seed=product.pk or 0)}"
+            )
             return desc
         return super().get_seo_description()
     
@@ -169,6 +216,7 @@ class ProductSEOMixin(SEOMixin):
             if product.category:
                 keywords.append(product.category.name)
             keywords.extend(['автозапчасти', 'Луганск', 'купить'])
+            keywords.extend(delivery_region_keywords(seed=product.pk or 0))
             return ', '.join(keywords)
         return super().get_seo_keywords()
     
@@ -249,7 +297,7 @@ class BrandSEOMixin(SEOMixin):
                 return self.brand.meta_description
             desc = f"Купить автозапчасти {self.brand.name} в интернет-магазине TIR-Lugansk. "
             desc += f"Оригинальные и аналоговые детали бренда {self.brand.name}. "
-            desc += "Доставка по Луганску и области."
+            desc += format_delivery_meta_phrase(seed=self.brand.pk or 0)
             return desc
         return super().get_seo_description()
 
@@ -293,7 +341,7 @@ class CategorySEOMixin(SEOMixin):
                 return self.category.meta_description
             desc = f"Купить {self.category.name.lower()} в интернет-магазине {SITE_NAME}. "
             desc += f"Широкий выбор автозапчастей категории {self.category.name}. "
-            desc += "Доставка по Луганску и области."
+            desc += format_delivery_meta_phrase(seed=self.category.pk or 0)
             return desc
         return super().get_seo_description()
 
@@ -316,12 +364,13 @@ def seo_brands_list(request, brands_count=0):
     title = format_page_title("Производители автозапчастей")
     description = (
         "Полный список брендов и производителей автозапчастей "
-        "в интернет-магазине TIR-Lugansk. Выберите производителя и перейдите в каталог."
+        f"в интернет-магазине TIR-Lugansk. {format_delivery_meta_phrase(seed=42)}"
     )
     if brands_count:
         description = (
             f"Каталог из {brands_count} производителей автозапчастей. "
-            "Выберите бренд и перейдите к товарам в наличии."
+            f"Выберите бренд и перейдите к товарам в наличии. "
+            f"{format_delivery_meta_phrase(seed=43)}"
         )
     return build_seo_context(
         request,

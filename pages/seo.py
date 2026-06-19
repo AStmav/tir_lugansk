@@ -2,7 +2,13 @@
 from django.urls import reverse
 from django.utils.html import strip_tags
 
-from shop.seo import build_canonical_url, build_seo_context, format_page_title, truncate_meta_text
+from shop.seo import (
+    build_canonical_url,
+    build_seo_context,
+    format_delivery_meta_phrase,
+    format_page_title,
+    truncate_meta_text,
+)
 
 
 def seo_home(request):
@@ -11,7 +17,7 @@ def seo_home(request):
         title="TIR-Lugansk - Автозапчасти в Луганске | Каталог запчастей",
         description=(
             "Интернет-магазин автозапчастей TIR-Lugansk. Широкий ассортимент оригинальных "
-            "запчастей и аналогов от проверенных производителей. Доставка по Луганску и области."
+            f"запчастей и аналогов от проверенных производителей. {format_delivery_meta_phrase(seed=1)}"
         ),
         keywords="автозапчасти, запчасти Луганск, автомагазин, автодетали, оригинальные запчасти, аналоги, TIR-Lugansk",
         canonical_url=reverse("pages:home"),

@@ -297,7 +297,9 @@ class Product(models.Model):
             applicability_short = self.applicability[:50]
             desc += f'Применяемость: {applicability_short}... '
         
-        desc += 'Доставка по Луганску и ЛНР.'
+        from shop.seo import format_delivery_meta_phrase
+
+        desc += format_delivery_meta_phrase(seed=self.pk or hash(self.catalog_number or self.name or ''))
         
         return desc[:320]  # Ограничиваем длину для SEO
     
@@ -321,6 +323,8 @@ class Product(models.Model):
         
         # Добавляем общие ключевые слова
         keywords.extend(['автозапчасти', 'луганск', 'купить автозапчасти'])
+        from shop.seo import delivery_region_keywords
+        keywords.extend(delivery_region_keywords(seed=self.pk or 0))
         
         return ', '.join(keywords[:15])  # Ограничиваем количество ключевых слов
     
