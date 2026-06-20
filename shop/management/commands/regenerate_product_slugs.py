@@ -2,10 +2,11 @@
 Пересчёт slug товаров: артикул-бренд-название + алиасы для 301.
 
 Примеры:
+  python manage.py regenerate_product_slugs
   python manage.py regenerate_product_slugs --dry-run
   python manage.py regenerate_product_slugs --apply --limit 100
 """
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from shop.models import Product, ProductSlugAlias
@@ -19,7 +20,12 @@ class Command(BaseCommand):
         parser.add_argument(
             '--apply',
             action='store_true',
-            help='Записать изменения (по умолчанию только отчёт)',
+            help='Записать изменения в БД',
+        )
+        parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Только отчёт, без записи (режим по умолчанию)',
         )
         parser.add_argument(
             '--limit',
@@ -35,6 +41,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if options['apply'] and options['dry_run']:
+            raise CommandError('Укажите либо --apply, либо --dry-run, не оба сразу.')
         dry_run = not options['apply']
         limit = options['limit']
         batch_size = options['batch_size']
@@ -42,9 +50,7 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write('Режим dry-run: изменения не сохраняются')
 
-        reserved = set(Product.objects.values_list('slug', flat=True))
-        reserved |= set(ProductSlugAlias.objects.values_list('slug', flat=True))
-
+        slug_owners = self._load_slug_owners()
         stats = {
             'processed': 0,
             'unchanged': 0,
@@ -52,8 +58,7 @@ class Command(BaseCommand):
             'aliases': 0,
         }
         examples = []
-        to_update = []
-        aliases_to_create = []
+        planned_changes = []
 
         qs = Product.objects.select_related('brand').order_by('id')
         if limit:
@@ -63,13 +68,11 @@ class Command(BaseCommand):
             stats['processed'] += 1
             old_slug = product.slug
             brand_name = product.brand.name if product.brand_id else ''
+            product_pk = product.pk
 
-            def is_taken(candidate, _old=old_slug, _pk=product.pk):
-                if candidate == _old:
-                    return False
-                if candidate in reserved:
-                    return True
-                return Product.objects.filter(slug=candidate).exclude(pk=_pk).exists()
+            def is_taken(candidate, _pk=product_pk):
+                owner = slug_owners.get(candidate)
+                return owner is not None and owner != _pk
 
             new_slug = uniquify_slug(
                 build_product_slug(product.catalog_number, brand_name, product.name),
@@ -84,24 +87,13 @@ class Command(BaseCommand):
             if len(examples) < 5:
                 examples.append(f'  {old_slug} → {new_slug}')
 
-            if dry_run:
-                reserved.add(new_slug)
-                continue
-
-            aliases_to_create.append(
-                ProductSlugAlias(slug=old_slug, product_id=product.pk)
-            )
-            product.slug = new_slug
-            reserved.add(new_slug)
-            to_update.append(product)
-
-            if len(to_update) >= batch_size:
-                self._flush(to_update, aliases_to_create, stats)
-                to_update = []
-                aliases_to_create = []
+            slug_owners[new_slug] = product_pk
+            planned_changes.append((product, old_slug, new_slug))
 
         if not dry_run:
-            self._flush(to_update, aliases_to_create, stats)
+            for offset in range(0, len(planned_changes), batch_size):
+                batch = planned_changes[offset:offset + batch_size]
+                self._apply_batch(batch, stats)
 
         self.stdout.write('')
         self.stdout.write(f"Обработано: {stats['processed']}")
@@ -114,8 +106,29 @@ class Command(BaseCommand):
             for line in examples:
                 self.stdout.write(line)
 
+    def _load_slug_owners(self):
+        """slug → pk товара (канонические slug + уже сохранённые алиасы)."""
+        owners = dict(Product.objects.values_list('slug', 'pk'))
+        for slug, product_id in ProductSlugAlias.objects.values_list('slug', 'product_id'):
+            owners[slug] = product_id
+        return owners
+
     @transaction.atomic
-    def _flush(self, products, aliases, stats):
+    def _apply_batch(self, batch, stats):
+        products = []
+        aliases = []
+        seen_new_slugs = set()
+
+        for product, old_slug, new_slug in batch:
+            if new_slug in seen_new_slugs:
+                raise CommandError(
+                    f'Коллизия slug в пачке: {new_slug!r}. Прервите и сообщите разработчику.'
+                )
+            seen_new_slugs.add(new_slug)
+            product.slug = new_slug
+            products.append(product)
+            aliases.append(ProductSlugAlias(slug=old_slug, product_id=product.pk))
+
         if aliases:
             ProductSlugAlias.objects.bulk_create(
                 aliases,
