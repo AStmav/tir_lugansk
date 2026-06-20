@@ -27,10 +27,10 @@ def slug_part(text, *, max_len=None):
     return part
 
 
-def build_product_slug(catalog_number, brand_name, product_name):
+def build_product_slug(catalog_number, brand_name, product_name, disambiguator=None):
     """
     Собирает slug: каталожный номер, бренд, укороченное название.
-    Дублирующиеся части не повторяются.
+    disambiguator — tmp_id или pk, если без него slug не уникален.
     """
     parts = []
     for value, limit in (
@@ -39,6 +39,10 @@ def build_product_slug(catalog_number, brand_name, product_name):
         (product_name, NAME_PART_MAX),
     ):
         part = slug_part(value, max_len=limit)
+        if part and part not in parts:
+            parts.append(part)
+    if disambiguator:
+        part = slug_part(str(disambiguator))
         if part and part not in parts:
             parts.append(part)
     base = '-'.join(parts) if parts else 'product'

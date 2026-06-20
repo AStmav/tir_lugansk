@@ -74,10 +74,12 @@ class Command(BaseCommand):
                 owner = slug_owners.get(candidate)
                 return owner is not None and owner != _pk
 
-            new_slug = uniquify_slug(
-                build_product_slug(product.catalog_number, brand_name, product.name),
-                is_taken,
+            base_slug = build_product_slug(
+                product.catalog_number,
+                brand_name,
+                product.name,
             )
+            new_slug = uniquify_slug(base_slug, is_taken)
 
             if new_slug == old_slug:
                 stats['unchanged'] += 1
@@ -115,25 +117,39 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _apply_batch(self, batch, stats):
-        products = []
-        aliases = []
+        """
+        Двухфазная запись: сначала временные slug, потом финальные.
+        Иначе bulk_update ломается, когда новый slug B совпадает со старым slug A в той же пачке.
+        """
         seen_new_slugs = set()
-
         for product, old_slug, new_slug in batch:
             if new_slug in seen_new_slugs:
                 raise CommandError(
                     f'Коллизия slug в пачке: {new_slug!r}. Прервите и сообщите разработчику.'
                 )
             seen_new_slugs.add(new_slug)
-            product.slug = new_slug
-            products.append(product)
-            aliases.append(ProductSlugAlias(slug=old_slug, product_id=product.pk))
 
+        # Фаза 1: освобождаем уникальные slug (временные значения по pk).
+        temp_products = []
+        for product, old_slug, new_slug in batch:
+            product.slug = f'_slug-migrate-{product.pk}'
+            temp_products.append(product)
+        Product.objects.bulk_update(temp_products, ['slug'])
+
+        aliases = [
+            ProductSlugAlias(slug=old_slug, product_id=product.pk)
+            for product, old_slug, new_slug in batch
+        ]
         if aliases:
             ProductSlugAlias.objects.bulk_create(
                 aliases,
                 ignore_conflicts=True,
             )
             stats['aliases'] += len(aliases)
-        if products:
-            Product.objects.bulk_update(products, ['slug'])
+
+        # Фаза 2: финальные slug (конфликтов в пачке уже нет).
+        final_products = []
+        for product, old_slug, new_slug in batch:
+            product.slug = new_slug
+            final_products.append(product)
+        Product.objects.bulk_update(final_products, ['slug'])
