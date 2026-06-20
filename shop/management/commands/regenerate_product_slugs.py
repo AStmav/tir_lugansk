@@ -37,7 +37,7 @@ class Command(BaseCommand):
             '--batch-size',
             type=int,
             default=500,
-            help='Размер пачки для bulk_update',
+            help='Размер пачки для записи',
         )
 
     def handle(self, *args, **options):
@@ -50,7 +50,7 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write('Режим dry-run: изменения не сохраняются')
 
-        slug_owners = self._load_slug_owners()
+        reserved = self._load_reserved_slugs()
         stats = {
             'processed': 0,
             'unchanged': 0,
@@ -68,20 +68,9 @@ class Command(BaseCommand):
             stats['processed'] += 1
             old_slug = product.slug
             brand_name = product.brand.name if product.brand_id else ''
-            product_pk = product.pk
 
-            def is_taken(candidate, _pk=product_pk):
-                owner = slug_owners.get(candidate)
-                return owner is not None and owner != _pk
-
-            base_slug = build_product_slug(
-                product.catalog_number,
-                brand_name,
-                product.name,
-            )
-            new_slug = uniquify_slug(base_slug, is_taken)
-
-            if new_slug == old_slug:
+            new_slug = self._plan_new_slug(product, brand_name, old_slug, reserved)
+            if new_slug is None:
                 stats['unchanged'] += 1
                 continue
 
@@ -89,8 +78,10 @@ class Command(BaseCommand):
             if len(examples) < 5:
                 examples.append(f'  {old_slug} → {new_slug}')
 
-            slug_owners[new_slug] = product_pk
+            reserved.add(new_slug)
             planned_changes.append((product, old_slug, new_slug))
+
+        planned_changes = self._ensure_globally_unique_planned(planned_changes)
 
         if not dry_run:
             for offset in range(0, len(planned_changes), batch_size):
@@ -108,18 +99,92 @@ class Command(BaseCommand):
             for line in examples:
                 self.stdout.write(line)
 
-    def _load_slug_owners(self):
-        """slug → pk товара (канонические slug + уже сохранённые алиасы)."""
-        owners = dict(Product.objects.values_list('slug', 'pk'))
-        for slug, product_id in ProductSlugAlias.objects.values_list('slug', 'product_id'):
-            owners[slug] = product_id
-        return owners
+    def _load_reserved_slugs(self):
+        """Все занятые slug: канонические + алиасы."""
+        reserved = set(Product.objects.values_list('slug', flat=True))
+        reserved |= set(ProductSlugAlias.objects.values_list('slug', flat=True))
+        return reserved
+
+    def _slug_taken(self, candidate, product, old_slug, reserved):
+        if candidate == old_slug:
+            return False
+        if candidate in reserved:
+            return True
+        return Product.objects.filter(slug=candidate).exclude(pk=product.pk).exists()
+
+    def _plan_new_slug(self, product, brand_name, old_slug, reserved):
+        """Подбирает новый slug или None, если менять не нужно."""
+        product_pk = product.pk
+
+        def is_taken(candidate, _old=old_slug, _product=product):
+            return self._slug_taken(candidate, _product, _old, reserved)
+
+        base_slug = build_product_slug(
+            product.catalog_number,
+            brand_name,
+            product.name,
+        )
+        new_slug = uniquify_slug(base_slug, is_taken)
+        if new_slug == old_slug:
+            return None
+
+        if self._slug_taken(new_slug, product, old_slug, reserved):
+            new_slug = uniquify_slug(
+                build_product_slug(
+                    product.catalog_number,
+                    brand_name,
+                    product.name,
+                    product.tmp_id or str(product_pk),
+                ),
+                is_taken,
+            )
+        if new_slug == old_slug:
+            return None
+        return new_slug
+
+    def _ensure_globally_unique_planned(self, planned_changes):
+        """
+        Финальная проверка: два товара не могут получить один new_slug,
+        и new_slug не может совпасть с чужим canonical в БД.
+        """
+        assigned = set()
+        unique_changes = []
+
+        for product, old_slug, new_slug in planned_changes:
+            brand_name = product.brand.name if product.brand_id else ''
+            candidate = new_slug
+
+            def is_taken(c, _product=product):
+                if c in assigned:
+                    return True
+                return Product.objects.filter(slug=c).exclude(pk=_product.pk).exists()
+
+            if is_taken(candidate):
+                candidate = uniquify_slug(
+                    build_product_slug(
+                        product.catalog_number,
+                        brand_name,
+                        product.name,
+                        product.tmp_id or str(product.pk),
+                    ),
+                    is_taken,
+                )
+            if is_taken(candidate):
+                candidate = uniquify_slug(
+                    f'product-{product.pk}',
+                    is_taken,
+                )
+
+            assigned.add(candidate)
+            unique_changes.append((product, old_slug, candidate))
+
+        return unique_changes
 
     @transaction.atomic
     def _apply_batch(self, batch, stats):
         """
-        Двухфазная запись: сначала временные slug, потом финальные.
-        Иначе bulk_update ломается, когда новый slug B совпадает со старым slug A в той же пачке.
+        Двухфазная запись + по одному UPDATE на фазе 2
+        (bulk_update может дать duplicate key при совпадении с чужим slug в БД).
         """
         seen_new_slugs = set()
         for product, old_slug, new_slug in batch:
@@ -129,7 +194,6 @@ class Command(BaseCommand):
                 )
             seen_new_slugs.add(new_slug)
 
-        # Фаза 1: освобождаем уникальные slug (временные значения по pk).
         temp_products = []
         for product, old_slug, new_slug in batch:
             product.slug = f'_slug-migrate-{product.pk}'
@@ -147,9 +211,7 @@ class Command(BaseCommand):
             )
             stats['aliases'] += len(aliases)
 
-        # Фаза 2: финальные slug (конфликтов в пачке уже нет).
-        final_products = []
         for product, old_slug, new_slug in batch:
-            product.slug = new_slug
-            final_products.append(product)
-        Product.objects.bulk_update(final_products, ['slug'])
+            updated = Product.objects.filter(pk=product.pk).update(slug=new_slug)
+            if not updated:
+                raise CommandError(f'Не удалось обновить slug товара pk={product.pk}')
