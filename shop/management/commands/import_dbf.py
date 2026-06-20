@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from django.db import transaction, connection
 from shop.models import Category, Brand, Product
 from shop.models import ImportFile
+from shop.product_slugs import make_product_slug
 from django.utils import timezone
 import logging
 from django.db.models import Q
@@ -178,6 +179,7 @@ class Command(BaseCommand):
         errors = 0
         products_batch_create = []  # Для новых товаров
         products_batch_update = []  # Для обновления существующих
+        existing_slugs = set(Product.objects.values_list('slug', flat=True))
         
         # Загружаем все существующие товары в память для быстрой проверки
         self.stdout.write('📥 Загрузка существующих товаров из БД...')
@@ -363,22 +365,17 @@ class Command(BaseCommand):
                     
                     # ========== СОЗДАНИЕ НОВОГО ТОВАРА ==========
                     if not existing_product or update_mode == 'create_only':
-                        # Создаем безопасный slug для товара
-                        clean_name = slugify(name)[:30] if name else 'product'
-                        clean_tmp_id = re.sub(r'[^a-zA-Z0-9]', '', tmp_id) if tmp_id else 'unknown'
-                        base_slug = f"{clean_name}-{clean_tmp_id}"
-                        slug = slugify(base_slug)
-                        
-                        if not slug:
-                            slug = f"product-{clean_tmp_id}"
-                        
-                        # Проверяем уникальность slug (среди уже созданных в этом импорте)
-                        counter = 1
-                        original_slug = slug
-                        existing_slugs = set(p.slug for p in products_batch_create)
-                        while slug in existing_slugs:
-                            slug = f"{original_slug}-{counter}"
-                            counter += 1
+                        brand_name = brand.name if brand else ''
+                        slug = make_product_slug(
+                            catalog_number[:50] if catalog_number else tmp_id,
+                            brand_name,
+                            name[:200] if name else '',
+                            is_taken=lambda s: (
+                                s in existing_slugs
+                                or Product.objects.filter(slug=s).exists()
+                            ),
+                        )
+                        existing_slugs.add(slug)
 
                         # Создаем товар
                         # ВАЖНО: Заполняем очищенные номера вручную, 

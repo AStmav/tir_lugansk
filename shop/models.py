@@ -365,6 +365,25 @@ class Product(models.Model):
         return urls[:max_images]
 
 
+class ProductSlugAlias(models.Model):
+    """Старый slug товара → 301 на актуальный Product.slug."""
+    slug = models.SlugField(unique=True, db_index=True, verbose_name='Старый URL')
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='slug_aliases',
+        verbose_name='Товар',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+
+    class Meta:
+        verbose_name = 'Алиас URL товара'
+        verbose_name_plural = 'Алиасы URL товаров'
+
+    def __str__(self):
+        return self.slug
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images', verbose_name='Товар')
     image = models.ImageField(upload_to='products/', verbose_name='Изображение')

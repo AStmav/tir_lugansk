@@ -12,3 +12,4 @@ psycopg2-binary>=2.9
 redis>=5
 aiogram>=3.0
 celery>=5.3
+unidecode>=1.3

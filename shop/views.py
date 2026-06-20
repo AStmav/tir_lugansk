@@ -17,6 +17,7 @@ from .brand_urls import (
 from .brand_utils import get_cached_all_brands, group_brands_by_letter
 from .search_pick import expand_product_group
 from .category_urls import build_catalog_category_redirect, category_canonical_url, resolve_legacy_category_slug
+from .product_slug_aliases import resolve_product_with_legacy
 from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin, seo_brands_list
 import logging
 import re
@@ -941,6 +942,18 @@ class ProductView(ProductSEOMixin, DetailView):
     template_name = 'product.html'
     context_object_name = 'product'
     slug_url_kwarg = 'slug'
+
+    def dispatch(self, request, *args, **kwargs):
+        slug = kwargs.get(self.slug_url_kwarg, '')
+        product, needs_redirect = resolve_product_with_legacy(slug)
+        if product is None:
+            raise Http404
+        if needs_redirect:
+            url = product.get_absolute_url()
+            if request.GET:
+                url = f'{url}?{request.GET.urlencode()}'
+            return HttpResponsePermanentRedirect(url)
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         """
