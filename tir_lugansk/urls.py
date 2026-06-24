@@ -29,11 +29,7 @@ from shop.legacy_redirects import (
     legacy_company_redirect,
     legacy_information_redirect,
 )
-from shop.sitemap_views import (
-    RobotsView,
-    SitemapIndexView,
-    SitemapSectionView,
-)
+from shop.sitemap_views import RobotsView, serve_sitemap_index, serve_sitemap_section
 from shop.feeds import CatalogUpdatesFeed
 from pages.views import server_error
 
@@ -53,24 +49,16 @@ urlpatterns = [
     re_path(r'^information(?:/(?P<path>.*))?$', legacy_information_redirect),
     path('company/', legacy_company_redirect),
     # SEO: sitemap index, дочерние карты и robots (до catch-all в pages.urls)
-    path('sitemap.xml', SitemapIndexView.as_view(), name='sitemap'),
+    path('sitemap.xml', serve_sitemap_index, name='sitemap'),
     path(
-        'sitemap-products.xml',
-        SitemapSectionView.as_view(),
-        {'section': 'products'},
-        name='sitemap_products',
+        'sitemap-<section>-p<int:page>.xml',
+        serve_sitemap_section,
+        name='sitemaps_paged',
     ),
     path(
-        'sitemap-categories.xml',
-        SitemapSectionView.as_view(),
-        {'section': 'categories'},
-        name='sitemap_categories',
-    ),
-    path(
-        'sitemap-pages.xml',
-        SitemapSectionView.as_view(),
-        {'section': 'pages'},
-        name='sitemap_pages',
+        'sitemap-<section>.xml',
+        serve_sitemap_section,
+        name='sitemaps',
     ),
     path('robots.txt', RobotsView.as_view(), name='robots'),
     path('rss.xml', CatalogUpdatesFeed(), name='rss'),

@@ -1,128 +1,60 @@
 """
-Представления для sitemap index, дочерних sitemap и robots.txt.
+Sitemap: отдача готовых XML с диска (cron) или динамическая генерация (fallback).
 """
-import logging
-from xml.sax.saxutils import escape
+from __future__ import annotations
 
-from django.http import Http404, HttpResponse
+import logging
+
+from django.conf import settings
+from django.contrib.sitemaps.views import index as django_sitemap_index_view
+from django.contrib.sitemaps.views import sitemap as django_sitemap_view
+from django.http import HttpResponse
 from django.views import View
 
-from .seo import (
-    SITEMAP_SECTIONS,
-    _sitemap_section_lastmod,
-    generate_sitemap_urls,
-    get_sitemap_section_urls,
-)
+from shop.sitemap_static import read_static_sitemap, sitemap_section_filename
+from shop.sitemaps import SITEMAPS
 
 logger = logging.getLogger(__name__)
 
-SITEMAP_URL_LIMIT = 50000
+_XML_CONTENT_TYPE = "application/xml; charset=utf-8"
 
 
-def _format_lastmod(value):
-    if value and hasattr(value, "strftime"):
-        return value.strftime("%Y-%m-%d")
-    return None
+def _static_enabled() -> bool:
+    return getattr(settings, "SITEMAP_STATIC_ENABLED", True)
 
 
-def _render_urlset(request, urls):
-    if len(urls) > SITEMAP_URL_LIMIT:
-        logger.warning(
-            "Sitemap обрезан: %s URL (лимит %s)",
-            len(urls),
-            SITEMAP_URL_LIMIT,
-        )
-        urls = urls[:SITEMAP_URL_LIMIT]
-
-    lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ]
-
-    for url_data in urls:
-        loc = escape(request.build_absolute_uri(url_data["loc"]))
-        lines.append("  <url>")
-        lines.append(f"    <loc>{loc}</loc>")
-
-        lastmod = _format_lastmod(url_data.get("lastmod"))
-        if lastmod:
-            lines.append(f"    <lastmod>{lastmod}</lastmod>")
-
-        lines.append(f"    <changefreq>{url_data['changefreq']}</changefreq>")
-        lines.append(f"    <priority>{url_data['priority']}</priority>")
-        lines.append("  </url>")
-
-    lines.append("</urlset>")
-    return "\n".join(lines)
+def _serve_static(filename: str) -> HttpResponse | None:
+    if not _static_enabled():
+        return None
+    content = read_static_sitemap(filename)
+    if content is None:
+        return None
+    return HttpResponse(content, content_type=_XML_CONTENT_TYPE)
 
 
-class SitemapIndexView(View):
-    """Корневой /sitemap.xml — индекс дочерних карт."""
+def serve_sitemap_index(request):
+    response = _serve_static("sitemap.xml")
+    if response is not None:
+        return response
+    return django_sitemap_index_view(
+        request,
+        sitemaps=SITEMAPS,
+        sitemap_url_name="sitemaps",
+    )
 
-    def get(self, request):
+
+def serve_sitemap_section(request, section, page=None):
+    if page is None:
+        raw_page = request.GET.get("p", 1)
         try:
-            lines = [
-                '<?xml version="1.0" encoding="UTF-8"?>',
-                '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-            ]
+            page = int(raw_page)
+        except (TypeError, ValueError):
+            page = 1
 
-            for section_key, path, _generator_name in SITEMAP_SECTIONS:
-                entries = get_sitemap_section_urls(section_key) or []
-                lastmod = _format_lastmod(_sitemap_section_lastmod(entries))
-
-                loc = escape(request.build_absolute_uri(path))
-                lines.append("  <sitemap>")
-                lines.append(f"    <loc>{loc}</loc>")
-                if lastmod:
-                    lines.append(f"    <lastmod>{lastmod}</lastmod>")
-                lines.append("  </sitemap>")
-
-            lines.append("</sitemapindex>")
-            xml_content = "\n".join(lines)
-
-            logger.info("Sitemap index сгенерирован: %s частей", len(SITEMAP_SECTIONS))
-            return HttpResponse(xml_content, content_type="application/xml; charset=utf-8")
-
-        except Exception as exc:
-            logger.exception("Ошибка генерации sitemap index: %s", exc)
-            return HttpResponse("Ошибка генерации sitemap", status=500)
-
-
-class SitemapSectionView(View):
-    """Дочерние карты: products, categories, pages."""
-
-    def get(self, request, section):
-        try:
-            urls = get_sitemap_section_urls(section)
-            if urls is None:
-                raise Http404(f"Unknown sitemap section: {section}")
-
-            xml_content = _render_urlset(request, urls)
-            logger.info("Sitemap-%s: %s URL", section, len(urls))
-            return HttpResponse(xml_content, content_type="application/xml; charset=utf-8")
-
-        except Http404:
-            raise
-        except Exception as exc:
-            logger.exception("Ошибка генерации sitemap-%s: %s", section, exc)
-            return HttpResponse("Ошибка генерации sitemap", status=500)
-
-
-class SitemapView(View):
-    """
-    Устаревший единый sitemap (все URL в одном файле).
-    Оставлен для обратной совместимости; в robots указан индекс /sitemap.xml.
-    """
-
-    def get(self, request):
-        try:
-            urls = generate_sitemap_urls()
-            xml_content = _render_urlset(request, urls)
-            logger.info("Sitemap (full): %s URL", len(urls))
-            return HttpResponse(xml_content, content_type="application/xml; charset=utf-8")
-        except Exception as exc:
-            logger.exception("Ошибка генерации полного sitemap: %s", exc)
-            return HttpResponse("Ошибка генерации sitemap", status=500)
+    response = _serve_static(sitemap_section_filename(section, page))
+    if response is not None:
+        return response
+    return django_sitemap_view(request, sitemaps=SITEMAPS, section=section)
 
 
 class RobotsView(View):

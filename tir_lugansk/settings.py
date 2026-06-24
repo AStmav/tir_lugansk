@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'ckeditor',
     'ckeditor_uploader',
     'shop',
@@ -227,6 +228,12 @@ STATICFILES_DIRS = [
     BASE_DIR / 'templates' / 'assets',  # Папка assets для фронтенда
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Статические sitemap (cron: manage.py build_sitemaps)
+SITEMAP_OUTPUT_DIR = Path(os.environ.get('SITEMAP_OUTPUT_DIR', str(BASE_DIR / 'sitemaps')))
+SITEMAP_CANONICAL_DOMAIN = os.environ.get('SITEMAP_CANONICAL_DOMAIN', 'tir-lugansk.ru')
+SITEMAP_USE_HTTPS = os.environ.get('SITEMAP_USE_HTTPS', '1') == '1'
+SITEMAP_STATIC_ENABLED = os.environ.get('SITEMAP_STATIC_ENABLED', '1') == '1'
 
 # Whitenoise settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

@@ -71,6 +71,10 @@ media/
 staticfiles/
 static_root/
 
+# Sitemap (генерируется cron: manage.py build_sitemaps)
+sitemaps/*.xml
+sitemaps/*.tmp
+
 # Node modules (если используется)
 node_modules/
 
