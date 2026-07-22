@@ -8,7 +8,7 @@
 # Схемы для валидации DBF файлов
 DBF_SCHEMAS = {
     'brands': {
-        'name': 'Бренды',
+        'name': 'Производители',
         'description': 'Производители автозапчастей (~2,800 записей)',
         'command': 'import_brands_dbf',
         
@@ -172,7 +172,7 @@ def get_required_fields_display(file_type):
 
 # Для использования в Django choices
 FILE_TYPE_CHOICES = [
-    ('brands', 'Бренды (ID_brend, NAME)'),
+    ('brands', 'Производители (ID_brend, NAME)'),
     ('products', 'Товары (TMP_ID, PROPERTY_P, PROPERTY_T)'),
     ('analogs', 'OE Аналоги (ID_oe, ID_TOVAR, ID_BREND)'),
 ]

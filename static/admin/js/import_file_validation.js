@@ -159,7 +159,7 @@
     
     function getFileTypeLabel(type) {
         const labels = {
-            'brands': 'Бренды',
+            'brands': 'Производители',
             'products': 'Товары',
             'analogs': 'OE Аналоги'
         };

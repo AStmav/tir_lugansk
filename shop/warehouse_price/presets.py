@@ -27,7 +27,7 @@ IMPORT_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     'price_a': {
         'label': 'Прайс-А (XLSX)',
-        'description': 'Заголовок на 5-й строке: Код, Бренд, Цена, Остаток, Код ID',
+        'description': 'Заголовок на 5-й строке: Код, Бренд (производитель), Цена, Остаток, Код ID',
         'settings': {
             'header_row': 5,
             'data_start_row': 6,

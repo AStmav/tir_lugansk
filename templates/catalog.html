@@ -607,7 +607,7 @@
                                     </details>
                                     
                                     <details class="filter-group filter-group--accordion filter-group--brands" id="filter-brands-details" {% if not search_query or selected_brands %}open{% endif %}>
-                                        <summary class="filter-group__summary"><h4>БРЕНДЫ</h4></summary>
+                                        <summary class="filter-group__summary"><h4>ПРОИЗВОДИТЕЛИ</h4></summary>
                                         <div class="filter-options">
                                             {% if search_query %}
                                             <div class="brand-tree">
@@ -633,7 +633,7 @@
                                                     <span>{{ letter }} <span class="brand-subdropdown__count">({{ letter_brands|length }})</span></span>
                                                     <span class="brand-subdropdown__chevron" aria-hidden="true"></span>
                                                 </summary>
-                                                <div class="brand-subdropdown__panel" role="group" aria-label="Бренды {{ letter }}">
+                                                <div class="brand-subdropdown__panel" role="group" aria-label="Производители {{ letter }}">
                                                     {% for brand in letter_brands %}
                                                     <label class="filter-option brand-subdropdown__item">
                                                         <input type="checkbox" name="brand" value="{{ brand.slug }}"
@@ -730,7 +730,7 @@
                                                         <span class="detail-value">{{ product.catalog_number }}</span>
                                                     </div>
                                                     <div class="product-detail">
-                                                        <span class="detail-label">Производитель:</span>
+                                                        <span class="detail-label">Бренд:</span>
                                                         <span class="detail-value">{{ product.brand.name }}</span>
                                                     </div>
                                                     <div class="product-detail">

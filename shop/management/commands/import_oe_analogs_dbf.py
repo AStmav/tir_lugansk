@@ -143,8 +143,8 @@ class Command(BaseCommand):
         
         self.stdout.write(f'✅ Загружено в кэш:')
         self.stdout.write(f'   • Товаров: {len(products_by_tmp_id)}')
-        self.stdout.write(f'   • Брендов: {len(brands_by_code)}')
-        logger.info(f"Кэш: товары={len(products_by_tmp_id)}, бренды={len(brands_by_code)}")
+        self.stdout.write(f'   • Производителей: {len(brands_by_code)}')
+        logger.info(f"Кэш: товары={len(products_by_tmp_id)}, производители={len(brands_by_code)}")
         
         # Статистика
         created_count = 0
@@ -226,7 +226,7 @@ class Command(BaseCommand):
                     if not brand_id:
                         skipped_no_brand += 1
                         if skipped_no_brand <= 10:
-                            self.stdout.write(f'⚠️ Бренд не найден: ID_BREND={id_brend}')
+                            self.stdout.write(f'⚠️ Производитель не найден: ID_BREND={id_brend}')
                 
                 # Создаем OE аналог
                 # ИЗМЕНЕНО: product_id может быть None (товар не найден)
@@ -298,7 +298,7 @@ class Command(BaseCommand):
    • ✅ Создано аналогов: {created_count}
    •   └─ С товарами: {analogs_with_product}
    •   └─ БЕЗ товаров: {analogs_without_product} (можно связать позже)
-   • ⚠️ Пропущено (нет бренда): {skipped_no_brand}
+   • ⚠️ Пропущено (нет производителя): {skipped_no_brand}
    • ⏭️ Пропущено (пустые поля): {skipped_empty}
    • ❌ Ошибок: {errors}
    • 📦 Всего аналогов в базе: {total_oe_analogs}
@@ -315,7 +315,7 @@ class Command(BaseCommand):
         self.stdout.write('📋 Примеры импортированных аналогов:')
         sample_analogs = OeKod.objects.select_related('product', 'brand').order_by('-id')[:5]
         for analog in sample_analogs:
-            brand_name = analog.brand.name if analog.brand else 'Без бренда'
+            brand_name = analog.brand.name if analog.brand else 'Без производителя'
             product_name = analog.product.name if analog.product else f'[Товар не найден: {analog.id_tovar}]'
             self.stdout.write(f'   • {product_name} → {brand_name} {analog.oe_kod}')
         

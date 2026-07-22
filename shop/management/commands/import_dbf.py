@@ -150,7 +150,7 @@ class Command(BaseCommand):
         # Бренд по умолчанию для товаров без производителя (PROPERTY_P) — чтобы такие товары тоже импортировались
         default_brand, _ = Brand.objects.get_or_create(
             slug='bez-brenda',
-            defaults={'name': 'Без бренда', 'code': '__NO_BRAND__'}
+            defaults={'name': 'Без производителя', 'code': '__NO_BRAND__'}
         )
 
         # Пытаемся открыть DBF файл
@@ -275,8 +275,8 @@ class Command(BaseCommand):
                                     code=brand_id,
                                     defaults={
                                         'slug': brand_slug,
-                                        'name': f'Бренд {brand_id}',
-                                        'description': f'Автоматически созданный бренд (ID: {brand_id})'
+                                        'name': f'Производитель {brand_id}',
+                                        'description': f'Автоматически созданный производитель (ID: {brand_id})'
                                     }
                                 )
                                 all_brands[brand_id] = brand

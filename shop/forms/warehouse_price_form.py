@@ -37,9 +37,9 @@ class WarehousePriceUploadForm(forms.Form):
         required=False,
     )
     col_brand = forms.CharField(
-        label='Колонка бренда',
+        label='Колонка производителя',
         required=False,
-        help_text='Необязательно, если выбран фиксированный бренд',
+        help_text='Необязательно, если выбран фиксированный производитель',
     )
     col_price = forms.CharField(label='Колонка цены', required=False)
     col_qty = forms.CharField(label='Колонка остатка', required=False)
@@ -48,7 +48,7 @@ class WarehousePriceUploadForm(forms.Form):
         required=False,
     )
     fixed_brand = forms.ModelChoiceField(
-        label='Фиксированный бренд (если в файле нет бренда)',
+        label='Фиксированный производитель (если в файле нет производителя)',
         queryset=Brand.objects.all().order_by('name'),
         required=False,
     )

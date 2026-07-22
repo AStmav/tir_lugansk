@@ -213,7 +213,7 @@ def search_autocomplete(request):
             val = b.name.strip()
             if val and val not in seen_values:
                 seen_values.add(val)
-                suggestions.append({'text': 'Бренд: ' + b.name, 'value': val})
+                suggestions.append({'text': 'Производитель: ' + b.name, 'value': val})
                 if len(suggestions) >= max_items:
                     break
 
@@ -266,7 +266,7 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
         if brand_slug:
             resolved_slug = resolve_active_brand_slug(brand_slug)
             if not resolved_slug:
-                raise Http404("Бренд не найден")
+                raise Http404("Производитель не найден")
             self.brand = Brand.objects.filter(slug=resolved_slug).first()
 
     def get(self, request, *args, **kwargs):
@@ -281,7 +281,7 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
         if brand_slug:
             resolved_slug = resolve_active_brand_slug(brand_slug)
             if not resolved_slug:
-                raise Http404("Бренд не найден")
+                raise Http404("Производитель не найден")
             if resolved_slug != brand_slug:
                 return HttpResponsePermanentRedirect(
                     brand_canonical_url(resolved_slug, request.GET)
@@ -862,7 +862,7 @@ class CatalogView(BrandSEOMixin, CategorySEOMixin, ListView):
         # КЕШИРОВАНИЕ: Все бренды для фильтра
         if search_query:
             all_brands = list(Brand.objects.filter(id__in=brand_ids_qs).order_by('name'))
-            logger.info(f"Бренды фильтра (по результатам поиска): {len(all_brands)}")
+            logger.info(f"Производители фильтра (по результатам поиска): {len(all_brands)}")
         else:
             all_brands = get_cached_all_brands()
         context['brands'] = all_brands

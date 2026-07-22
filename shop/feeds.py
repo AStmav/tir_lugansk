@@ -79,7 +79,7 @@ class CatalogUpdatesFeed(Feed):
         parts = ["ХАРАКТЕРИСТИКИ", ""]
 
         if item.brand_id and item.brand and item.brand.name:
-            parts.append(f"Бренд {item.brand.name}")
+            parts.append(f"Производитель {item.brand.name}")
         if item.catalog_number:
             parts.append(f"Каталожный номер {item.catalog_number}")
         if item.code:

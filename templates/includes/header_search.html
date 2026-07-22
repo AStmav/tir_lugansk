@@ -219,7 +219,7 @@
         }
         items.forEach(function(item, i) {
             var li = document.createElement('li');
-            li.className = 'header__search-ac-item' + (item.text.indexOf('Бренд:') === 0 ? ' header__search-ac-item--brand' : '');
+            li.className = 'header__search-ac-item' + (item.text.indexOf('Производитель:') === 0 ? ' header__search-ac-item--brand' : '');
             li.setAttribute('role', 'option');
             li.setAttribute('data-value', item.value);
             li.textContent = item.text;

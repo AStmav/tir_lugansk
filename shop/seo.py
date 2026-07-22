@@ -296,7 +296,7 @@ class BrandSEOMixin(SEOMixin):
             if self.brand.meta_description:
                 return self.brand.meta_description
             desc = f"Купить автозапчасти {self.brand.name} в интернет-магазине TIR-Lugansk. "
-            desc += f"Оригинальные и аналоговые детали бренда {self.brand.name}. "
+            desc += f"Оригинальные и аналоговые детали производителя {self.brand.name}. "
             desc += format_delivery_meta_phrase(seed=self.brand.pk or 0)
             return desc
         return super().get_seo_description()
@@ -363,20 +363,20 @@ class CategorySEOMixin(SEOMixin):
 def seo_brands_list(request, brands_count=0):
     title = format_page_title("Производители автозапчастей")
     description = (
-        "Полный список брендов и производителей автозапчастей "
+        "Полный список производителей автозапчастей "
         f"в интернет-магазине TIR-Lugansk. {format_delivery_meta_phrase(seed=42)}"
     )
     if brands_count:
         description = (
             f"Каталог из {brands_count} производителей автозапчастей. "
-            f"Выберите бренд и перейдите к товарам в наличии. "
+            f"Выберите производителя и перейдите к товарам в наличии. "
             f"{format_delivery_meta_phrase(seed=43)}"
         )
     return build_seo_context(
         request,
         title=title,
         description=truncate_meta_text(description),
-        keywords="производители автозапчастей, бренды запчастей, поставщики, TIR-Lugansk",
+        keywords="производители автозапчастей, производители запчастей, поставщики, TIR-Lugansk",
         canonical_url=reverse("shop:brands"),
     )
 

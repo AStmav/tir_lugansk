@@ -102,8 +102,8 @@ class Brand(models.Model):
     meta_keywords = models.CharField(max_length=255, blank=True, verbose_name='SEO ключевые слова')
     
     class Meta:
-        verbose_name = 'Бренд'
-        verbose_name_plural = 'Бренды'
+        verbose_name = 'Производитель'
+        verbose_name_plural = 'Производители'
         ordering = ['name']
         indexes = [
             GinIndex(fields=['name'], name='shop_brand_name_trgm_idx', opclasses=['gin_trgm_ops']),
@@ -126,7 +126,7 @@ class BrandArticlePrefix(models.Model):
         Brand,
         on_delete=models.CASCADE,
         related_name='article_prefixes',
-        verbose_name='Бренд',
+        verbose_name='Производитель',
     )
     prefix = models.CharField(
         max_length=32,
@@ -155,25 +155,25 @@ class BrandArticlePrefix(models.Model):
 
 class BrandAlias(models.Model):
     """
-    Синоним бренда из прайса поставщика → бренд в каталоге 1С.
+    Синоним производителя из прайса поставщика → производитель в каталоге 1С.
     Пример: «Cummins Ch» → Cummins, «ПАЗ» → PAZ.
-    Один alias может указывать на несколько брендов (Hyundai/KIA).
+    Один alias может указывать на несколько производителей (Hyundai/KIA).
     """
     brand = models.ForeignKey(
         Brand,
         on_delete=models.CASCADE,
         related_name='aliases',
-        verbose_name='Бренд в каталоге',
+        verbose_name='Производитель в каталоге',
     )
     alias = models.CharField(
         max_length=255,
         verbose_name='Как в прайсе',
-        help_text='Написание бренда в файле поставщика (без учёта регистра)',
+        help_text='Написание производителя в файле поставщика (без учёта регистра)',
     )
 
     class Meta:
-        verbose_name = 'Синоним бренда'
-        verbose_name_plural = 'Синонимы брендов'
+        verbose_name = 'Синоним производителя'
+        verbose_name_plural = 'Синонимы производителей'
         ordering = ['alias', 'brand__name']
         constraints = [
             models.UniqueConstraint(
@@ -199,7 +199,7 @@ class Product(models.Model):
     slug = models.SlugField(unique=True, verbose_name='URL')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name='Категория')
     # Убираем subcategory - теперь category может быть дочерней категорией
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name='Бренд')
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name='Производитель')
     code = models.CharField(max_length=50, verbose_name='Код товара')
     catalog_number = models.CharField(max_length=50, verbose_name='Каталожный номер')
     cross_number = models.CharField(max_length=100, blank=True, verbose_name='Кросс-код товара')
@@ -797,7 +797,7 @@ class OeKod(models.Model):
         null=True,
         blank=True,
         related_name='oe_analogs',
-        verbose_name='Бренд аналога'
+        verbose_name='Производитель аналога'
     )
     
     # Каталожный номер аналога (NAME из файла)
@@ -938,7 +938,7 @@ class ImportFile(models.Model):
     file_type = models.CharField(
         max_length=20,
         choices=[
-            ('brands', 'Бренды (ID_BRENB, NAME)'),
+            ('brands', 'Производители (ID_BRENB, NAME)'),
             ('products', 'Товары (TMP_ID, PROPERTY_P, PROPERTY_T)'),
             ('analogs', 'OE Аналоги (ID_OE, ID_TOVAR, ID_BRENB)'),
         ],
