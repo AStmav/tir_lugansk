@@ -480,6 +480,13 @@ class Warehouse(models.Model):
         verbose_name='Срок доставки (дней)',
         help_text='0 = сегодня / на складе. Можно переопределить в предложении.',
     )
+    color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        verbose_name='Цвет на сайте',
+        help_text='Необязательно. HEX, например #3CC14E — точка рядом с кодом склада на карточке товара.',
+    )
     last_uploaded_at = models.DateTimeField(
         blank=True,
         null=True,

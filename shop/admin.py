@@ -90,6 +90,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
         'name_internal',
         'name_public',
         'delivery_days',
+        'color_preview',
         'markup_mode',
         'markup_percent',
         'last_uploaded_at',
@@ -109,6 +110,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
                 'name_internal',
                 'name_public',
                 'delivery_days',
+                'color',
                 'sort_order',
                 'is_active',
                 'is_default',
@@ -133,6 +135,20 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
             'classes': ['collapse'],
         }),
     ]
+
+    def color_preview(self, obj):
+        color = (obj.color or '').strip()
+        if not color:
+            return '—'
+        from django.utils.html import format_html
+        return format_html(
+            '<span style="display:inline-block;width:14px;height:14px;'
+            'border-radius:50%;background:{};vertical-align:middle;'
+            'border:1px solid #ccc;"></span> <code>{}</code>',
+            color,
+            color,
+        )
+    color_preview.short_description = 'Цвет'
 
     def offers_count(self, obj):
         return obj.offers.count()

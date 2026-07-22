@@ -487,7 +487,8 @@
                                         {% for offer in product_offers %}
                                         <tr>
                                             <td>
-                                                <span class="product__warehouse-code">
+                                                <span class="product__warehouse-code"{% if offer.warehouse_color %} style="--wh-color: {{ offer.warehouse_color }}"{% endif %}>
+                                                    {% if offer.warehouse_color %}<span class="product__warehouse-dot" aria-hidden="true"></span>{% endif %}
                                                     {{ offer.warehouse_public }}
                                                 </span>
                                             </td>

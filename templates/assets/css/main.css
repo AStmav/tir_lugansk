@@ -1783,10 +1783,20 @@ header:not(.header) + main {
   text-align: left;
 }
 .product__warehouse-code {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #1f2937;
+}
+.product__warehouse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wh-color, #9ca3af);
+  flex-shrink: 0;
 }
 .product__price-table td {
   padding: 12px 0;

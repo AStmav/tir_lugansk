@@ -23,6 +23,7 @@ class OfferDisplay:
     price: Optional[Decimal]
     old_price: Optional[Decimal]
     is_legacy: bool = False
+    warehouse_color: str = ''
 
 
 def format_delivery_days(days: int, *, in_stock: bool = True) -> str:
@@ -72,6 +73,7 @@ def _legacy_offer(product) -> OfferDisplay:
         price=price,
         old_price=product.old_price,
         is_legacy=True,
+        warehouse_color=(warehouse.color or '').strip() if warehouse else '',
     )
 
 
@@ -89,6 +91,7 @@ def offer_to_display(offer) -> OfferDisplay:
         price=offer.price,
         old_price=offer.old_price,
         is_legacy=False,
+        warehouse_color=(offer.warehouse.color or '').strip(),
     )
 
 
