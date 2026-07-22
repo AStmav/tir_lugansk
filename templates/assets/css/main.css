@@ -1774,9 +1774,19 @@ header:not(.header) + main {
 .product__price-table td:last-child {
   padding-right: 16px;
 }
+.product__price-table th:nth-child(4),
+.product__price-table td:nth-child(4) {
+  text-align: right;
+}
 .product__price-table th:nth-child(3),
 .product__price-table td:nth-child(3) {
-  text-align: right;
+  text-align: left;
+}
+.product__warehouse-code {
+  display: inline-block;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1f2937;
 }
 .product__price-table td {
   padding: 12px 0;

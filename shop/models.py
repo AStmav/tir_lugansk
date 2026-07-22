@@ -117,6 +117,82 @@ class Brand(models.Model):
         return reverse('shop:brand', kwargs={'brand_slug': self.slug})
 
 
+class BrandArticlePrefix(models.Model):
+    """
+    Приставка к каталожному номеру производителя (для матчинга прайсов).
+    Пример: SE-M → SEM, тогда SEM7838 и 7838 считаются одним артикулом.
+    """
+    brand = models.ForeignKey(
+        Brand,
+        on_delete=models.CASCADE,
+        related_name='article_prefixes',
+        verbose_name='Бренд',
+    )
+    prefix = models.CharField(
+        max_length=32,
+        verbose_name='Приставка',
+        help_text='Буквы/цифры без пробелов, например SEM, AUG, DIN',
+    )
+
+    class Meta:
+        verbose_name = 'Приставка артикула'
+        verbose_name_plural = 'Приставки артикулов'
+        ordering = ['brand__name', 'prefix']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['brand', 'prefix'],
+                name='shop_brandarticleprefix_brand_prefix_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.brand.name}: {self.prefix}'
+
+    def save(self, *args, **kwargs):
+        self.prefix = (self.prefix or '').strip().upper()
+        super().save(*args, **kwargs)
+
+
+class BrandAlias(models.Model):
+    """
+    Синоним бренда из прайса поставщика → бренд в каталоге 1С.
+    Пример: «Cummins Ch» → Cummins, «ПАЗ» → PAZ.
+    Один alias может указывать на несколько брендов (Hyundai/KIA).
+    """
+    brand = models.ForeignKey(
+        Brand,
+        on_delete=models.CASCADE,
+        related_name='aliases',
+        verbose_name='Бренд в каталоге',
+    )
+    alias = models.CharField(
+        max_length=255,
+        verbose_name='Как в прайсе',
+        help_text='Написание бренда в файле поставщика (без учёта регистра)',
+    )
+
+    class Meta:
+        verbose_name = 'Синоним бренда'
+        verbose_name_plural = 'Синонимы брендов'
+        ordering = ['alias', 'brand__name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['brand', 'alias'],
+                name='shop_brandalias_brand_alias_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['alias'], name='shop_brandalias_alias_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.alias} → {self.brand.name}'
+
+    def save(self, *args, **kwargs):
+        self.alias = (self.alias or '').strip()
+        super().save(*args, **kwargs)
+
+
 class Product(models.Model):
     tmp_id = models.CharField(max_length=100, blank=True, verbose_name='ID в 1С', db_index=True)
     name = models.CharField(max_length=200, verbose_name='Название')
@@ -382,6 +458,244 @@ class ProductSlugAlias(models.Model):
 
     def __str__(self):
         return self.slug
+
+
+class Warehouse(models.Model):
+    """
+    Склад = один прайс-лист / один источник предложений поставщика.
+    Внутреннее имя — для оператора, отображаемое — для витрины (как код VS_002 в Exist/ABCP).
+    """
+    name_internal = models.CharField(
+        max_length=120,
+        verbose_name='Название склада',
+        help_text='Внутреннее название склада',
+    )
+    name_public = models.CharField(
+        max_length=64,
+        verbose_name='Название на сайте',
+        help_text='Что видит покупатель, назване склада',
+    )
+    delivery_days = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name='Срок доставки (дней)',
+        help_text='0 = сегодня / на складе. Можно переопределить в предложении.',
+    )
+    last_uploaded_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='Дата последней загрузки',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name='Основной склад',
+        help_text='Используется как фолбэк для товаров без строк предложений.',
+    )
+    sort_order = models.PositiveIntegerField(default=100, verbose_name='Порядок сортировки')
+    MARKUP_NONE = 'none'
+    MARKUP_PERCENT = 'percent'
+    MARKUP_RANGES = 'ranges'
+    MARKUP_MODE_CHOICES = [
+        (MARKUP_NONE, 'Без наценки'),
+        (MARKUP_PERCENT, 'Один процент'),
+        (MARKUP_RANGES, 'По диапазонам цены'),
+    ]
+    markup_mode = models.CharField(
+        max_length=20,
+        choices=MARKUP_MODE_CHOICES,
+        default=MARKUP_NONE,
+        verbose_name='Режим наценки',
+        help_text='Наценка применяется к цене из файла прайса при загрузке.',
+    )
+    markup_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=0,
+        verbose_name='Процент наценки',
+        help_text='Для режима «Один процент». Пример: 23 = +23% к цене прайса.',
+    )
+    import_settings = models.JSONField(
+        blank=True,
+        default=dict,
+        verbose_name='Настройки импорта прайса',
+        help_text=(
+            'Обычно заполняется формой «Загрузить прайс» (шаблоны КТ Центр / Прайс-А / Forum Auto). '
+            'Пример: {"header_row":1,"data_start_row":2,"preset":"kt_center",'
+            '"columns":{"article":"Обозначение","brand":"Производитель","price":"Цена","qty":"Остаток"},'
+            '"fixed_brand_id":null}'
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлён')
+
+    class Meta:
+        verbose_name = 'Склад'
+        verbose_name_plural = 'Склады'
+        ordering = ['sort_order', 'name_internal']
+
+    def __str__(self):
+        return f'{self.name_internal} ({self.name_public})'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_default:
+            Warehouse.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+
+    @classmethod
+    def get_default(cls):
+        wh = cls.objects.filter(is_default=True, is_active=True).first()
+        if wh:
+            return wh
+        return cls.objects.filter(is_active=True).order_by('sort_order', 'id').first()
+
+
+class WarehouseMarkupRange(models.Model):
+    """Диапазон наценки: цена прайса от–до → процент."""
+    warehouse = models.ForeignKey(
+        Warehouse,
+        on_delete=models.CASCADE,
+        related_name='markup_ranges',
+        verbose_name='Склад',
+    )
+    price_from = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name='Цена от',
+        help_text='Включительно',
+    )
+    price_to = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Цена до',
+        help_text='Включительно. Пусто = без верхней границы.',
+    )
+    percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        verbose_name='Наценка %',
+    )
+
+    class Meta:
+        verbose_name = 'Диапазон наценки'
+        verbose_name_plural = 'Диапазоны наценки'
+        ordering = ['price_from', 'id']
+
+    def __str__(self):
+        end = self.price_to if self.price_to is not None else '∞'
+        return f'{self.price_from}–{end}: {self.percent}%'
+
+
+class ProductOffer(models.Model):
+    """Предложение товара на складе: цена, остаток, срок (Exist/ABCP-модель)."""
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='offers',
+        verbose_name='Товар',
+    )
+    warehouse = models.ForeignKey(
+        Warehouse,
+        on_delete=models.CASCADE,
+        related_name='offers',
+        verbose_name='Склад',
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена')
+    old_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Старая цена',
+    )
+    stock_quantity = models.PositiveIntegerField(default=0, verbose_name='Остаток')
+    delivery_days = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        verbose_name='Срок доставки (дней)',
+        help_text='Пусто — берётся срок склада.',
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Активно')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
+
+    class Meta:
+        verbose_name = 'Предложение'
+        verbose_name_plural = 'Предложения'
+        ordering = ['warehouse__sort_order', 'price']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product', 'warehouse'],
+                name='shop_productoffer_product_warehouse_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['product', 'is_active'], name='shop_offer_prod_active_idx'),
+            models.Index(fields=['warehouse', 'is_active'], name='shop_offer_wh_active_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.product_id} @ {self.warehouse_id}: {self.price}'
+
+    @property
+    def effective_delivery_days(self):
+        if self.delivery_days is not None:
+            return self.delivery_days
+        return self.warehouse.delivery_days
+
+
+class WarehousePriceImport(models.Model):
+    """Журнал загрузки прайса в конкретный склад."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_PROCESSING = 'processing'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Ожидает'),
+        (STATUS_PROCESSING, 'Обрабатывается'),
+        (STATUS_COMPLETED, 'Завершён'),
+        (STATUS_FAILED, 'Ошибка'),
+    ]
+
+    warehouse = models.ForeignKey(
+        Warehouse,
+        on_delete=models.CASCADE,
+        related_name='price_imports',
+        verbose_name='Склад',
+    )
+    file = models.FileField(upload_to='warehouse_price_imports/', verbose_name='Файл прайса')
+    original_filename = models.CharField(max_length=255, blank=True, verbose_name='Имя файла')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name='Статус',
+    )
+    total_rows = models.PositiveIntegerField(default=0, verbose_name='Строк прайса')
+    updated_rows = models.PositiveIntegerField(default=0, verbose_name='Обновлено предложений')
+    skipped_rows = models.PositiveIntegerField(default=0, verbose_name='Пропущено')
+    error_count = models.PositiveIntegerField(default=0, verbose_name='Ошибок')
+    summary = models.TextField(blank=True, verbose_name='Итог')
+    error_log = models.TextField(blank=True, verbose_name='Лог пропусков')
+    uploaded_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        verbose_name='Загрузил',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    processed_at = models.DateTimeField(blank=True, null=True, verbose_name='Обработан')
+
+    class Meta:
+        verbose_name = 'Импорт прайса склада'
+        verbose_name_plural = 'Импорты прайсов складов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.warehouse_id}: {self.original_filename or self.file.name}'
 
 
 class ProductImage(models.Model):

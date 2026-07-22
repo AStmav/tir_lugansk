@@ -474,35 +474,41 @@
                             </div>
 
                             <div class="product__price-block">
-                                <table class="product__price-table" aria-label="Цена и наличие">
+                                <table class="product__price-table" aria-label="Цена и наличие по складам">
                                     <thead>
                                         <tr>
+                                            <th scope="col">Склад</th>
                                             <th scope="col">Срок</th>
                                             <th scope="col">Наличие</th>
                                             <th scope="col">Цена</th>
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {% for offer in product_offers %}
                                         <tr>
-                                            <td>{% if product.in_stock %}На складе{% else %}Под заказ{% endif %}</td>
                                             <td>
-                                                {% if product.in_stock %}
-                                                    {% if product.stock_quantity > 0 %}{{ product.stock_quantity }} шт.{% else %}+{% endif %}
-                                                {% else %}
-                                                    —
-                                                {% endif %}
+                                                <span class="product__warehouse-code">
+                                                    {{ offer.warehouse_public }}
+                                                </span>
                                             </td>
+                                            <td>{{ offer.delivery_label }}</td>
+                                            <td>{{ offer.quantity_label }}</td>
                                             <td>
-                                                {% if product.price and product.price > 0 %}
-                                                    {% if product.old_price and product.old_price > product.price %}
-                                                        <span class="product__price-old">{{ product.old_price|price_space }} ₽</span>
+                                                {% if offer.price and offer.price > 0 %}
+                                                    {% if offer.old_price and offer.old_price > offer.price %}
+                                                        <span class="product__price-old">{{ offer.old_price|price_space }} ₽</span>
                                                     {% endif %}
-                                                    <span class="product__price-value">{{ product.price|price_space }} ₽</span>
+                                                    <span class="product__price-value">{{ offer.price|price_space }} ₽</span>
                                                 {% else %}
                                                     —
                                                 {% endif %}
                                             </td>
                                         </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="4">—</td>
+                                        </tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
@@ -576,6 +582,7 @@
                                                             Артикул {% if cross_sort == 'article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↑</span>{% elif cross_sort == '-article' %}<span class="product__analogs-sort-arrow" aria-hidden="true">↓</span>{% endif %}
                                                         </a>
                                                     </th>
+                                                    <th>Артикул строка</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -584,6 +591,7 @@
                                                 <tr class="product__analogs-row" data-cross-index="{{ forloop.counter0 }}"{% if forloop.counter0 >= 10 %} style="display: none;"{% endif %}>
                                                     <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.brand %}{{ analog.brand.name }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</td>
                                                     <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{{ analog.oe_kod }}{% if url %}</a>{% endif %}</td>
+                                                    <td>{% if url %}<a href="{{ url }}" class="product__analogs-link">{% endif %}{% if analog.oe_kod_clean %}{{ analog.oe_kod_clean }}{% else %}—{% endif %}{% if url %}</a>{% endif %}</td>
                                                 </tr>
                                                 {% endwith %}
                                                 {% endfor %}

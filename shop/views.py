@@ -18,6 +18,7 @@ from .brand_utils import get_cached_all_brands, group_brands_by_letter
 from .search_pick import expand_product_group
 from .category_urls import build_catalog_category_redirect, category_canonical_url, resolve_legacy_category_slug
 from .product_slug_aliases import resolve_product_with_legacy
+from .offers import offers_prefetch, get_product_display_offers
 from .seo import ProductSEOMixin, BrandSEOMixin, CategorySEOMixin, SEOMixin, seo_brands_list
 import logging
 import re
@@ -966,6 +967,7 @@ class ProductView(ProductSEOMixin, DetailView):
             'oe_analogs',
             'oe_analogs__brand',
             'oe_analogs__product',
+            offers_prefetch(),
         )
     
     def get_context_data(self, **kwargs):
@@ -976,6 +978,7 @@ class ProductView(ProductSEOMixin, DetailView):
         cached = cache.get(cache_key)
         if cached:
             context.update(cached)
+            context['product_offers'] = get_product_display_offers(product)
             return context
 
         # Для каждой строки кросс-номеров — ссылка на один конкретный товар-аналог (страница товара, не поиск)
@@ -1049,4 +1052,6 @@ class ProductView(ProductSEOMixin, DetailView):
             'related_products': context['related_products'],
         }, getattr(settings, 'PRODUCT_CACHE_TIMEOUT', 300))
 
+        # Предложения складов — всегда свежие (вне кеша карточки)
+        context['product_offers'] = get_product_display_offers(product)
         return context

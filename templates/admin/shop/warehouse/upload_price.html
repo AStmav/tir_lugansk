@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<p><a href="{% url 'admin:shop_warehouse_change' original.pk %}">← Назад к складу «{{ original.name_internal }}»</a></p>
+
+<p class="help" style="max-width: 52rem;">
+  Выберите <strong>шаблон прайса</strong> под формат файла поставщика — строка заголовков и колонки
+  подставятся автоматически. Для нестандартного файла оставьте «Свой» и заполните поля вручную.
+</p>
+
+<form method="post" enctype="multipart/form-data" id="warehouse-price-upload-form">
+  {% csrf_token %}
+  <fieldset class="module aligned">
+    {{ form.as_p }}
+  </fieldset>
+  <p id="preset-description" class="help" style="max-width: 52rem;"></p>
+  <div class="submit-row">
+    <input type="submit" value="Загрузить и применить" class="default">
+  </div>
+</form>
+
+{% if preview_headers %}
+  <h2>Заголовки (строка {{ form.header_row.value|default:1 }})</h2>
+  <p>{{ preview_headers|join:" | " }}</p>
+{% endif %}
+
+{{ presets_json|json_script:"warehouse-price-presets" }}
+<script>
+(function () {
+  var presetsEl = document.getElementById('warehouse-price-presets');
+  if (!presetsEl) return;
+  var presets = {};
+  try {
+    presets = JSON.parse(presetsEl.textContent);
+  } catch (e) {
+    return;
+  }
+
+  var form = document.getElementById('warehouse-price-upload-form');
+  if (!form) return;
+  var presetSelect = form.querySelector('#id_preset');
+  var descEl = document.getElementById('preset-description');
+
+  function setValue(id, value) {
+    var el = form.querySelector('#' + id);
+    if (el) el.value = value == null ? '' : value;
+  }
+
+  function applyPreset(key) {
+    if (!key || key === 'custom' || !presets[key]) {
+      if (descEl) descEl.textContent = '';
+      return;
+    }
+    var p = presets[key];
+    setValue('id_header_row', p.header_row);
+    setValue('id_data_start_row', p.data_start_row);
+    setValue('id_col_article', p.col_article);
+    setValue('id_col_brand', p.col_brand);
+    setValue('id_col_price', p.col_price);
+    setValue('id_col_qty', p.col_qty);
+    setValue('id_col_external_id', p.col_external_id);
+    if (descEl) descEl.textContent = p.description || '';
+  }
+
+  if (presetSelect) {
+    presetSelect.addEventListener('change', function () {
+      applyPreset(presetSelect.value);
+    });
+    applyPreset(presetSelect.value);
+  }
+})();
+</script>
+{% endblock %}

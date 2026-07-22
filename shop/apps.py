@@ -10,3 +10,4 @@ class ShopConfig(AppConfig):
         Регистрируем сигналы при запуске приложения
         """
         import shop.signals  # noqa
+        import shop.warehouse_price.admin_views  # noqa: F401

@@ -12,8 +12,26 @@ import os
 import threading
 import traceback
 import logging
-from .models import Category, SubCategory, Brand, Product, ProductImage, ProductAnalog, OeKod, ImportFile
+from .models import (
+    Category,
+    SubCategory,
+    Brand,
+    BrandArticlePrefix,
+    BrandAlias,
+    Product,
+    ProductImage,
+    ProductAnalog,
+    OeKod,
+    ImportFile,
+    Warehouse,
+    WarehouseMarkupRange,
+    ProductOffer,
+)
 from .audit_log import log_audit
+from shop.warehouse_price.admin_views import (
+    WarehousePriceImportAdminMixin,
+    WarehousePriceImportInline,
+)
 
 # Глобальный logger для всего модуля
 logger = logging.getLogger(__name__)
@@ -37,6 +55,111 @@ class OeKodInline(admin.TabularInline):
     extra = 1
     verbose_name = 'Аналог OE'
     verbose_name_plural = 'Аналоги OE'
+
+
+class ProductOfferInline(admin.TabularInline):
+    model = ProductOffer
+    extra = 0
+    autocomplete_fields = ['warehouse']
+    fields = [
+        'warehouse',
+        'price',
+        'old_price',
+        'stock_quantity',
+        'delivery_days',
+        'is_active',
+        'updated_at',
+    ]
+    readonly_fields = ['updated_at']
+    verbose_name = 'Предложение склада'
+    verbose_name_plural = 'Предложения по складам'
+
+
+class WarehouseMarkupRangeInline(admin.TabularInline):
+    model = WarehouseMarkupRange
+    extra = 1
+    fields = ['price_from', 'price_to', 'percent']
+    verbose_name = 'Диапазон наценки'
+    verbose_name_plural = 'Диапазоны наценки (режим «По диапазонам»)'
+
+
+@admin.register(Warehouse)
+class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
+    inlines = [WarehouseMarkupRangeInline, WarehousePriceImportInline]
+    list_display = [
+        'name_internal',
+        'name_public',
+        'delivery_days',
+        'markup_mode',
+        'markup_percent',
+        'last_uploaded_at',
+        'is_active',
+        'is_default',
+        'sort_order',
+        'offers_count',
+    ]
+    list_filter = ['is_active', 'is_default', 'markup_mode']
+    search_fields = ['name_internal', 'name_public']
+    list_editable = ['delivery_days', 'is_active', 'sort_order']
+    ordering = ['sort_order', 'name_internal']
+    readonly_fields = ['created_at', 'updated_at', 'last_uploaded_at']
+    fieldsets = [
+        (None, {
+            'fields': [
+                'name_internal',
+                'name_public',
+                'delivery_days',
+                'sort_order',
+                'is_active',
+                'is_default',
+            ],
+            'description': (
+                'Один прайс-лист поставщика = один склад. '
+                '«Название склада» — для оператора (Мотор-Доктор1), '
+                '«Название на сайте» — для покупателя (VS_002).'
+            ),
+        }),
+        ('Наценка', {
+            'fields': ['markup_mode', 'markup_percent'],
+            'description': (
+                'Применяется к цене из файла при загрузке прайса. '
+                '«Один процент»: например 23 = цена × 1.23. '
+                '«По диапазонам»: заполните таблицу ниже '
+                '(0–1000 → 30%, 1001–10000 → 25% и т.д.).'
+            ),
+        }),
+        ('Служебные', {
+            'fields': ['last_uploaded_at', 'import_settings', 'created_at', 'updated_at'],
+            'classes': ['collapse'],
+        }),
+    ]
+
+    def offers_count(self, obj):
+        return obj.offers.count()
+    offers_count.short_description = 'Предложений'
+
+
+@admin.register(ProductOffer)
+class ProductOfferAdmin(admin.ModelAdmin):
+    list_display = [
+        'product',
+        'warehouse',
+        'price',
+        'stock_quantity',
+        'delivery_days',
+        'is_active',
+        'updated_at',
+    ]
+    list_filter = ['is_active', 'warehouse']
+    search_fields = [
+        'product__name',
+        'product__catalog_number',
+        'warehouse__name_internal',
+        'warehouse__name_public',
+    ]
+    autocomplete_fields = ['product', 'warehouse']
+    list_editable = ['price', 'stock_quantity', 'is_active']
+    list_select_related = ['product', 'warehouse']
 
 
 @admin.register(Category)
@@ -139,13 +262,30 @@ class BrandAdmin(admin.ModelAdmin):
     fields = ['code', 'name', 'slug', 'description', 'logo', 'meta_title', 'meta_description', 'meta_keywords']
 
 
+@admin.register(BrandArticlePrefix)
+class BrandArticlePrefixAdmin(admin.ModelAdmin):
+    list_display = ['brand', 'prefix']
+    list_filter = ['brand']
+    search_fields = ['brand__name', 'prefix']
+    autocomplete_fields = ['brand']
+
+
+@admin.register(BrandAlias)
+class BrandAliasAdmin(admin.ModelAdmin):
+    list_display = ['alias', 'brand']
+    list_filter = ['brand']
+    search_fields = ['alias', 'brand__name', 'brand__code']
+    autocomplete_fields = ['brand']
+    ordering = ['alias', 'brand__name']
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number', 'price', 'stock_quantity', 'in_stock']
     list_filter = ['category', 'brand', 'in_stock', 'is_featured', 'is_new', 'created_at']
     search_fields = ['name', 'code', 'tmp_id', 'catalog_number', 'artikyl_number', 'cross_number']
     prepopulated_fields = {'slug': ('name',)}
-    inlines = [ProductImageInline, ProductAnalogInline, OeKodInline]
+    inlines = [ProductImageInline, ProductOfferInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'stock_quantity', 'in_stock']
     actions = ['update_clean_numbers', 'link_product_images', 'delete_product_images', 'set_in_stock', 'set_out_of_stock']
     change_list_template = 'admin/shop/product/change_list.html'
@@ -153,7 +293,11 @@ class ProductAdmin(admin.ModelAdmin):
     fieldsets = [
         ('Цена и наличие', {
             'fields': ['price', 'old_price', 'stock_quantity', 'in_stock'],
-            'description': 'Управление ценой и остатками товара. Эти же поля можно менять прямо в списке товаров.',
+            'description': (
+                'Базовые поля каталога (сортировка, «цена от»). '
+                'Предложения по складам — во вкладке ниже; если их нет, на карточке '
+                'показывается фолбэк с основного склада.'
+            ),
         }),
         ('Основные данные', {
             'fields': ['name', 'slug', 'code', 'tmp_id', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number'],
