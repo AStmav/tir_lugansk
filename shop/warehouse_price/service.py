@@ -1,11 +1,35 @@
 from django.db import transaction
+from django.db.models import Min, Sum
 from django.utils import timezone
 
-from shop.models import ProductOffer, Warehouse, WarehousePriceImport
+from shop.models import Product, ProductOffer, Warehouse, WarehousePriceImport
 from shop.warehouse_price.markup import try_apply_markup
 from shop.warehouse_price.matcher import ProductMatcher
 from shop.warehouse_price.parser import iter_price_rows
 from shop.warehouse_price.types import DEFAULT_IMPORT_SETTINGS, ImportStats, RowSkip
+
+
+def sync_product_from_offers(product_id: int) -> None:
+    """
+    Снимок для каталога/поиска: min-цена и суммарный остаток по активным офферам.
+    Карточка товара по-прежнему читает ProductOffer напрямую.
+    """
+    agg = ProductOffer.objects.filter(
+        product_id=product_id,
+        is_active=True,
+        warehouse__is_active=True,
+    ).aggregate(
+        min_price=Min('price'),
+        total_qty=Sum('stock_quantity'),
+    )
+    total_qty = int(agg['total_qty'] or 0)
+    fields = {
+        'stock_quantity': total_qty,
+        'in_stock': total_qty > 0,
+    }
+    if agg['min_price'] is not None:
+        fields['price'] = agg['min_price']
+    Product.objects.filter(pk=product_id).update(**fields)
 
 
 def merge_import_settings(warehouse: Warehouse) -> dict:
@@ -41,6 +65,7 @@ def run_warehouse_price_import(
 
     stats = ImportStats()
     matcher = ProductMatcher(fixed_brand_id=fixed_brand_id)
+    touched_product_ids = set()
 
     # Prefetch ranges once for markup_mode=ranges
     if warehouse.markup_mode == Warehouse.MARKUP_RANGES:
@@ -87,7 +112,11 @@ def run_warehouse_price_import(
                 'is_active': True,
             },
         )
+        touched_product_ids.add(product.pk)
         stats.updated += 1
+
+    for product_id in touched_product_ids:
+        sync_product_from_offers(product_id)
 
     warehouse.last_uploaded_at = timezone.now()
     warehouse.save(update_fields=['last_uploaded_at', 'updated_at'])

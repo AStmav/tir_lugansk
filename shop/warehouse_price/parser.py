@@ -96,11 +96,16 @@ def iter_price_rows(
                 return ''
             return cell_to_str(cells[idx])
 
+        def get_raw(idx: int):
+            if idx is None or idx >= len(cells):
+                return None
+            return cells[idx]
+
         article = get_cell(article_idx)
         if not article:
             continue
 
-        price = parse_price(get_cell(price_idx))
+        price = parse_price(get_raw(price_idx))
         if price is None:
             continue
 
@@ -109,6 +114,6 @@ def iter_price_rows(
             article=article,
             brand=get_cell(brand_idx) if brand_idx is not None else '',
             price=price,
-            quantity=parse_quantity(get_cell(qty_idx)) if qty_idx is not None else 0,
+            quantity=parse_quantity(get_raw(qty_idx)) if qty_idx is not None else 0,
             external_id=get_cell(external_idx) if external_idx is not None else '',
         )

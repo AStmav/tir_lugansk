@@ -1,9 +1,9 @@
 """
 Отображение предложений товара по складам (Exist / ABCP стиль).
 
-Поля Product.price / stock_quantity / in_stock пока остаются источником
-для каталога; на карточке показываем ProductOffer, а при их отсутствии —
-фолбэк в одну строку из полей Product.
+Каталог/поиск используют снимок Product.price / stock_quantity / in_stock
+(обновляется при импорте прайса через sync_product_from_offers).
+На карточке товара показываем ProductOffer; если офферов нет — фолбэк из Product.
 """
 from dataclasses import dataclass
 from decimal import Decimal
