@@ -1,0 +1,48 @@
+<div class="modal" id="callModal">
+    <div class="modal__overlay">
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">Заказать звонок</h3>
+                <button class="modal__close" type="button">&times;</button>
+            </div>
+            <div class="modal__body">
+                <form class="modal__form" id="callForm">
+                    <div class="modal__field">
+                        <label class="modal__label" for="userName">Ваше имя *</label>
+                        <input class="modal__input" type="text" id="userName" name="userName" placeholder="Введите ваше имя" required>
+                    </div>
+                    <div class="modal__field">
+                        <label class="modal__label" for="userPhone">Номер телефона *</label>
+                        <input class="modal__input" type="tel" id="userPhone" name="userPhone" placeholder="+7 (___) ___-__-__" required>
+                    </div>
+                    <div class="modal__field">
+                        <label class="modal__label" for="userEmail">Email</label>
+                        <input class="modal__input" type="email" id="userEmail" name="userEmail" placeholder="your@email.com">
+                    </div>
+                    {% include "includes/form_personal_data_consent.html" %}
+                    <button class="modal__button" type="submit">Заказать звонок</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="successModal">
+    <div class="modal__overlay">
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">Заявка отправлена</h3>
+                <button class="modal__close" type="button">&times;</button>
+            </div>
+            <div class="modal__body">
+                <div class="modal__success-icon">✓</div>
+                <div class="modal__success-text">
+                    <h3>Спасибо за заявку!</h3>
+                    <p>Мы свяжемся с вами в ближайшее время для уточнения деталей.</p>
+                    {% include "includes/inquiry_success_consent_note.html" %}
+                </div>
+                <button class="modal__button" type="button" onclick="closeModal('successModal')">Понятно</button>
+            </div>
+        </div>
+    </div>
+</div>

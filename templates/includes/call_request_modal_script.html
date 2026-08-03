@@ -1,0 +1,142 @@
+<script>
+(function () {
+    if (window.__callRequestModalInit) {
+        return;
+    }
+    window.__callRequestModalInit = true;
+
+    if (!window.openModal) {
+        window.openModal = function (modalId) {
+            var modal = document.getElementById(modalId);
+            if (!modal) return;
+            modal.classList.add('modal--active');
+            document.body.style.overflow = 'hidden';
+        };
+    }
+
+    if (!window.closeModal) {
+        window.closeModal = function (modalId) {
+            var modal = document.getElementById(modalId);
+            if (!modal) return;
+            modal.classList.remove('modal--active');
+            document.body.style.overflow = '';
+        };
+    }
+
+    function bindCallPhoneMask(phoneInput) {
+        if (!phoneInput || phoneInput.dataset.callMaskBound) {
+            return;
+        }
+        phoneInput.dataset.callMaskBound = '1';
+        phoneInput.addEventListener('input', function (e) {
+            var value = e.target.value.replace(/\D/g, '');
+            if (value.length === 0) {
+                e.target.value = '';
+                return;
+            }
+            if (value[0] === '8') {
+                value = '7' + value.slice(1);
+            }
+            if (value[0] !== '7') {
+                value = '7' + value;
+            }
+            var formattedValue = '+7';
+            if (value.length > 1) {
+                formattedValue += ' (' + value.slice(1, 4);
+            }
+            if (value.length >= 5) {
+                formattedValue += ') ' + value.slice(4, 7);
+            }
+            if (value.length >= 8) {
+                formattedValue += '-' + value.slice(7, 9);
+            }
+            if (value.length >= 10) {
+                formattedValue += '-' + value.slice(9, 11);
+            }
+            e.target.value = formattedValue;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var callModal = document.getElementById('callModal');
+        if (!callModal) {
+            return;
+        }
+
+        document.querySelectorAll('.call-modal-trigger').forEach(function (trigger) {
+            trigger.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.openModal('callModal');
+            });
+        });
+
+        document.querySelectorAll('#callModal, #successModal').forEach(function (modal) {
+            var overlay = modal.querySelector('.modal__overlay');
+            var closeBtn = modal.querySelector('.modal__close');
+            if (overlay) {
+                overlay.addEventListener('click', function (e) {
+                    if (e.target === overlay) {
+                        window.closeModal(modal.id);
+                    }
+                });
+            }
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function () {
+                    window.closeModal(modal.id);
+                });
+            }
+        });
+
+        var callForm = document.getElementById('callForm');
+        if (callForm && !callForm.dataset.callSubmitBound) {
+            callForm.dataset.callSubmitBound = '1';
+            bindCallPhoneMask(document.getElementById('userPhone'));
+            callForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (window.validatePersonalDataConsent && !window.validatePersonalDataConsent(callForm)) {
+                    return;
+                }
+                var formData = new FormData(callForm);
+                var name = formData.get('userName') || '';
+                var phone = formData.get('userPhone') || '';
+                if (!String(name).trim() || !String(phone).trim()) {
+                    alert('Пожалуйста, заполните все поля');
+                    return;
+                }
+                var phoneDigits = String(phone).replace(/\D/g, '');
+                if (phoneDigits.length !== 11) {
+                    alert('Пожалуйста, введите корректный номер телефона');
+                    return;
+                }
+                var submitBtn = callForm.querySelector('.modal__button');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Отправляем...';
+                fetch('{% url "pages:call_request" %}', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            window.closeModal('callModal');
+                            window.openModal('successModal');
+                            callForm.reset();
+                        } else if (window.handleInquiryFormError && window.handleInquiryFormError(callForm, data)) {
+                            return;
+                        } else {
+                            alert(data.message || 'Произошла ошибка при отправке заявки');
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Error:', error);
+                        alert('Произошла ошибка при отправке заявки');
+                    })
+                    .finally(function () {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Заказать звонок';
+                    });
+            });
+        }
+    });
+})();
+</script>

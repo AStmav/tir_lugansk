@@ -798,6 +798,8 @@
             </div>
         </div>
         
+        {% include "includes/call_request_modals.html" %}
+        
         <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js" async></script>
         <script>
             // Инициализация Swiper после загрузки скрипта (отложенная загрузка — п. 3.2)
@@ -969,64 +971,7 @@
                     },
                 });
             }
-            // Обработка формы
-            document.addEventListener('DOMContentLoaded', function() {
-                setPhoneMask();
-                
-                const callForm = document.getElementById('callForm');
-                if (!callForm) return;
-
-                callForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(callForm);
-                    const name = formData.get('userName');
-                    const phone = formData.get('userPhone');
-                    
-                    // Проверка заполненности полей
-                    if (!name.trim() || !phone.trim()) {
-                        alert('Пожалуйста, заполните все поля');
-                        return;
-                    }
-                    
-                    // Проверка корректности номера телефона
-                    const phoneDigits = phone.replace(/\D/g, '');
-                    if (phoneDigits.length !== 11) {
-                        alert('Пожалуйста, введите корректный номер телефона');
-                        return;
-                    }
-                    
-                    // Отправка данных на сервер
-                    const submitBtn = callForm.querySelector('.modal__button');
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Отправляем...';
-                    
-                    fetch('{% url "pages:call_request" %}', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            closeModal('callModal');
-                            openModal('successModal');
-                            
-                            // Сброс формы
-                            callForm.reset();
-                        } else {
-                            alert(data.message || 'Произошла ошибка при отправке заявки');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Произошла ошибка при отправке заявки');
-                    })
-                    .finally(() => {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Заказать звонок';
-                    });
-                });
-            });
+            // Обработка формы заказа звонка — в includes/call_request_modal_script.html
             
             // Функции модальных окон (глобально для onclick в разметке)
             function openModal(modalId) {
@@ -1240,5 +1185,6 @@
         <script src="{% static 'js/navbar-burger.js' %}"></script>
         {% include "includes/analytics_scripts.html" %}
         {% include "includes/cookie_consent.html" %}
+        {% include "includes/call_request_modal_script.html" %}
     </body>
 </html> 
