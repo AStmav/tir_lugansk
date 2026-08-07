@@ -44,8 +44,8 @@ ADMIN_ALLOWED_HOSTS = [
 ]
 
 # Лимит POST для админки (наследуется из settings.py; дублируем для явности на prod).
-# На nginx: client_max_body_size 50M;
-DATA_UPLOAD_MAX_MB = int(os.environ.get('DATA_UPLOAD_MAX_MB', '50'))
+# На nginx: client_max_body_size 100M; (номенклатура 1C ~63 МБ)
+DATA_UPLOAD_MAX_MB = int(os.environ.get('DATA_UPLOAD_MAX_MB', '100'))
 DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.environ.get('DATA_UPLOAD_MAX_NUMBER_FIELDS', '10000'))

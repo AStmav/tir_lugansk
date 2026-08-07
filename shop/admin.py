@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, render
 from django.contrib import messages
 from django.core.management import call_command
 from django.conf import settings
+from django.utils import timezone
 import os
 import threading
 import traceback
@@ -560,7 +561,7 @@ class OeKodAdmin(admin.ModelAdmin):
 
 @admin.register(ImportFile)
 class ImportFileAdmin(admin.ModelAdmin):
-    list_display = ['original_filename', 'file_type', 'validation_status_display', 'file_type_display', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'processed_rows', 'created_products', 'action_buttons']
+    list_display = ['original_filename', 'file_type', 'validation_status_display', 'file_type_display', 'file_size', 'uploaded_at', 'status_display', 'total_rows', 'updated_products', 'created_products', 'action_buttons']
     list_filter = ['file_type', 'validation_status', 'status', 'processed', 'uploaded_at']
     search_fields = ['original_filename']
     ordering = ['-uploaded_at']
@@ -679,6 +680,23 @@ class ImportFileAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         """Автоматически заполняем original_filename и валидируем файл при сохранении"""
         import os
+
+        if obj.file:
+            max_bytes = settings.DATA_UPLOAD_MAX_MB * 1024 * 1024
+            file_size = getattr(obj.file, 'size', None)
+            if file_size and file_size > max_bytes:
+                size_mb = file_size / 1024 / 1024
+                self.message_user(
+                    request,
+                    (
+                        f'❌ Файл слишком большой ({size_mb:.1f} МБ). '
+                        f'Максимум: {settings.DATA_UPLOAD_MAX_MB} МБ. '
+                        f'На сервере также нужен nginx: '
+                        f'client_max_body_size {settings.DATA_UPLOAD_MAX_MB}M;'
+                    ),
+                    level='error',
+                )
+                return
         
         # Если файл загружен и имя файла не установлено
         if obj.file:
@@ -742,27 +760,6 @@ class ImportFileAdmin(admin.ModelAdmin):
         
         # Теперь сохраняем объект со всеми полями
         super().save_model(request, obj, form, change)
-    
-    def total_rows(self, obj):
-        """Безопасное отображение общего количества строк"""
-        try:
-            return obj.total_rows or 0
-        except Exception:
-            return 0
-    
-    def processed_rows(self, obj):
-        """Безопасное отображение количества обработанных строк"""
-        try:
-            return obj.processed_rows or 0
-        except Exception:
-            return 0
-    
-    def created_products(self, obj):
-        """Безопасное отображение количества созданных товаров"""
-        try:
-            return obj.created_products or 0
-        except Exception:
-            return 0
     
     def get_import_stats(self, obj):
         """Безопасное получение статистики импорта"""
@@ -1159,9 +1156,8 @@ class ImportFileAdmin(admin.ModelAdmin):
                 # Запускаем импорт в отдельном потоке
                 def run_import():
                     try:
-                        # Обновляем статус на processing
-                        import_file.status = 'processing'
-                        import_file.save()
+                        # Только status — не save(), иначе затрём актуальную статистику из БД.
+                        ImportFile.objects.filter(id=import_file.id).update(status='processing')
                         
                         # ==================== НОВАЯ ЛОГИКА: ИСПОЛЬЗУЕМ file_type ====================
                         if import_file.is_dbf_file and import_file.file_type:
@@ -1237,18 +1233,22 @@ class ImportFileAdmin(admin.ModelAdmin):
                                 import_file_id=import_file.id,
                             )
                         
-                        # Обновляем статус на completed
-                        import_file.status = 'completed'
-                        import_file.processed = True
-                        from django.utils import timezone
-                        import_file.processed_at = timezone.now()
-                        import_file.save()
+                        # Команды импорта сами пишут status/stats через .update().
+                        # Нельзя import_file.save() — в памяти старые нули, они затирают статистику в БД.
+                        import_file.refresh_from_db()
+                        if import_file.status not in ('completed', 'failed', 'cancelled'):
+                            ImportFile.objects.filter(id=import_file.id).update(
+                                status='completed',
+                                processed=True,
+                                processed_at=timezone.now(),
+                            )
                         log_audit('import_completed', user_repr=audit_user_repr, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), import_file_id=import_file.id)
                         
                     except Exception as e:
-                        import_file.status = 'failed'
-                        import_file.error_log = traceback.format_exc()
-                        import_file.save()
+                        ImportFile.objects.filter(id=import_file.id).update(
+                            status='failed',
+                            error_log=traceback.format_exc(),
+                        )
                         log_audit('import_failed', user_repr=audit_user_repr, detail=str(e)[:300], import_file_id=import_file.id)
                 
                 thread = threading.Thread(target=run_import)

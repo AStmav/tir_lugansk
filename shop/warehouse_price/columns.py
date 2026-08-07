@@ -13,18 +13,27 @@ def column_letter_to_index(letter: str) -> Optional[int]:
 
 
 def resolve_column_index(ref: str, header_cells: List[str]) -> Optional[int]:
+    """
+    Ссылка на колонку: номер (0), заголовок (code, Цена) или буква Excel (A/B/C).
+
+    Сначала точный заголовок — иначе code/brand/qty/price читаются как Excel CODE/…
+    Буквы A..XFD — только после точного совпадения заголовка, до substring.
+    """
     ref = (ref or '').strip()
     if not ref:
         return None
     if ref.isdigit():
         return int(ref)
-    letter_index = column_letter_to_index(ref)
-    if letter_index is not None:
-        return letter_index
+
     ref_lower = ref.lower()
     for idx, header in enumerate(header_cells):
         if header and header.strip().lower() == ref_lower:
             return idx
+
+    letter_index = column_letter_to_index(ref)
+    if letter_index is not None and len(ref) <= 3:
+        return letter_index
+
     for idx, header in enumerate(header_cells):
         if header and ref_lower in header.strip().lower():
             return idx

@@ -490,6 +490,7 @@ class Command(BaseCommand):
                         current_row=processed_rows,
                         processed_rows=processed_rows,
                         created_products=stats['new_products'],
+                        updated_products=updated_products,
                         error_count=errors,
                     )
                 

@@ -284,9 +284,9 @@ WATERMARK_FIT_MODE = os.environ.get('WATERMARK_FIT_MODE', 'full')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Админка / CKEditor: большие HTML-страницы (Django по умолчанию — 2.5 МБ).
-# На сервере в nginx тоже нужно: client_max_body_size 50M;
-DATA_UPLOAD_MAX_MB = int(os.environ.get('DATA_UPLOAD_MAX_MB', '50'))
+# Админка / импорт DBF: лимит тела POST (Django по умолчанию — 2.5 МБ).
+# На сервере в nginx тоже нужно: client_max_body_size 100M; (номенклатура 1C ~63 МБ)
+DATA_UPLOAD_MAX_MB = int(os.environ.get('DATA_UPLOAD_MAX_MB', '100'))
 DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MB * 1024 * 1024
 # Много полей в форме админки (инлайны, CKEditor)

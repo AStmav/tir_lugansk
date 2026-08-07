@@ -197,6 +197,7 @@ class Command(BaseCommand):
                     if import_file:
                         ImportFile.objects.filter(id=import_file.id).update(
                             current_row=record_num,
+                            processed_rows=record_num,
                             created_products=created_count,
                             updated_products=updated_count,
                             error_count=errors
@@ -245,6 +246,7 @@ class Command(BaseCommand):
                 processed_at=timezone.now(),
                 status='completed',
                 current_row=record_num,
+                processed_rows=record_num,
                 created_products=created_count,
                 updated_products=updated_count,
                 error_count=errors

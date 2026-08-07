@@ -510,6 +510,7 @@ class Command(BaseCommand):
                     current_row=processed_records,
                     processed_rows=processed_records,
                     created_products=stats['new_products'],
+                    updated_products=stats['updated_products'],
                     error_count=errors,
                 )
 

@@ -159,9 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                // Проверяем размер файла (максимум 50MB)
-                if (file.size > 50 * 1024 * 1024) {
-                    showMessage('error', 'Файл слишком большой. Максимальный размер: 50MB');
+                // Проверяем размер файла (максимум 100MB)
+                if (file.size > 100 * 1024 * 1024) {
+                    showMessage('error', 'Файл слишком большой. Максимальный размер: 100MB');
                     e.target.value = '';
                     return;
                 }
