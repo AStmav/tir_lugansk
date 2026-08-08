@@ -1019,13 +1019,14 @@ class ImportFile(models.Model):
     # Скорость обработки
     @property
     def processing_speed(self):
-        if not self.processed_at or self.status != 'processing':
+        if self.status != 'processing' or not self.uploaded_at:
             return 0
         try:
             from django.utils import timezone
+            row_count = self.processed_rows or self.current_row or 0
             elapsed = (timezone.now() - self.uploaded_at).total_seconds()
-            if elapsed > 0:
-                return int(self.current_row / elapsed)
+            if elapsed > 0 and row_count > 0:
+                return int(row_count / elapsed)
             return 0
         except (ValueError, TypeError, ZeroDivisionError):
             return 0

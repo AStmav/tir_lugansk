@@ -6,12 +6,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404, render
 from django.contrib import messages
-from django.core.management import call_command
 from django.conf import settings
 from django.utils import timezone
 import os
-import threading
-import traceback
 import logging
 from .models import (
     Category,
@@ -1152,112 +1149,29 @@ class ImportFileAdmin(admin.ModelAdmin):
                 
                 audit_user_repr = str(request.user) if request.user else '—'
                 log_audit('import_started', user=request.user, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), file_type=getattr(import_file, 'file_type', None) or '—', import_file_id=import_file.id)
-                
-                # Запускаем импорт в отдельном потоке
-                def run_import():
-                    try:
-                        # Только status — не save(), иначе затрём актуальную статистику из БД.
-                        ImportFile.objects.filter(id=import_file.id).update(status='processing')
-                        
-                        # ==================== НОВАЯ ЛОГИКА: ИСПОЛЬЗУЕМ file_type ====================
-                        if import_file.is_dbf_file and import_file.file_type:
-                            # Используем тип из поля file_type (выбранный пользователем)
-                            from shop.dbf_schemas import DBF_SCHEMAS
-                            
-                            schema = DBF_SCHEMAS.get(import_file.file_type)
-                            if schema:
-                                command_name = schema['command']
-                                logger.info(f"Импорт типа '{import_file.file_type}' командой '{command_name}'")
-                                
-                                # Параметры команды зависят от типа
-                                if import_file.file_type == 'products':
-                                    # Только import_dbf поддерживает batch_size и update_mode
-                                    call_command(
-                                        command_name,
-                                        import_file.file.path,
-                                        batch_size=10000,
-                                        disable_transactions=True,
-                                        import_file_id=import_file.id,
-                                        update_mode=import_file.update_mode or 'update',  # НОВОЕ!
-                                    )
-                                else:
-                                    # import_brands_dbf и import_oe_analogs_dbf не используют batch_size
-                                    call_command(
-                                        command_name,
-                                        import_file.file.path,
-                                        import_file_id=import_file.id,
-                                    )
-                            else:
-                                raise ValueError(f"Неизвестный тип файла: {import_file.file_type}")
-                        
-                        # Старая логика для DBF без типа (fallback) и CSV
-                        elif import_file.is_dbf_file:
-                            # Fallback: определяем по имени файла (старая логика)
-                            file_name = os.path.basename(import_file.file.name).lower()
-                            logger.warning(f"Тип файла не указан, определяем по имени: {file_name}")
-                            
-                            if 'brend' in file_name:
-                                # Импорт брендов
-                                logger.info(f"Импорт брендов из: {file_name}")
-                                call_command(
-                                    'import_brands_dbf',
-                                    import_file.file.path,
-                                    import_file_id=import_file.id,
-                                )
-                            elif 'oe_nomer' in file_name or 'oenomer' in file_name:
-                                # Импорт OE аналогов
-                                logger.info(f"Импорт OE аналогов из: {file_name}")
-                                call_command(
-                                    'import_oe_analogs_dbf',
-                                    import_file.file.path,
-                                    import_file_id=import_file.id,
-                                )
-                            else:
-                                # Импорт товаров (1C*.DBF)
-                                logger.info(f"Импорт товаров из: {file_name}")
-                                call_command(
-                                    'import_dbf',
-                                    import_file.file.path,
-                                    batch_size=10000,
-                                    disable_transactions=True,
-                                    import_file_id=import_file.id,
-                                    update_mode=import_file.update_mode or 'update',  # НОВОЕ!
-                                )
-                        else:
-                            # Используем команду для CSV файлов
-                            call_command(
-                                'import_products_new',
-                                import_file.file.path,
-                                batch_size=10000,
-                                disable_transactions=True,
-                                import_file_id=import_file.id,
-                            )
-                        
-                        # Команды импорта сами пишут status/stats через .update().
-                        # Нельзя import_file.save() — в памяти старые нули, они затирают статистику в БД.
-                        import_file.refresh_from_db()
-                        if import_file.status not in ('completed', 'failed', 'cancelled'):
-                            ImportFile.objects.filter(id=import_file.id).update(
-                                status='completed',
-                                processed=True,
-                                processed_at=timezone.now(),
-                            )
-                        log_audit('import_completed', user_repr=audit_user_repr, detail=import_file.original_filename or (import_file.file.name if import_file.file else ''), import_file_id=import_file.id)
-                        
-                    except Exception as e:
-                        ImportFile.objects.filter(id=import_file.id).update(
-                            status='failed',
-                            error_log=traceback.format_exc(),
-                        )
-                        log_audit('import_failed', user_repr=audit_user_repr, detail=str(e)[:300], import_file_id=import_file.id)
-                
-                thread = threading.Thread(target=run_import)
-                thread.daemon = True
-                thread.start()
-                
+
+                from shop.utils.import_runner import launch_import_subprocess
+
+                try:
+                    pid, log_path = launch_import_subprocess(import_file.id)
+                except Exception as e:
+                    logger.exception('Не удалось запустить subprocess импорта')
+                    ImportFile.objects.filter(id=import_file.id).update(
+                        status='failed',
+                        error_log=str(e),
+                    )
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Ошибка запуска импорта: {e}',
+                    })
+
+                rel_log = os.path.relpath(log_path, settings.BASE_DIR)
                 return JsonResponse({
                     'success': True,
-                    'message': 'Импорт запущен в фоновом режиме.',
+                    'message': (
+                        f'Импорт запущен отдельным процессом (PID {pid}). '
+                        f'Лог на сервере: {rel_log}'
+                    ),
                     'redirect_url': f'progress/{file_id}/'
                 })
                 
