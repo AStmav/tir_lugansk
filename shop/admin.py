@@ -178,9 +178,9 @@ class ProductOfferAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['tree_name', 'edit_button', 'parent', 'is_active', 'order']
+    list_display = ['tree_name', 'section_id', 'edit_button', 'parent', 'is_active', 'order']
     list_filter = ['parent', 'is_active']
-    search_fields = ['name']
+    search_fields = ['name', 'section_id', 'slug']
     list_editable = ['is_active', 'order']
     ordering = ['order', 'name']
     

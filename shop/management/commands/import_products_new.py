@@ -5,6 +5,11 @@ from django.utils.text import slugify
 from django.db import transaction, connection
 from shop.models import Category, Brand, Product
 from shop.models import ImportFile
+from shop.utils.category_import import (
+    get_or_create_category_by_section_id,
+    load_categories_by_section_id,
+    normalize_section_id,
+)
 from django.utils import timezone
 import logging
 from django.db.models import Q
@@ -137,6 +142,7 @@ class Command(BaseCommand):
             existing_tmp_ids = set()
             existing_codes = set()
             all_categories = {}
+            by_section_id = {}
             all_brands = {}
         else:
             # Загружаем существующие данные в память для быстрого поиска
@@ -144,7 +150,8 @@ class Command(BaseCommand):
             
             existing_tmp_ids = set(Product.objects.values_list('tmp_id', flat=True))
             existing_codes = set(Product.objects.values_list('slug', flat=True))
-            all_categories = {cat.slug: cat for cat in Category.objects.all()}
+            by_section_id = load_categories_by_section_id()
+            all_categories = {}
             all_brands = {brand.slug: brand for brand in Brand.objects.all()}
             for brand in Brand.objects.all():
                 if brand.code:
@@ -152,12 +159,12 @@ class Command(BaseCommand):
             
             self.stdout.write(f'Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID')
             self.stdout.write(f'Загружено {len(existing_codes)} существующих товаров по коду')
-            self.stdout.write(f'Загружено {len(all_categories)} существующих категорий')
+            self.stdout.write(f'Загружено {len(by_section_id)} существующих категорий (section_id)')
             self.stdout.write(f'Загружено {len(all_brands)} существующих брендов')
             
             logger.info(f"Загружено {len(existing_tmp_ids)} существующих товаров по TMP_ID")
             logger.info(f"Загружено {len(existing_codes)} существующих товаров по коду")
-            logger.info(f"Загружено {len(all_categories)} существующих категорий")
+            logger.info(f"Загружено {len(by_section_id)} существующих категорий (section_id)")
             logger.info(f"Загружено {len(all_brands)} существующих брендов")
         
         # Инициализируем кэши и счетчики
@@ -300,8 +307,7 @@ class Command(BaseCommand):
                             self.stdout.write(f"Строка {line_num}: TMP_ID='{tmp_id}', NAME='{name[:30]}...'")
                         
                         # Очищаем SECTION_ID от квадратных скобок и других символов
-                        if section_id:
-                            section_id = section_id.replace('[', '').replace(']', '').replace(';', '').strip()
+                        section_id = normalize_section_id(section_id)
                         
                         # Обрабатываем дубликаты по TMP_ID (только суффиксы)
                         original_tmp_id = tmp_id
@@ -352,28 +358,16 @@ class Command(BaseCommand):
                         else:
                             logger.warning(f"Строка {line_num}: Отсутствует производитель для товара {tmp_id}")
                         
-                        # Создаем/получаем категорию (с кэшем)
-                        category = None
-                        if section_id:
-                            category_slug = slugify(f"category-{section_id}")
-                            if category_slug in all_categories:
-                                category = all_categories[category_slug]
-                            elif category_slug not in categories_cache:
-                                category, created = Category.objects.get_or_create(
-                                    slug=category_slug,
-                                    defaults={
-                                        'name': f'Категория {section_id}',
-                                        'description': f'Автоматически созданная категория для {section_id}'
-                                    }
-                                )
-                                all_categories[category_slug] = category
-                                categories_cache[category_slug] = category
-                                if created:
-                                    stats['new_categories'] += 1
-                                    self.stdout.write(f'Создана категория: {category.name}')
-                                    logger.info(f"Создана новая категория: {category.name}")
-                            else:
-                                category = categories_cache[category_slug]
+                        before_new_categories = stats['new_categories']
+                        category = get_or_create_category_by_section_id(
+                            section_id,
+                            categories_cache=categories_cache,
+                            by_section_id=by_section_id,
+                            stats=stats,
+                        )
+                        if stats['new_categories'] > before_new_categories and category:
+                            self.stdout.write(f'Создана категория: {category.name}')
+                            logger.info(f"Создана новая категория: {category.name}")
                         else:
                             logger.warning(f"Строка {line_num}: Отсутствует категория для товара {tmp_id}")
                         

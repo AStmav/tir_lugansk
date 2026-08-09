@@ -4,7 +4,11 @@ from django.utils.text import slugify
 from django.db import transaction, connection
 from shop.models import Category, Brand, Product
 from shop.models import ImportFile
-from shop.product_slugs import make_product_slug
+from shop.utils.category_import import (
+    get_or_create_category_by_section_id,
+    load_categories_by_section_id,
+    normalize_section_id,
+)
 from django.utils import timezone
 import logging
 from django.db.models import Q
@@ -126,6 +130,7 @@ class Command(BaseCommand):
             existing_tmp_ids = set()
             existing_codes = set()
             all_categories = {}
+            by_section_id = {}
             all_brands = {}
         else:
             # Загружаем существующие данные в память для быстрого поиска
@@ -133,7 +138,8 @@ class Command(BaseCommand):
             
             existing_tmp_ids = set(Product.objects.values_list('tmp_id', flat=True))
             existing_codes = set(Product.objects.values_list('slug', flat=True))
-            all_categories = {cat.slug: cat for cat in Category.objects.all()}
+            by_section_id = load_categories_by_section_id()
+            all_categories = {}
             all_brands = {brand.slug: brand for brand in Brand.objects.all()}
             for brand in Brand.objects.all():
                 if brand.code:
@@ -142,10 +148,10 @@ class Command(BaseCommand):
             self.stdout.write(f'📊 Загружено:')
             self.stdout.write(f'   • {len(existing_tmp_ids)} товаров по TMP_ID')
             self.stdout.write(f'   • {len(existing_codes)} товаров по slug')
-            self.stdout.write(f'   • {len(all_categories)} категорий')
+            self.stdout.write(f'   • {len(by_section_id)} категорий по section_id (1С)')
             self.stdout.write(f'   • {len(all_brands)} брендов')
             
-            logger.info(f"Загружено данных: товары={len(existing_tmp_ids)}, категории={len(all_categories)}, бренды={len(all_brands)}")
+            logger.info(f"Загружено данных: товары={len(existing_tmp_ids)}, категории(section_id)={len(by_section_id)}, бренды={len(all_brands)}")
 
         # Бренд по умолчанию для товаров без производителя (PROPERTY_P) — чтобы такие товары тоже импортировались
         default_brand, _ = Brand.objects.get_or_create(
@@ -232,7 +238,7 @@ class Command(BaseCommand):
                     artikyl_number = data.get('PROPERTY_A', '').strip()  # дополнительный номер
                     applicability = data.get('PROPERTY_M', '').strip()  # применяемость
                     cross_number = data.get('PROPERTY_C', '').strip()  # кросс-код
-                    section_id = data.get('SECTION_ID', '').strip()  # категория
+                    section_id = normalize_section_id(data.get('SECTION_ID', ''))
 
                     # Логируем первые записи для отладки
                     if record_num <= 5:
@@ -291,28 +297,16 @@ class Command(BaseCommand):
                     if brand is None:
                         brand = default_brand
 
-                    # Создаем/получаем категорию
-                    category = None
-                    if section_id:
-                        category_slug = slugify(f"category-{section_id}")
-                        if category_slug in all_categories:
-                            category = all_categories[category_slug]
-                        elif category_slug not in categories_cache:
-                            category, created = Category.objects.get_or_create(
-                                slug=category_slug,
-                                defaults={
-                                    'name': f'Категория {section_id}',
-                                    'description': f'Автоматически созданная категория для {section_id}'
-                                }
-                            )
-                            all_categories[category_slug] = category
-                            categories_cache[category_slug] = category
-                            if created:
-                                stats['new_categories'] += 1
-                                self.stdout.write(f'📁 Создана категория: {category.name}')
-                                logger.info(f"Создана новая категория: {category.name}")
-                        else:
-                            category = categories_cache[category_slug]
+                    before_new_categories = stats.get('new_categories', 0)
+                    category = get_or_create_category_by_section_id(
+                        section_id,
+                        categories_cache=categories_cache,
+                        by_section_id=by_section_id,
+                        stats=stats,
+                    )
+                    if stats.get('new_categories', 0) > before_new_categories and category:
+                        self.stdout.write(f'📁 Создана категория: {category.name}')
+                        logger.info(f"Создана новая категория: {category.name}")
 
                     # ============================================================
                     # НОВАЯ ЛОГИКА: Обработка дубликатов в зависимости от режима

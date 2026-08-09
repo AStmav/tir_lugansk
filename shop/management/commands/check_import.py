@@ -2,6 +2,11 @@ import csv
 import os
 from django.core.management.base import BaseCommand
 from shop.models import Product
+from shop.utils.category_import import (
+    get_or_create_category_by_section_id,
+    load_categories_by_section_id,
+    normalize_section_id,
+)
 
 
 class Command(BaseCommand):
@@ -100,6 +105,8 @@ class Command(BaseCommand):
         # Кэш для категорий и брендов
         categories_cache = {}
         brands_cache = {}
+        by_section_id = load_categories_by_section_id()
+        category_stats = {'new_categories': 0}
         products_batch = []
         
         with open(csv_file, 'r', encoding='utf-8-sig') as file:
@@ -118,20 +125,16 @@ class Command(BaseCommand):
                     model_avto = row.get('PROPERTY_MODEL_AVTO', '').strip()
                     section_id = row.get('SECTION_ID', '').strip()
                     
-                    if section_id:
-                        section_id = section_id.replace('[', '').replace(']', '').replace(';', '')
-                    
-                    # Категория
+                    section_id = normalize_section_id(section_id)
+
                     category = None
                     if section_id:
-                        if section_id not in categories_cache:
-                            category, _ = Category.objects.get_or_create(
-                                slug=f'category-{section_id}',
-                                defaults={'name': f'Категория {section_id}'}
-                            )
-                            categories_cache[section_id] = category
-                        else:
-                            category = categories_cache[section_id]
+                        category = get_or_create_category_by_section_id(
+                            section_id,
+                            categories_cache=categories_cache,
+                            by_section_id=by_section_id,
+                            stats=category_stats,
+                        )
                     
                     # Бренд
                     brand = None

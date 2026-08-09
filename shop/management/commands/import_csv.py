@@ -8,6 +8,11 @@ from django.utils import timezone
 from django.db import transaction, OperationalError
 from django.utils.text import slugify
 from shop.models import Product, Category, Brand, ImportFile, OeKod
+from shop.utils.category_import import (
+    get_or_create_category_by_section_id,
+    load_categories_by_section_id,
+    normalize_section_id,
+)
 
 
 class Command(BaseCommand):
@@ -357,32 +362,34 @@ class Command(BaseCommand):
         return self._brand_cache[brand_name]
     
     def get_or_create_category_cached(self, section_id):
-        """Кешированное получение/создание категории"""
+        """Кешированное получение/создание категории по SECTION_ID (1С)."""
+        if not hasattr(self, '_by_section_id'):
+            self._by_section_id = load_categories_by_section_id()
+        if not hasattr(self, '_category_stats'):
+            self._category_stats = {'new_categories': 0}
+
         if not section_id:
             section_id = 'uncategorized'
-        
-        if section_id not in self._category_cache:
-            if section_id == 'uncategorized':
+
+        if section_id == 'uncategorized':
+            if 'uncategorized' not in self._category_cache:
                 category, created = Category.objects.get_or_create(
                     slug='uncategorized',
                     defaults={
                         'name': 'Без категории',
-                        'is_active': True
-                    }
+                        'is_active': True,
+                    },
                 )
-            else:
-                section_slug = section_id.lstrip('0') or 'cat-' + section_id
-                category_slug = f'category-{section_slug}'
-                
-                category, created = Category.objects.get_or_create(
-                    slug=category_slug,
-                    defaults={
-                        'name': f'Категория {section_id}',
-                        'is_active': True
-                    }
-                )
-            self._category_cache[section_id] = category
-        return self._category_cache[section_id]
+                self._category_cache['uncategorized'] = category
+            return self._category_cache['uncategorized']
+
+        section_id = normalize_section_id(section_id)
+        return get_or_create_category_by_section_id(
+            section_id,
+            categories_cache=self._category_cache,
+            by_section_id=self._by_section_id,
+            stats=self._category_stats,
+        )
     
     def generate_unique_slug(self, base_slug):
         """Генерирует уникальный slug"""

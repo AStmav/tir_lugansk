@@ -7,6 +7,15 @@ import re
 class Category(models.Model):
     name = models.CharField(max_length=100, verbose_name='Название')
     slug = models.SlugField(unique=True, verbose_name='URL')
+    section_id = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='ID категории (1С)',
+        help_text='SECTION_ID из выгрузки 1С. Импорт номенклатуры ищет категорию по этому полю, не по URL.',
+    )
     parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name='children', blank=True, null=True, verbose_name='Родительская категория')
     description = models.TextField(blank=True, verbose_name='Описание')
     image = models.ImageField(upload_to='categories/', blank=True, verbose_name='Изображение')
@@ -338,8 +347,8 @@ class Product(models.Model):
             while root_category.parent:
                 root_category = root_category.parent
             
-            # SECTION_ID теперь хранится прямо в slug без префикса
-            section_id = root_category.slug
+            # Папка images/{section_id}/ — используем ID из 1С, если задан
+            section_id = root_category.section_id or root_category.slug
             return f'{section_id}/{self.tmp_id}.jpg'
         return None
     

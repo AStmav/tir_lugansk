@@ -4,6 +4,11 @@ from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from django.db import transaction
 from shop.models import Category, Brand, Product
+from shop.utils.category_import import (
+    get_or_create_category_by_section_id,
+    load_categories_by_section_id,
+    normalize_section_id,
+)
 
 
 class Command(BaseCommand):
@@ -38,9 +43,10 @@ class Command(BaseCommand):
 
         categories_cache = {}
         brands_cache = {}
-        
+        by_section_id = load_categories_by_section_id()
+        category_stats = {'new_categories': 0}
+
         # Получаем существующие товары для проверки дубликатов
-        existing_codes = set(Product.objects.values_list('code', flat=True))
         self.stdout.write(f'Загружено {len(existing_codes)} существующих товаров')
 
         # Пачка товаров для bulk_create
@@ -68,10 +74,7 @@ class Command(BaseCommand):
                     tmc_number = row.get('PROPERTY_TMC_NUMBER', '').strip()
                     model_avto = row.get('PROPERTY_MODEL_AVTO', '').strip()
                     section_id = row.get('SECTION_ID', '').strip()
-                    
-                    # Очищаем SECTION_ID от квадратных скобок
-                    if section_id:
-                        section_id = section_id.replace('[', '').replace(']', '').replace(';', '')
+                    section_id = normalize_section_id(section_id)
                     
                     if not tmp_id or not name:
                         continue
@@ -80,19 +83,16 @@ class Command(BaseCommand):
                     if tmp_id in existing_codes:
                         continue
                     
-                    # Создаем/получаем категорию (с кэшем)
                     category = None
                     if section_id:
-                        if section_id not in categories_cache:
-                            category, created = Category.objects.get_or_create(
-                                slug=f'category-{section_id}',
-                                defaults={'name': f'Категория {section_id}'}
-                            )
-                            categories_cache[section_id] = category
-                            if created:
-                                created_categories += 1
-                        else:
-                            category = categories_cache[section_id]
+                        before_new = category_stats['new_categories']
+                        category = get_or_create_category_by_section_id(
+                            section_id,
+                            categories_cache=categories_cache,
+                            by_section_id=by_section_id,
+                            stats=category_stats,
+                        )
+                        created_categories += category_stats['new_categories'] - before_new
                     
                     brand = None
                     if producer:
