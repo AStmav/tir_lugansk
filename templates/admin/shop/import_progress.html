@@ -29,12 +29,18 @@
     </div>
     
     <!-- Статус импорта -->
-    <div id="status-container" class="status-box status-{{ import_file.status }}">
+    <div id="status-container" class="status-box status-{{ import_file.status }}{% if import_file.status == 'completed' and import_file.file_type == 'analogs' and import_file.updated_products and not import_file.error_count %} status-completed-warn{% elif import_file.status == 'completed' and import_file.error_count %} status-completed-warn{% endif %}">
         <h3 id="status-title">
             {% if import_file.status == 'processing' %}
                 🔄 Импорт выполняется...
             {% elif import_file.status == 'completed' %}
-                ✅ Импорт завершен успешно
+                {% if import_file.error_count %}
+                    ⚠️ Импорт завершен с ошибками
+                {% elif import_file.file_type == 'analogs' and import_file.updated_products %}
+                    ✅ Импорт завершен (есть предупреждения)
+                {% else %}
+                    ✅ Импорт завершен успешно
+                {% endif %}
             {% elif import_file.status == 'failed' %}
                 ❌ Импорт завершен с ошибками
             {% elif import_file.status == 'cancelled' %}
@@ -47,7 +53,13 @@
             {% if import_file.status == 'processing' %}
                 Обрабатываем данные из файла. Пожалуйста, не закрывайте эту страницу.
             {% elif import_file.status == 'completed' %}
-                Все данные из файла успешно обработаны и добавлены в каталог.
+                {% if import_file.error_count %}
+                    Часть строк не обработана. Подробности — в логе ниже.
+                {% elif import_file.file_type == 'analogs' and import_file.updated_products %}
+                    Аналоги загружены. Часть записей сохранена без привязки к товару — см. лог.
+                {% else %}
+                    Все данные из файла успешно обработаны и добавлены в каталог.
+                {% endif %}
             {% elif import_file.status == 'failed' %}
                 При обработке файла возникли ошибки. Проверьте лог ошибок ниже.
             {% elif import_file.status == 'cancelled' %}
@@ -74,15 +86,15 @@
             </div>
             <div class="stat-item">
                 <strong id="created-products">{{ import_file.created_products }}</strong>
-                <small>создано товаров</small>
+                <small>{% if import_file.file_type == 'analogs' %}создано аналогов{% elif import_file.file_type == 'brands' %}создано производителей{% else %}создано товаров{% endif %}</small>
             </div>
             <div class="stat-item">
                 <strong id="updated-products">{{ import_file.updated_products }}</strong>
-                <small>обновлено товаров</small>
+                <small>{% if import_file.file_type == 'analogs' %}без привязки к товару{% else %}обновлено товаров{% endif %}</small>
             </div>
             <div class="stat-item">
                 <strong id="error-count">{{ import_file.error_count }}</strong>
-                <small>ошибок</small>
+                <small>{% if import_file.file_type == 'analogs' %}пропуски и ошибки{% else %}ошибок{% endif %}</small>
             </div>
         </div>
     </div>
@@ -150,6 +162,12 @@
     background: #d4edda;
     border-color: #c3e6cb;
     color: #155724;
+}
+
+.status-completed-warn {
+    background: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
 }
 
 .status-failed {

@@ -662,9 +662,17 @@ class ImportFileAdmin(admin.ModelAdmin):
                 if obj.processed_rows:
                     info_parts.append(f"Обработано: {obj.processed_rows}")
                 if obj.created_products:
-                    info_parts.append(f"Создано товаров: {obj.created_products}")
+                    if obj.file_type == 'analogs':
+                        info_parts.append(f"Создано аналогов: {obj.created_products}")
+                    elif obj.file_type == 'brands':
+                        info_parts.append(f"Создано производителей: {obj.created_products}")
+                    else:
+                        info_parts.append(f"Создано товаров: {obj.created_products}")
                 if obj.updated_products:
-                    info_parts.append(f"Обновлено товаров: {obj.updated_products}")
+                    if obj.file_type == 'analogs':
+                        info_parts.append(f"Без привязки к товару: {obj.updated_products}")
+                    else:
+                        info_parts.append(f"Обновлено товаров: {obj.updated_products}")
             except Exception:
                 pass
             
@@ -1248,6 +1256,7 @@ class ImportFileAdmin(admin.ModelAdmin):
             return JsonResponse({
                 'success': True,
                 'status': import_file.status,
+                'file_type': import_file.file_type or '',
                 'progress_percent': progress_percent,
                 'current_row': import_file.current_row,
                 'total_rows': import_file.total_rows,

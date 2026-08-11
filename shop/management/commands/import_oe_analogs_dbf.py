@@ -13,6 +13,7 @@ import os
 import re
 from django.core.management.base import BaseCommand
 from shop.models import Product, Brand, OeKod, ImportFile
+from shop.utils.oe_import_error_log import OeImportErrorCollector
 from django.utils import timezone
 from collections import defaultdict
 import logging
@@ -64,6 +65,7 @@ class Command(BaseCommand):
                     error_log='',
                     current_row=0,
                     created_products=0,
+                    updated_products=0,
                     error_count=0,
                 )
         
@@ -148,10 +150,7 @@ class Command(BaseCommand):
         
         # Статистика
         created_count = 0
-        errors = 0
-        skipped_no_product = 0
-        skipped_no_brand = 0
-        skipped_empty = 0
+        issue_log = OeImportErrorCollector()
         batch = []
         
         # Основной цикл импорта
@@ -192,13 +191,17 @@ class Command(BaseCommand):
                 
                 # Валидация: нужны id_oe, id_tovar и хотя бы один номер (NAME или NAME_STR)
                 if not id_oe or not id_tovar:
-                    skipped_empty += 1
-                    if skipped_empty <= 10:
+                    issue_log.add_empty_fields(
+                        record_num, id_oe, id_tovar, 'пустые ID_OE или ID_TOVAR',
+                    )
+                    if issue_log.skipped_empty <= 10:
                         self.stdout.write(f'⚠️ Пропуск {record_num}: пустые ID_oe или ID_TOVAR')
                     continue
                 if not name:
-                    skipped_empty += 1
-                    if skipped_empty <= 10:
+                    issue_log.add_empty_fields(
+                        record_num, id_oe, id_tovar, 'пустые NAME и NAME_STR (нет номера аналога)',
+                    )
+                    if issue_log.skipped_empty <= 10:
                         self.stdout.write(f'⚠️ Пропуск {record_num}: пустые NAME и NAME_STR (нет номера аналога)')
                     continue
                 
@@ -214,8 +217,8 @@ class Command(BaseCommand):
                 if not product_id:
                     product_id = products_by_code.get(id_tovar)
                 if not product_id:
-                    skipped_no_product += 1
-                    if skipped_no_product <= 10:
+                    issue_log.add_no_product(record_num, id_oe, id_tovar, id_brend)
+                    if issue_log.skipped_no_product <= 10:
                         self.stdout.write(f'⚠️ Товар не найден: ID_TOVAR={id_tovar} (аналог будет импортирован БЕЗ товара)')
                     product_id = None
                 
@@ -224,8 +227,8 @@ class Command(BaseCommand):
                 if id_brend:
                     brand_id = brands_by_code.get(id_brend)
                     if not brand_id:
-                        skipped_no_brand += 1
-                        if skipped_no_brand <= 10:
+                        issue_log.add_no_brand(record_num, id_oe, id_tovar, id_brend)
+                        if issue_log.skipped_no_brand <= 10:
                             self.stdout.write(f'⚠️ Производитель не найден: ID_BREND={id_brend}')
                 
                 # Создаем OE аналог
@@ -252,7 +255,7 @@ class Command(BaseCommand):
                     except Exception as e:
                         self.stdout.write(f'❌ Ошибка сохранения пачки: {e}')
                         logger.error(f"Ошибка bulk_create: {e}")
-                        errors += len(batch)
+                        issue_log.add_batch_error(len(batch), f'ошибка сохранения пачки: {e}')
                     
                     batch = []
                     
@@ -261,18 +264,23 @@ class Command(BaseCommand):
                             current_row=record_num,
                             processed_rows=record_num,
                             created_products=created_count,
-                            error_count=errors + skipped_no_product + skipped_no_brand
+                            updated_products=issue_log.skipped_no_product,
+                            error_count=issue_log.errors + issue_log.skipped_empty,
                         )
                 
                 # Прогресс каждые 10,000 записей
                 if record_num % 10000 == 0:
                     progress = (record_num / total_records) * 100
                     self.stdout.write(f'⏳ Прогресс: {progress:.1f}% ({record_num}/{total_records})')
-                    self.stdout.write(f'   Создано: {created_count}, Пропущено товаров: {skipped_no_product}')
+                    self.stdout.write(
+                        f'   Создано: {created_count}, '
+                        f'без товара: {issue_log.skipped_no_product}, '
+                        f'пропущено: {issue_log.skipped_empty}'
+                    )
             
             except Exception as e:
-                errors += 1
-                if errors <= 10:
+                issue_log.add_processing_error(record_num, reason=str(e))
+                if issue_log.errors <= 10:
                     self.stdout.write(f'❌ Ошибка в записи {record_num}: {e}')
                     logger.error(f"Ошибка в записи {record_num}: {e}")
                 continue
@@ -284,7 +292,7 @@ class Command(BaseCommand):
                 self.stdout.write(f'💾 Сохранена финальная пачка: {len(batch)} аналогов')
             except Exception as e:
                 self.stdout.write(f'❌ Ошибка сохранения финальной пачки: {e}')
-                errors += len(batch)
+                issue_log.add_batch_error(len(batch), f'ошибка сохранения финальной пачки: {e}')
         
         # Финальная статистика
         total_oe_analogs = OeKod.objects.count()
@@ -298,10 +306,10 @@ class Command(BaseCommand):
    • Обработано записей: {record_num}
    • ✅ Создано аналогов: {created_count}
    •   └─ С товарами: {analogs_with_product}
-   •   └─ БЕЗ товаров: {analogs_without_product} (можно связать позже)
-   • ⚠️ Пропущено (нет производителя): {skipped_no_brand}
-   • ⏭️ Пропущено (пустые поля): {skipped_empty}
-   • ❌ Ошибок: {errors}
+   •   └─ БЕЗ товаров (в этом файле): {issue_log.skipped_no_product}
+   • ⚠️ Без производителя: {issue_log.skipped_no_brand}
+   • ⏭️ Пропущено (пустые поля): {issue_log.skipped_empty}
+   • ❌ Ошибок: {issue_log.errors}
    • 📦 Всего аналогов в базе: {total_oe_analogs}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💡 Для связывания аналогов без товаров используйте команду:
@@ -310,7 +318,10 @@ class Command(BaseCommand):
 '''
         
         self.stdout.write(self.style.SUCCESS(final_stats))
-        logger.info(f"Импорт завершен: создано={created_count}, ошибок={errors}")
+        logger.info(
+            f"Импорт завершен: создано={created_count}, "
+            f"без_товара={issue_log.skipped_no_product}, ошибок={issue_log.errors}"
+        )
         
         # Показываем примеры
         self.stdout.write('📋 Примеры импортированных аналогов:')
@@ -322,15 +333,18 @@ class Command(BaseCommand):
         
         # Обновление ImportFile
         if import_file:
+            error_log_text = issue_log.build_log(created_count=created_count)
+            final_status = 'failed' if issue_log.errors else 'completed'
             ImportFile.objects.filter(id=import_file.id).update(
                 processed=True,
                 processed_at=timezone.now(),
-                status='completed',
+                status=final_status,
                 current_row=record_num,
                 processed_rows=record_num,
                 created_products=created_count,
-                updated_products=0,
-                error_count=errors + skipped_no_product
+                updated_products=issue_log.skipped_no_product,
+                error_count=issue_log.errors + issue_log.skipped_empty,
+                error_log=error_log_text,
             )
     
     @staticmethod
