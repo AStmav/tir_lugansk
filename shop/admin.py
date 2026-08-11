@@ -566,9 +566,9 @@ class ImportFileAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         """Динамически определяем readonly поля"""
         if obj:  # Редактирование существующего объекта
-            return ['file', 'original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
+            return ['file', 'original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_count', 'import_result_summary', 'error_log_preview', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
         else:  # Создание нового объекта
-            return ['original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_log', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
+            return ['original_filename', 'uploaded_at', 'file_info_display', 'processed', 'processed_at', 'total_rows', 'processed_rows', 'created_products', 'updated_products', 'error_count', 'import_result_summary', 'error_log_preview', 'cancelled', 'cancelled_at', 'validation_status', 'validation_message', 'detected_fields', 'suggested_type']
     
     fieldsets = [
         ('Файл', {
@@ -589,9 +589,9 @@ class ImportFileAdmin(admin.ModelAdmin):
         ('Прогресс', {
             'fields': ['total_rows', 'processed_rows', 'current_row', 'created_products', 'updated_products', 'error_count']
         }),
-        ('Ошибки', {
-            'fields': ['error_log'],
-            'classes': ['collapse']
+        ('Ошибки и предупреждения', {
+            'fields': ['import_result_summary', 'error_log_preview'],
+            'description': 'Детальный лог заполняется при импорте. Если пусто — см. сводку выше.',
         }),
     ]
     
@@ -1273,32 +1273,84 @@ class ImportFileAdmin(admin.ModelAdmin):
                 'message': str(e)
             })
     
+    @admin.display(description='Сводка')
+    def import_result_summary(self, obj):
+        """Краткий итог импорта, если текстовый лог пуст или дополняет его."""
+        if not obj or not obj.pk:
+            return '—'
+        if not obj.processed and obj.status not in ('failed', 'completed'):
+            return 'Импорт ещё не завершён.'
+
+        parts = []
+        if obj.file_type == 'analogs':
+            if obj.created_products:
+                parts.append(f'Создано аналогов: {obj.created_products}')
+            if obj.updated_products:
+                parts.append(
+                    f'Без привязки к товару: {obj.updated_products} '
+                    f'(аналоги в базе есть, товар по ID_TOVAR не найден)'
+                )
+            elif obj.error_count and not (obj.error_log or '').strip():
+                # Старые импорты до fix: «ошибки» = записи без товара
+                parts.append(
+                    f'Без привязки к товару (оценка): {obj.error_count} '
+                    f'(лог не сохранился — импорт до обновления системы)'
+                )
+            if obj.error_count:
+                parts.append(f'Пропуски и ошибки обработки: {obj.error_count}')
+        else:
+            if obj.created_products:
+                parts.append(f'Создано: {obj.created_products}')
+            if obj.updated_products:
+                parts.append(f'Обновлено: {obj.updated_products}')
+            if obj.error_count:
+                parts.append(f'Ошибок: {obj.error_count}')
+
+        if not parts:
+            if (obj.error_log or '').strip():
+                return mark_safe('См. детальный лог ниже.')
+            return mark_safe('<span style="color:#666;">Предупреждений и ошибок нет.</span>')
+
+        hint = ''
+        if obj.file_type == 'analogs' and (obj.updated_products or obj.error_count):
+            progress_url = f'/admin/shop/importfile/progress/{obj.pk}/'
+            hint = (
+                f'<br><small>Детали по строкам — после повторного импорта с новой версией '
+                f'или на странице <a href="{progress_url}">прогресса</a>. '
+                f'Привязка: <code>python manage.py link_oe_to_products</code></small>'
+            )
+        return mark_safe('<br>'.join(parts) + hint)
+
+    @admin.display(description='Лог ошибок')
+    def error_log_preview(self, obj):
+        """Текстовый лог импорта для админки."""
+        if not obj or not obj.pk:
+            return '—'
+        text = (obj.error_log or '').strip()
+        if not text:
+            if obj.processed and obj.file_type == 'analogs' and (obj.error_count or obj.updated_products):
+                return mark_safe(
+                    '<p style="color:#856404;margin:0;">'
+                    'Текстовый лог не сохранился (импорт выполнен старой версией). '
+                    'Числа — в блоке «Сводка» и на вкладке «Прогресс». '
+                    'Чтобы получить список ID_TOVAR — повторите импорт файла.'
+                    '</p>'
+                )
+            if obj.processed:
+                return mark_safe('<span style="color:#666;">Лог пуст — проблем при импорте не зафиксировано.</span>')
+            return mark_safe('<span style="color:#666;">Лог появится после завершения импорта.</span>')
+        if len(text) > 20000:
+            text = text[:20000] + '\n… (обрезано для отображения в админке)'
+        return format_html(
+            '<pre style="max-height:420px;overflow:auto;margin:0;font-size:12px;'
+            'white-space:pre-wrap;background:#f8f9fa;padding:12px;border:1px solid #ddd;">{}</pre>',
+            text,
+        )
+
     def error_log_display(self, obj):
-        """Безопасное отображение лога ошибок"""
-        try:
-            if not obj.error_log:
-                return "Ошибок нет"
-            
-            # Ограничиваем длину лога для отображения
-            error_text = str(obj.error_log)
-            if len(error_text) > 500:
-                error_text = error_text[:500] + "..."
-            
-            # Форматируем ошибки для лучшего отображения
-            error_lines = error_text.split('\n')
-            formatted_errors = []
-            
-            for line in error_lines[:10]:  # Показываем только первые 10 ошибок
-                if line.strip():
-                    formatted_errors.append(f"• {line.strip()}")
-            
-            if len(error_lines) > 10:
-                formatted_errors.append(f"... и еще {len(error_lines) - 10} ошибок")
-            
-            return format_html('<br>'.join(formatted_errors))
-        except Exception:
-            return "Ошибка отображения лога"
-    
+        """Для совместимости со старыми ссылками."""
+        return self.error_log_preview(obj)
+
     error_log_display.short_description = 'Лог ошибок'
     
     class Media:
