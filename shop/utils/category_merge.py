@@ -9,7 +9,153 @@ from django.db import transaction
 from django.db.models import Count
 
 from shop.models import Category, Product, SubCategory
-from shop.utils.category_import import extract_section_id_from_category, normalize_section_id
+from shop.utils.category_import import (
+    extract_section_id_from_category,
+    is_auto_import_category,
+    normalize_section_id,
+)
+
+
+@dataclass
+class OrphanAutoCategory:
+    section_id: str
+    category: Category
+    products: int
+    child_categories: int
+    subcategories: int
+
+
+@dataclass
+class MapPlan:
+    section_id: str
+    target: Category
+    orphan: Category
+    products: int
+    child_categories: int
+    subcategories: int
+
+
+def find_all_section_groups() -> Dict[str, List[Category]]:
+    groups: Dict[str, List[Category]] = defaultdict(list)
+    for category in Category.objects.all():
+        key = category_section_key(category)
+        if key:
+            groups[key].append(category)
+    return groups
+
+
+def find_orphan_auto_categories() -> List[OrphanAutoCategory]:
+    """
+    Авто-категории без пары: merge их не трогает.
+    Пример: «Категория 000022160» — единственная с таким SECTION_ID.
+    """
+    product_counts = dict(
+        Product.objects.values('category_id')
+        .annotate(cnt=Count('id'))
+        .values_list('category_id', 'cnt')
+    )
+    orphans: List[OrphanAutoCategory] = []
+    for section_id, categories in find_all_section_groups().items():
+        if len(categories) != 1:
+            continue
+        category = categories[0]
+        if not is_auto_import_category(category):
+            continue
+        orphans.append(
+            OrphanAutoCategory(
+                section_id=section_id,
+                category=category,
+                products=product_counts.get(category.pk, 0),
+                child_categories=Category.objects.filter(parent_id=category.pk).count(),
+                subcategories=SubCategory.objects.filter(parent_id=category.pk).count(),
+            )
+        )
+    return sorted(orphans, key=lambda item: item.section_id)
+
+
+def find_auto_category_for_section(section_id: str, *, exclude_pk: Optional[int] = None) -> Optional[Category]:
+    section_id = normalize_section_id(section_id)
+    if not section_id:
+        return None
+
+    by_field = Category.objects.filter(section_id=section_id)
+    if exclude_pk:
+        by_field = by_field.exclude(pk=exclude_pk)
+    for category in by_field:
+        if is_auto_import_category(category):
+            return category
+
+    for category in Category.objects.all():
+        if exclude_pk and category.pk == exclude_pk:
+            continue
+        if is_auto_import_category(category) and category_section_key(category) == section_id:
+            return category
+    return None
+
+
+def build_map_plan(section_id: str, target_slug: str) -> MapPlan:
+    section_id = normalize_section_id(section_id)
+    target = Category.objects.get(slug=target_slug)
+    orphan = find_auto_category_for_section(section_id, exclude_pk=target.pk)
+    if orphan is None:
+        raise Category.DoesNotExist(
+            f'Авто-категория для SECTION_ID {section_id} не найдена'
+        )
+    if target.section_id and normalize_section_id(target.section_id) != section_id:
+        raise ValueError(
+            f'Категория {target_slug} уже привязана к SECTION_ID {target.section_id}, '
+            f'ожидался {section_id}'
+        )
+    return MapPlan(
+        section_id=section_id,
+        target=target,
+        orphan=orphan,
+        products=Product.objects.filter(category_id=orphan.pk).count(),
+        child_categories=Category.objects.filter(parent_id=orphan.pk).exclude(pk=target.pk).count(),
+        subcategories=SubCategory.objects.filter(parent_id=orphan.pk).count(),
+    )
+
+
+def map_orphan_auto_category(section_id: str, target_slug: str, *, dry_run: bool = False) -> MapPlan:
+    """Привязать SECTION_ID к нормальной категории и слить авто-дубликат."""
+    plan = build_map_plan(section_id, target_slug)
+    if dry_run:
+        return plan
+
+    target = Category.objects.get(pk=plan.target.pk)
+    orphan = Category.objects.get(pk=plan.orphan.pk)
+    if not target.section_id:
+        Category.objects.filter(pk=target.pk).update(section_id=plan.section_id)
+        target.section_id = plan.section_id
+    merge_duplicate_into_canonical(target, orphan)
+    return plan
+
+
+def cleanup_orphan_auto_categories(
+    *,
+    dry_run: bool = False,
+    delete_empty: bool = False,
+    deactivate: bool = False,
+) -> dict:
+    orphans = find_orphan_auto_categories()
+    totals = {
+        'orphans': len(orphans),
+        'deleted': 0,
+        'deactivated': 0,
+    }
+    if dry_run or not orphans:
+        return totals
+
+    with transaction.atomic():
+        for item in orphans:
+            category = Category.objects.get(pk=item.category.pk)
+            if delete_empty and item.products == 0 and item.child_categories == 0 and item.subcategories == 0:
+                category.delete()
+                totals['deleted'] += 1
+            elif deactivate:
+                Category.objects.filter(pk=category.pk).update(is_active=False)
+                totals['deactivated'] += 1
+    return totals
 
 
 @dataclass

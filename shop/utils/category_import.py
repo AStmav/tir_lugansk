@@ -11,6 +11,7 @@ from shop.models import Category
 DESCRIPTION_SECTION_RE = re.compile(r'для\s+(\d+)', re.IGNORECASE)
 SLUG_CATEGORY_RE = re.compile(r'^category-(\d+)$', re.IGNORECASE)
 SLUG_SUFFIX_RE = re.compile(r'-(\d{6,})$')
+AUTO_DESCRIPTION_MARKER = 'Автоматически созданная категория для'
 
 
 def normalize_section_id(value) -> str:
@@ -35,6 +36,18 @@ def extract_section_id_from_category(category) -> str:
     if match:
         return normalize_section_id(match.group(1))
     return ''
+
+
+def is_auto_import_category(category) -> bool:
+    """Категория, созданная импортом: «Категория 000000001», slug category-000000001."""
+    name = (category.name or '').strip()
+    slug = (category.slug or '').strip()
+    description = (category.description or '').strip()
+    if name.startswith('Категория ') and SLUG_CATEGORY_RE.match(slug):
+        return True
+    if AUTO_DESCRIPTION_MARKER in description and SLUG_CATEGORY_RE.match(slug):
+        return True
+    return False
 
 
 def ensure_unique_category_slug(base_slug: str, exclude_pk: Optional[int] = None) -> str:
