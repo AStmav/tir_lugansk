@@ -124,9 +124,7 @@ def map_orphan_auto_category(section_id: str, target_slug: str, *, dry_run: bool
 
     target = Category.objects.get(pk=plan.target.pk)
     orphan = Category.objects.get(pk=plan.orphan.pk)
-    if not target.section_id:
-        Category.objects.filter(pk=target.pk).update(section_id=plan.section_id)
-        target.section_id = plan.section_id
+    # section_id переносится в merge_duplicate_into_canonical (сначала освобождаем у orphan)
     merge_duplicate_into_canonical(target, orphan)
     return plan
 
@@ -276,8 +274,11 @@ def merge_duplicate_into_canonical(canonical: Category, duplicate: Category) -> 
     )
 
     if not canonical.section_id and duplicate.section_id:
-        Category.objects.filter(pk=canonical.pk).update(section_id=duplicate.section_id)
-        canonical.section_id = duplicate.section_id
+        section_id = duplicate.section_id
+        # Уникальный section_id: сначала снимаем с duplicate, потом ставим canonical
+        Category.objects.filter(pk=duplicate.pk).update(section_id=None)
+        Category.objects.filter(pk=canonical.pk).update(section_id=section_id)
+        canonical.section_id = section_id
 
     duplicate.delete()
     return stats
