@@ -4,12 +4,16 @@
 """
 import os
 import logging
+from pathlib import Path
+from typing import List, Optional, Set, Tuple
+
 from django.conf import settings
 from shop.utils.watermark import save_with_optional_watermark
 
 logger = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+IncomingItem = Tuple[str, str, str]
 
 
 def _extract_tmp_id_and_ext(filename):
@@ -34,6 +38,103 @@ def _is_valid_image(file_path):
         return True
     except Exception:
         return False
+
+
+def get_incoming_images_dir() -> Path:
+    incoming_dir = getattr(settings, 'INCOMING_IMAGES_DIR', None) or (settings.BASE_DIR / 'incoming_images')
+    return Path(incoming_dir)
+
+
+def find_product_by_key(product_key: str):
+    """Поиск товара по code, tmp_id или catalog_number."""
+    from django.db.models import Q
+    from shop.models import Product
+
+    key = (product_key or '').strip()
+    if not key:
+        return None
+    return Product.objects.filter(
+        Q(code=key) | Q(tmp_id=key) | Q(catalog_number=key)
+    ).first()
+
+
+def product_match_keys(product) -> Set[str]:
+    keys: Set[str] = set()
+    for value in (product.tmp_id, product.code, product.catalog_number):
+        if value:
+            keys.add(str(value).strip())
+    return keys
+
+
+def collect_incoming_image_items(
+    incoming_dir: Optional[Path] = None,
+    *,
+    product_key: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[IncomingItem]:
+    """Сканирует incoming_images и возвращает (section_id, filename, absolute_path)."""
+    incoming_path = Path(incoming_dir or get_incoming_images_dir())
+    allowed_keys: Optional[Set[str]] = None
+    if product_key:
+        product = find_product_by_key(product_key)
+        if product is None:
+            raise LookupError(f'Товар не найден: {product_key}')
+        allowed_keys = product_match_keys(product)
+
+    items: List[IncomingItem] = []
+    seen_realpaths: Set[str] = set()
+    incoming_str = str(incoming_path)
+    if not incoming_path.is_dir():
+        return items
+
+    for root, _dirs, files in os.walk(incoming_str):
+        rel = os.path.relpath(root, incoming_str)
+        section_id = '_imported' if rel == '.' else rel.replace('\\', '/')
+        for filename in files:
+            _, ext = _extract_tmp_id_and_ext(filename)
+            if ext not in IMAGE_EXTENSIONS:
+                continue
+            tmp_id, _ = _extract_tmp_id_and_ext(filename)
+            if allowed_keys is not None and tmp_id not in allowed_keys:
+                continue
+            path = os.path.join(root, filename)
+            if not os.path.isfile(path):
+                continue
+            try:
+                key = os.path.realpath(path)
+            except OSError:
+                key = os.path.abspath(path)
+            if key in seen_realpaths:
+                continue
+            seen_realpaths.add(key)
+            items.append((section_id, filename, path))
+            if limit and len(items) >= limit:
+                return items
+    return items
+
+
+def count_image_files(base_dir: Path) -> int:
+    if not base_dir.is_dir():
+        return 0
+    total = 0
+    for _root, _dirs, files in os.walk(base_dir):
+        for filename in files:
+            _, ext = os.path.splitext(filename)
+            if ext.lower() in IMAGE_EXTENSIONS:
+                total += 1
+    return total
+
+
+def find_files_by_basename(base_dir: Path, basename: str) -> List[str]:
+    """Ищет файлы, имя которых начинается с basename (например 000206631)."""
+    if not base_dir.is_dir():
+        return []
+    matches: List[str] = []
+    for root, _dirs, files in os.walk(base_dir):
+        for filename in files:
+            if filename == basename or filename.startswith(f'{basename}_') or filename.startswith(f'{basename}.'):
+                matches.append(str(Path(root) / filename))
+    return sorted(matches)
 
 
 def process_bulk_image_items(items, remove_source_if_path=False, overwrite_existing=False):
