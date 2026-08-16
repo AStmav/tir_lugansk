@@ -81,6 +81,13 @@
                     {% else %}
                     <div class="page-content__body cms-html-content"><p>Материал без текста.</p></div>
                     {% endif %}
+                    {% if post.attachment_file %}
+                    <p class="useful-post-attachment" style="margin-top: 24px;">
+                        <a href="{{ post.attachment_file.url }}" target="_blank" rel="noopener noreferrer" style="color:#3CC14E; font-weight:600; text-decoration:none;">
+                            {{ post.get_attachment_link_text }}
+                        </a>
+                    </p>
+                    {% endif %}
                 </div>
             </div>
         </section>

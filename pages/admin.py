@@ -279,6 +279,16 @@ class UsefulPostAdmin(admin.ModelAdmin):
             {"fields": ("category", "title", "summary", "content", "published_at", "order", "is_active")},
         ),
         (
+            "Файл",
+            {
+                "fields": ("attachment_file", "attachment_label"),
+                "description": (
+                    "Прикрепите PDF или другой документ. На сайте появится ссылка "
+                    "«Скачать файл» с форматом и размером. Текст материала — в редакторе выше."
+                ),
+            },
+        ),
+        (
             "Системная информация",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),

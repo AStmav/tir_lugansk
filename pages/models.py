@@ -1,9 +1,12 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
+from django.core.validators import FileExtensionValidator, validate_email
 from django.utils.text import slugify
 from django.utils import timezone
 from django.urls import reverse
+
+
+USEFUL_POST_ATTACHMENT_EXTENSIONS = ('pdf', 'doc', 'docx', 'xls', 'xlsx')
 
 
 class Page(models.Model):
@@ -185,6 +188,21 @@ class UsefulPost(models.Model):
     order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
     is_active = models.BooleanField(default=True, verbose_name="Активен")
     published_at = models.DateTimeField(default=timezone.now, verbose_name="Дата публикации")
+    attachment_file = models.FileField(
+        upload_to='useful_attachments/',
+        blank=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=list(USEFUL_POST_ATTACHMENT_EXTENSIONS)),
+        ],
+        verbose_name='Файл',
+        help_text='PDF или другой документ для скачивания с страницы материала.',
+    )
+    attachment_label = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name='Подпись ссылки',
+        help_text='Необязательно. Если пусто — на сайте будет «Скачать файл».',
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
@@ -198,6 +216,43 @@ class UsefulPost(models.Model):
 
     def get_absolute_url(self):
         return reverse("pages:useful_post_detail", kwargs={"post_id": self.id})
+
+    @property
+    def has_attachment(self):
+        return bool(self.attachment_file)
+
+    def get_attachment_link_text(self):
+        label = (self.attachment_label or '').strip() or 'Скачать файл'
+        meta = self._attachment_meta_suffix()
+        if meta:
+            return f'{label} ({meta})'
+        return label
+
+    def _attachment_meta_suffix(self):
+        if not self.attachment_file:
+            return ''
+        ext = ''
+        name = self.attachment_file.name or ''
+        if '.' in name:
+            ext = name.rsplit('.', 1)[-1].upper()
+        size_label = self._attachment_size_label()
+        if ext and size_label:
+            return f'{ext}, {size_label}'
+        return ext or size_label
+
+    def _attachment_size_label(self):
+        if not self.attachment_file:
+            return ''
+        try:
+            size = self.attachment_file.size
+        except (OSError, ValueError, TypeError):
+            return ''
+        if size >= 1024 * 1024:
+            value = size / (1024 * 1024)
+            return f'{value:.1f} МБ'.replace('.', ',')
+        if size >= 1024:
+            return f'{size // 1024} КБ'
+        return f'{size} Б'
 
 
 class Contact(models.Model):
