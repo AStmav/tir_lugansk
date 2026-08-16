@@ -689,7 +689,14 @@ class WarehousePriceImport(models.Model):
         default=STATUS_PENDING,
         verbose_name='Статус',
     )
+    import_settings = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Настройки импорта',
+        help_text='Маппинг колонок для этого импорта (header_row, data_start_row, columns).',
+    )
     total_rows = models.PositiveIntegerField(default=0, verbose_name='Строк прайса')
+    processed_rows = models.PositiveIntegerField(default=0, verbose_name='Обработано строк')
     updated_rows = models.PositiveIntegerField(default=0, verbose_name='Обновлено предложений')
     skipped_rows = models.PositiveIntegerField(default=0, verbose_name='Пропущено')
     error_count = models.PositiveIntegerField(default=0, verbose_name='Ошибок')
@@ -703,6 +710,7 @@ class WarehousePriceImport(models.Model):
         verbose_name='Загрузил',
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создан')
+    started_at = models.DateTimeField(blank=True, null=True, verbose_name='Начат')
     processed_at = models.DateTimeField(blank=True, null=True, verbose_name='Обработан')
 
     class Meta:

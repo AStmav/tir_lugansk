@@ -8,6 +8,19 @@ from shop.warehouse_price.matcher import ProductMatcher
 from shop.warehouse_price.parser import iter_price_rows
 from shop.warehouse_price.types import DEFAULT_IMPORT_SETTINGS, ImportStats, RowSkip
 
+PROGRESS_SAVE_EVERY = 5000
+
+
+def _save_import_progress(price_import, stats: ImportStats) -> None:
+    if not price_import or not price_import.pk:
+        return
+    WarehousePriceImport.objects.filter(pk=price_import.pk).update(
+        processed_rows=stats.total,
+        updated_rows=stats.updated,
+        skipped_rows=stats.skipped,
+        error_count=len(stats.errors),
+    )
+
 
 def sync_product_from_offers(product_id: int) -> None:
     """
@@ -115,6 +128,9 @@ def run_warehouse_price_import(
         touched_product_ids.add(product.pk)
         stats.updated += 1
 
+        if price_import and stats.total % PROGRESS_SAVE_EVERY == 0:
+            _save_import_progress(price_import, stats)
+
     for product_id in touched_product_ids:
         sync_product_from_offers(product_id)
 
@@ -123,6 +139,7 @@ def run_warehouse_price_import(
 
     if price_import:
         price_import.total_rows = stats.total
+        price_import.processed_rows = stats.total
         price_import.updated_rows = stats.updated
         price_import.skipped_rows = stats.skipped
         price_import.error_count = len(stats.errors)

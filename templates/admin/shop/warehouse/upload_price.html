@@ -10,6 +10,13 @@
   подставятся автоматически. Для нестандартного файла оставьте «Свой» и заполните поля вручную.
 </p>
 
+{% if import_in_progress %}
+<p class="errornote" style="max-width: 52rem;">
+  Сейчас для этого склада уже выполняется импорт прайса. Дождитесь завершения —
+  новая загрузка будет отклонена, пока предыдущая не завершится.
+</p>
+{% endif %}
+
 <form method="post" enctype="multipart/form-data" id="warehouse-price-upload-form">
   {% csrf_token %}
   <fieldset class="module aligned">

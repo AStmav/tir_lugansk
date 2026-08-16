@@ -1,0 +1,17 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+{% if original.status == 'processing' %}
+<meta http-equiv="refresh" content="15">
+{% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+{% if original.status == 'processing' %}
+<p class="help">
+  Импорт выполняется в фоне. Эта страница автоматически обновляется каждые 15 секунд.
+</p>
+{% endif %}
+{% endblock %}

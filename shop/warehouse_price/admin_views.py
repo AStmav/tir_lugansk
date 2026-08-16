@@ -2,6 +2,7 @@ import os
 import tempfile
 import traceback
 
+from django.conf import settings
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +15,10 @@ from shop.models import Warehouse, WarehousePriceImport
 from shop.warehouse_price.error_report import format_reasons_summary, preview_error_log
 from shop.warehouse_price.parser import preview_headers
 from shop.warehouse_price.presets import match_preset_key, presets_for_js, settings_to_form_initial
-from shop.warehouse_price.service import run_warehouse_price_import
+from shop.utils.price_import_runner import (
+    launch_price_import_subprocess,
+    warehouse_has_running_price_import,
+)
 
 
 class WarehousePriceImportInline(admin.TabularInline):
@@ -25,6 +29,7 @@ class WarehousePriceImportInline(admin.TabularInline):
     readonly_fields = [
         'original_filename',
         'status',
+        'processed_rows',
         'total_rows',
         'updated_rows',
         'skipped_rows',
@@ -94,70 +99,69 @@ class WarehousePriceImportAdminMixin:
             'title': f'Загрузка прайса: {warehouse.name_internal}',
             'preview_headers': preview,
             'presets_json': presets_for_js(),
+            'import_in_progress': warehouse_has_running_price_import(warehouse.pk),
         }
         return render(request, 'admin/shop/warehouse/upload_price.html', context)
 
     def _process_upload(self, request, warehouse, form):
+        if warehouse_has_running_price_import(warehouse.pk):
+            messages.error(
+                request,
+                'У этого склада уже выполняется импорт прайса. '
+                'Дождитесь завершения или откройте запись в истории загрузок.',
+            )
+            return redirect(reverse('admin:shop_warehouse_change', args=[warehouse.pk]))
+
         upload = form.cleaned_data['file']
-        settings = form.build_import_settings()
+        settings_payload = form.build_import_settings()
 
         price_import = WarehousePriceImport.objects.create(
             warehouse=warehouse,
             file=upload,
             original_filename=getattr(upload, 'name', ''),
-            status=WarehousePriceImport.STATUS_PROCESSING,
+            status=WarehousePriceImport.STATUS_PENDING,
+            import_settings=settings_payload,
             uploaded_by=request.user if request.user.is_authenticated else None,
         )
 
         if form.cleaned_data.get('save_mapping'):
-            warehouse.import_settings = settings
+            warehouse.import_settings = settings_payload
             warehouse.save(update_fields=['import_settings', 'updated_at'])
 
-        file_path = price_import.file.path
         report_url = reverse('admin:shop_warehousepriceimport_change', args=[price_import.pk])
         try:
-            from django.db import transaction
-
-            with transaction.atomic():
-                stats = run_warehouse_price_import(
-                    warehouse=warehouse,
-                    file_path=file_path,
-                    import_settings=settings,
-                    price_import=price_import,
-                )
-            messages.success(
-                request,
-                f'Прайс обработан: обновлено {stats.updated}, пропущено {stats.skipped} '
-                f'из {stats.total} строк.',
-            )
-            if stats.errors:
-                messages.warning(
-                    request,
-                    format_html(
-                        'Есть пропущенные строки ({}). '
-                        '<a href="{}">Открыть отчёт об ошибках</a>',
-                        len(stats.errors),
-                        report_url,
-                    ),
-                )
-                return redirect(report_url)
+            pid, log_path = launch_price_import_subprocess(price_import.pk)
         except Exception as exc:
-            price_import.status = WarehousePriceImport.STATUS_FAILED
-            price_import.summary = str(exc)
-            price_import.error_log = traceback.format_exc()
-            price_import.processed_at = timezone.now()
-            price_import.save()
+            price_import.refresh_from_db()
+            if price_import.status != WarehousePriceImport.STATUS_FAILED:
+                price_import.status = WarehousePriceImport.STATUS_FAILED
+                price_import.summary = str(exc)
+                price_import.error_log = traceback.format_exc()
+                price_import.processed_at = timezone.now()
+                price_import.save()
             messages.error(
                 request,
                 format_html(
-                    'Ошибка импорта: {}. <a href="{}">Подробности</a>',
+                    'Не удалось запустить импорт: {}. <a href="{}">Подробности</a>',
                     exc,
                     report_url,
                 ),
             )
             return redirect(report_url)
 
-        return redirect(reverse('admin:shop_warehouse_change', args=[warehouse.pk]))
+        rel_log = os.path.relpath(log_path, settings.BASE_DIR)
+        messages.success(
+            request,
+            format_html(
+                'Файл принят. Импорт запущен в фоне (PID {}). '
+                'Страница обновляется автоматически, пока идёт обработка. '
+                '<a href="{}">Статус импорта</a>. Лог: {}',
+                pid,
+                report_url,
+                rel_log,
+            ),
+        )
+        return redirect(report_url)
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
@@ -195,6 +199,8 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         'warehouse',
         'original_filename',
         'status',
+        'processed_rows',
+        'total_rows',
         'updated_rows',
         'skipped_rows',
         'error_count',
@@ -208,7 +214,9 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         'file',
         'original_filename',
         'status',
+        'import_progress',
         'total_rows',
+        'processed_rows',
         'updated_rows',
         'skipped_rows',
         'error_count',
@@ -219,6 +227,7 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         'error_log',
         'uploaded_by',
         'created_at',
+        'started_at',
         'processed_at',
     ]
     fieldsets = (
@@ -228,14 +237,17 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
                 'original_filename',
                 'file',
                 'status',
+                'import_progress',
                 'uploaded_by',
                 'created_at',
+                'started_at',
                 'processed_at',
             ),
         }),
         ('Результат', {
             'fields': (
                 'total_rows',
+                'processed_rows',
                 'updated_rows',
                 'skipped_rows',
                 'error_count',
@@ -258,6 +270,27 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    change_form_template = 'admin/shop/warehousepriceimport/change_form.html'
+
+    @admin.display(description='Прогресс')
+    def import_progress(self, obj: WarehousePriceImport):
+        if obj.status == WarehousePriceImport.STATUS_PROCESSING:
+            if obj.total_rows:
+                pct = int(obj.processed_rows * 100 / obj.total_rows)
+                text = f'{obj.processed_rows:,} / {obj.total_rows:,} ({pct}%)'.replace(',', ' ')
+            else:
+                text = f'Обработано строк: {obj.processed_rows:,}'.replace(',', ' ')
+            return format_html(
+                '<strong style="color:#0066cc;">{}</strong> '
+                '<span class="help">— страница обновляется каждые 15 сек.</span>',
+                text,
+            )
+        if obj.status == WarehousePriceImport.STATUS_COMPLETED and obj.total_rows:
+            return f'{obj.processed_rows} / {obj.total_rows}'
+        if obj.processed_rows:
+            return str(obj.processed_rows)
+        return '—'
 
     def get_urls(self):
         urls = super().get_urls()
