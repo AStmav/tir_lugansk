@@ -168,7 +168,7 @@
                                 <div class="swiper-wrapper">
                                     {% for product in new_products %}
                                     <div class="swiper-slide">
-                                        <div class="product-card">
+                                        <a href="{{ product.get_absolute_url }}" class="product-card">
                                             <div class="product-badge">Новый</div>
                                             {% include "includes/product_card_lightbox_image.html" %}
                                             <div class="product-content">
@@ -197,7 +197,7 @@
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </a>
                                     </div>
                                     {% empty %}
                                     <div class="swiper-slide" style="text-align: center; padding: 40px;">

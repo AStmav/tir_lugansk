@@ -316,7 +316,7 @@ JAZZMIN_SETTINGS = {
     },
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",
-    "related_modal_active": True,
+    "related_modal_active": False,
     "custom_css": "admin/css/responsive_sidebar.css",
     "custom_js": "admin/js/responsive_sidebar.js",
     "show_ui_builder": False,

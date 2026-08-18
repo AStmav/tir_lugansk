@@ -26,6 +26,7 @@ from .models import (
     ProductOffer,
 )
 from .audit_log import log_audit
+from shop.admin_utils import product_nav_links
 from shop.warehouse_price.admin_views import (
     WarehousePriceImportAdminMixin,
     WarehousePriceImportInline,
@@ -44,6 +45,7 @@ class ProductAnalogInline(admin.TabularInline):
     model = ProductAnalog
     fk_name = 'product'
     extra = 1
+    autocomplete_fields = ['analog_product']
     verbose_name = 'Аналог'
     verbose_name_plural = 'Аналоги'
 
@@ -51,6 +53,7 @@ class ProductAnalogInline(admin.TabularInline):
 class OeKodInline(admin.TabularInline):
     model = OeKod
     extra = 1
+    autocomplete_fields = ['brand']
     verbose_name = 'Аналог OE'
     verbose_name_plural = 'Аналоги OE'
 
@@ -156,7 +159,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
 @admin.register(ProductOffer)
 class ProductOfferAdmin(admin.ModelAdmin):
     list_display = [
-        'product',
+        'product_nav',
         'warehouse',
         'price',
         'stock_quantity',
@@ -168,12 +171,18 @@ class ProductOfferAdmin(admin.ModelAdmin):
     search_fields = [
         'product__name',
         'product__catalog_number',
+        'product__code',
+        'product__brand__name',
         'warehouse__name_internal',
         'warehouse__name_public',
     ]
     autocomplete_fields = ['product', 'warehouse']
     list_editable = ['price', 'stock_quantity', 'is_active']
-    list_select_related = ['product', 'warehouse']
+    list_select_related = ['product', 'product__brand', 'warehouse']
+
+    @admin.display(description='Товар')
+    def product_nav(self, obj: ProductOffer):
+        return product_nav_links(obj.product)
 
 
 @admin.register(Category)
@@ -295,10 +304,22 @@ class BrandAliasAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'brand', 'catalog_number', 'artikyl_number', 'cross_number', 'price', 'stock_quantity', 'in_stock']
+    list_display = [
+        'name',
+        'category',
+        'brand',
+        'catalog_number',
+        'artikyl_number',
+        'cross_number',
+        'price',
+        'stock_quantity',
+        'in_stock',
+        'nav_links',
+    ]
     list_filter = ['category', 'brand', 'in_stock', 'is_featured', 'is_new', 'created_at']
     search_fields = ['name', 'code', 'tmp_id', 'catalog_number', 'artikyl_number', 'cross_number']
     prepopulated_fields = {'slug': ('name',)}
+    autocomplete_fields = ['category', 'brand']
     inlines = [ProductImageInline, ProductOfferInline, ProductAnalogInline, OeKodInline]
     list_editable = ['price', 'stock_quantity', 'in_stock']
     actions = ['update_clean_numbers', 'link_product_images', 'delete_product_images', 'set_in_stock', 'set_out_of_stock']
@@ -338,6 +359,10 @@ class ProductAdmin(admin.ModelAdmin):
     ]
 
     readonly_fields = ['created_at', 'updated_at']
+
+    @admin.display(description='Карточка')
+    def nav_links(self, obj: Product):
+        return product_nav_links(obj)
     
     def link_product_images(self, request, queryset):
         """
