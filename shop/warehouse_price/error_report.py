@@ -1,8 +1,15 @@
 """Разбор лога пропущенных строк импорта прайса."""
 from __future__ import annotations
 
+import os
 from collections import Counter
-from typing import Dict, List, Tuple
+from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
+
+from django.conf import settings
+
+# Сколько строк хранить в WarehousePriceImport.error_log (превью в админке).
+ERROR_LOG_PREVIEW_MAX = 5000
 
 
 def parse_error_log(error_log: str) -> List[Tuple[int, str, str, str]]:
@@ -50,5 +57,49 @@ def preview_error_log(error_log: str, *, max_lines: int = 80) -> str:
     if len(lines) <= max_lines:
         return error_log.strip()
     head = lines[:max_lines]
-    tail_note = f'\n… показаны первые {max_lines - 1} строк из {len(lines) - 1}. Скачайте полный отчёт (CSV).'
+    data_lines = max(len(lines) - 1, 0)
+    tail_note = (
+        f'\n… показаны первые {max_lines - 1} строк из {data_lines}. '
+        f'Полный список — в файле «Скачать CSV с ошибками».'
+    )
     return '\n'.join(head) + tail_note
+
+
+def _error_row_line(err) -> str:
+    return f'{err.row_number};{err.article};{err.brand};{err.reason}'
+
+
+def format_error_log_csv(errors: Iterable, *, max_rows: int | None = None) -> str:
+    """CSV row;article;brand;reason. max_rows=None — все строки."""
+    errors_list = list(errors)
+    if not errors_list:
+        return ''
+    lines = ['row;article;brand;reason']
+    rows = errors_list if max_rows is None else errors_list[:max_rows]
+    for err in rows:
+        lines.append(_error_row_line(err))
+    if max_rows is not None and len(errors_list) > max_rows:
+        lines.append(f'... и ещё {len(errors_list) - max_rows} строк')
+    return '\n'.join(lines)
+
+
+def price_import_error_log_path(price_import_id: int) -> str:
+    logs_dir = os.path.join(settings.BASE_DIR, 'logs')
+    return os.path.join(logs_dir, f'price_import_{price_import_id}_errors.csv')
+
+
+def write_price_import_error_log_file(price_import_id: int, errors: Iterable) -> str:
+    """Полный CSV на диск (для скачивания из админки)."""
+    path = price_import_error_log_path(price_import_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    content = format_error_log_csv(errors)
+    Path(path).write_text(content, encoding='utf-8')
+    return path
+
+
+def read_price_import_error_log(price_import_id: int, fallback: str = '') -> str:
+    """Полный лог с диска или усечённый из БД (старые импорты)."""
+    path = price_import_error_log_path(price_import_id)
+    if os.path.isfile(path):
+        return Path(path).read_text(encoding='utf-8')
+    return fallback

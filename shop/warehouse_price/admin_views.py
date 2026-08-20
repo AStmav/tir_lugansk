@@ -12,7 +12,11 @@ from django.utils import timezone
 
 from shop.forms.warehouse_price_form import WarehousePriceUploadForm
 from shop.models import Warehouse, WarehousePriceImport
-from shop.warehouse_price.error_report import format_reasons_summary, preview_error_log
+from shop.warehouse_price.error_report import (
+    format_reasons_summary,
+    preview_error_log,
+    read_price_import_error_log,
+)
 from shop.warehouse_price.parser import preview_headers
 from shop.warehouse_price.presets import match_preset_key, presets_for_js, settings_to_form_initial
 from shop.utils.price_import_runner import (
@@ -314,7 +318,8 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
 
     @admin.display(description='Причины пропуска (сводка)')
     def skip_reasons_summary(self, obj: WarehousePriceImport):
-        text = format_reasons_summary(obj.error_log or '')
+        log = read_price_import_error_log(obj.pk, obj.error_log or '')
+        text = format_reasons_summary(log)
         return format_html('<pre style="margin:0; white-space:pre-wrap;">{}</pre>', text)
 
     @admin.display(description='Действия')
@@ -345,7 +350,10 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
 
     def download_errors_view(self, request, object_id):
         price_import = get_object_or_404(WarehousePriceImport, pk=object_id)
-        content = price_import.error_log or 'row;article;brand;reason\n'
+        content = read_price_import_error_log(
+            price_import.pk,
+            price_import.error_log or 'row;article;brand;reason\n',
+        )
         filename = f'price_import_{price_import.pk}_errors.csv'
         if price_import.original_filename:
             base = os.path.splitext(price_import.original_filename)[0]

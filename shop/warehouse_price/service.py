@@ -6,6 +6,11 @@ from shop.models import Product, ProductOffer, Warehouse, WarehousePriceImport
 from shop.warehouse_price.markup import try_apply_markup
 from shop.warehouse_price.matcher import ProductMatcher
 from shop.warehouse_price.parser import iter_price_rows
+from shop.warehouse_price.error_report import (
+    ERROR_LOG_PREVIEW_MAX,
+    format_error_log_csv,
+    write_price_import_error_log_file,
+)
 from shop.warehouse_price.types import DEFAULT_IMPORT_SETTINGS, ImportStats, RowSkip
 
 PROGRESS_SAVE_EVERY = 5000
@@ -146,6 +151,7 @@ def run_warehouse_price_import(
         price_import.status = WarehousePriceImport.STATUS_COMPLETED
         price_import.summary = _format_summary(stats)
         price_import.error_log = _format_error_log(stats.errors)
+        write_price_import_error_log_file(price_import.pk, stats.errors)
         price_import.processed_at = timezone.now()
         price_import.save()
 
@@ -160,16 +166,7 @@ def _format_summary(stats: ImportStats) -> str:
 
 
 def _format_error_log(errors) -> str:
-    if not errors:
-        return ''
-    lines = ['row;article;brand;reason']
-    for err in errors[:5000]:
-        lines.append(
-            f'{err.row_number};{err.article};{err.brand};{err.reason}'
-        )
-    if len(errors) > 5000:
-        lines.append(f'... и ещё {len(errors) - 5000} строк')
-    return '\n'.join(lines)
+    return format_error_log_csv(errors, max_rows=ERROR_LOG_PREVIEW_MAX)
 
 
 @transaction.atomic
