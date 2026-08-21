@@ -64,6 +64,7 @@ class ProductOfferInline(admin.TabularInline):
     autocomplete_fields = ['warehouse']
     fields = [
         'warehouse',
+        'list_price',
         'price',
         'old_price',
         'stock_quantity',
@@ -71,7 +72,7 @@ class ProductOfferInline(admin.TabularInline):
         'is_active',
         'updated_at',
     ]
-    readonly_fields = ['updated_at']
+    readonly_fields = ['list_price', 'updated_at']
     verbose_name = 'Предложение склада'
     verbose_name_plural = 'Предложения по складам'
 
@@ -161,12 +162,14 @@ class ProductOfferAdmin(admin.ModelAdmin):
     list_display = [
         'product_nav',
         'warehouse',
+        'list_price',
         'price',
         'stock_quantity',
         'delivery_days',
         'is_active',
         'updated_at',
     ]
+    readonly_fields = ['list_price', 'updated_at']
     list_filter = ['is_active', 'warehouse']
     search_fields = [
         'product__name',
@@ -330,6 +333,7 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ['price', 'old_price', 'stock_quantity', 'in_stock'],
             'description': (
                 'Базовые поля каталога (сортировка, «цена от»). '
+                'Цена прайса поставщика — в таблице «Предложения по складам» (колонка «Цена прайса»). '
                 'Предложения по складам — во вкладке ниже; если их нет, на карточке '
                 'показывается фолбэк с основного склада.'
             ),

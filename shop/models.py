@@ -617,6 +617,14 @@ class ProductOffer(models.Model):
         related_name='offers',
         verbose_name='Склад',
     )
+    list_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='Цена прайса',
+        help_text='Цена из файла поставщика до наценки склада (заполняется при импорте прайса).',
+    )
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Цена')
     old_price = models.DecimalField(
         max_digits=10,

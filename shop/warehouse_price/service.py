@@ -125,6 +125,7 @@ def run_warehouse_price_import(
             product=product,
             warehouse=warehouse,
             defaults={
+                'list_price': row.price,
                 'price': sell_price,
                 'stock_quantity': row.quantity,
                 'is_active': True,
