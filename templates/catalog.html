@@ -434,6 +434,20 @@
                 outline: 2px solid #1a7a28;
                 outline-offset: 2px;
             }
+            .catalog__header-logo {
+                display: block;
+                max-height: 80px;
+                max-width: 220px;
+                margin: 0 auto 16px;
+                object-fit: contain;
+            }
+            .catalog__header p {
+                max-width: 720px;
+                margin: 0 auto;
+                color: #666;
+                font-size: 16px;
+                line-height: 1.6;
+            }
             @media (max-width: 768px) {
                 .catalog-scroll-actions {
                     right: 14px;
@@ -505,6 +519,19 @@
                     <div class="catalog__content">
                         {% if current_category or current_brand %}
                         {% render_breadcrumbs category=current_category brand=current_brand %}
+                        {% endif %}
+                        {% if current_brand %}
+                        <div class="catalog__header">
+                            {% if current_brand.logo %}
+                            <img src="{{ current_brand.logo.url }}" alt="{{ current_brand.name }}" class="catalog__header-logo">
+                            {% endif %}
+                            <h1>{{ current_brand.name }}</h1>
+                            {% if current_brand.description %}
+                            <p>{{ current_brand.description|linebreaksbr }}</p>
+                            {% else %}
+                            <p>Запчасти и комплектующие от производителя {{ current_brand.name }}.</p>
+                            {% endif %}
+                        </div>
                         {% endif %}
                         <!-- Информация о текущем поиске (само поле поиска — только в хедере) -->
                         {% if search_query %}

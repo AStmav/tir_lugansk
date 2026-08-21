@@ -17,6 +17,18 @@ class BrandUrlHelperTests(TestCase):
     def test_resolve_slug(self):
         self.assertEqual(resolve_active_brand_slug("bosch-test"), "bosch-test")
 
+    def test_resolve_legacy_short_slug(self):
+        legacy = Brand.objects.create(
+            name="Bosch Legacy",
+            code="BOSCH2",
+            slug="00000000552-bosch",
+        )
+        self.assertEqual(resolve_active_brand_slug("bosch"), legacy.slug)
+
+    def test_resolve_by_name(self):
+        Brand.objects.create(name="Mann-Filter", code="MANN", slug="mann-filter-x")
+        self.assertEqual(resolve_active_brand_slug("Mann-Filter"), "mann-filter-x")
+
     def test_canonical_url(self):
         self.assertEqual(
             brand_canonical_url("bosch-test"),
@@ -48,6 +60,15 @@ class BrandPageViewTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.product.name)
+        self.assertContains(response, 'class="catalog__header"')
+        self.assertContains(response, f'<h1>{self.brand.name}</h1>')
+
+    def test_brand_page_shows_description(self):
+        self.brand.description = "Немецкий производитель запчастей."
+        self.brand.save(update_fields=["description"])
+        url = reverse("shop:brand", kwargs={"brand_slug": self.brand.slug})
+        response = self.client.get(url)
+        self.assertContains(response, "Немецкий производитель запчастей.")
 
     def test_get_absolute_url_uses_brand_path(self):
         self.assertEqual(
@@ -71,6 +92,14 @@ class CatalogBrandRedirectTests(TestCase):
         self.request_factory = RequestFactory()
         self.brand = Brand.objects.create(name="Mann", code="MANN", slug="mann-test")
         self.category = Category.objects.create(name="Масла", slug="masla-brand-test")
+
+    def test_short_slug_redirects_to_canonical(self):
+        Brand.objects.create(name="Bosch", code="BOSCH2", slug="00000000552-bosch")
+        response = self.client.get(
+            reverse("shop:brand", kwargs={"brand_slug": "bosch"}),
+        )
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("00000000552-bosch", response["Location"])
 
     def test_single_brand_query_redirects_301(self):
         catalog_url = reverse("shop:catalog")
