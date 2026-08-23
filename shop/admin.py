@@ -93,6 +93,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
         'name_internal',
         'name_public',
         'delivery_days',
+        'delivery_days_to',
         'color_preview',
         'markup_mode',
         'markup_percent',
@@ -104,7 +105,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
     ]
     list_filter = ['is_active', 'is_default', 'markup_mode']
     search_fields = ['name_internal', 'name_public']
-    list_editable = ['delivery_days', 'is_active', 'sort_order']
+    list_editable = ['delivery_days', 'delivery_days_to', 'is_active', 'sort_order']
     ordering = ['sort_order', 'name_internal']
     readonly_fields = ['created_at', 'updated_at', 'last_uploaded_at']
     fieldsets = [
