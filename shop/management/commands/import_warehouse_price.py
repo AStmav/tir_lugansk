@@ -19,7 +19,7 @@ class Command(BaseCommand):
             help='ID записи WarehousePriceImport (фоновый импорт из админки)',
         )
         parser.add_argument('--warehouse-id', type=int, required=False)
-        parser.add_argument('--file', type=str, required=False, help='Путь к .xlsx или .csv')
+        parser.add_argument('--file', type=str, required=False, help='Путь к .xlsx, .xls или .csv')
         parser.add_argument(
             '--use-warehouse-settings',
             action='store_true',

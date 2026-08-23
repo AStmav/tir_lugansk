@@ -23,6 +23,21 @@ def _read_rows_xlsx(path: Path) -> List[Tuple[int, List]]:
     return rows
 
 
+def _read_rows_xls(path: Path) -> List[Tuple[int, List]]:
+    try:
+        import xlrd
+    except ImportError as exc:
+        raise ImportError(
+            'Для Excel (.xls) установите xlrd: pip install xlrd'
+        ) from exc
+    workbook = xlrd.open_workbook(str(path))
+    sheet = workbook.sheet_by_index(0)
+    rows: List[Tuple[int, List]] = []
+    for row_idx in range(sheet.nrows):
+        rows.append((row_idx + 1, list(sheet.row_values(row_idx))))
+    return rows
+
+
 def _read_rows_csv(path: Path) -> List[Tuple[int, List]]:
     raw = path.read_bytes()
     text = None
@@ -51,6 +66,8 @@ def read_sheet_rows(file_path: str) -> List[Tuple[int, List]]:
     suffix = path.suffix.lower()
     if suffix in ('.xlsx', '.xlsm'):
         return _read_rows_xlsx(path)
+    if suffix == '.xls':
+        return _read_rows_xls(path)
     if suffix == '.csv':
         return _read_rows_csv(path)
     raise ValueError(f'Неподдерживаемый формат файла: {suffix or "без расширения"}')

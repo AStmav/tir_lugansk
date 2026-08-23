@@ -20,7 +20,7 @@ class WarehousePriceUploadForm(forms.Form):
             '«Свой» — ручной маппинг или сохранённые настройки склада.'
         ),
     )
-    file = forms.FileField(label='Файл прайса (.xlsx или .csv)')
+    file = forms.FileField(label='Файл прайса (.xlsx, .xls или .csv)')
     header_row = forms.IntegerField(
         label='Строка заголовков',
         min_value=1,

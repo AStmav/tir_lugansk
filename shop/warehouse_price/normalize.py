@@ -61,4 +61,6 @@ def parse_quantity(value) -> int:
 def cell_to_str(value) -> str:
     if value is None:
         return ''
+    if isinstance(value, float) and value == value and value == int(value):
+        return str(int(value))
     return str(value).strip()
