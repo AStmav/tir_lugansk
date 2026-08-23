@@ -69,6 +69,7 @@ class ProductOfferInline(admin.TabularInline):
         'old_price',
         'stock_quantity',
         'delivery_days',
+        'delivery_days_to',
         'is_active',
         'updated_at',
     ]
@@ -112,6 +113,7 @@ class WarehouseAdmin(WarehousePriceImportAdminMixin, admin.ModelAdmin):
                 'name_internal',
                 'name_public',
                 'delivery_days',
+                'delivery_days_to',
                 'color',
                 'sort_order',
                 'is_active',
@@ -166,6 +168,7 @@ class ProductOfferAdmin(admin.ModelAdmin):
         'price',
         'stock_quantity',
         'delivery_days',
+        'delivery_days_to',
         'is_active',
         'updated_at',
     ]

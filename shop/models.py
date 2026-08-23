@@ -486,8 +486,14 @@ class Warehouse(models.Model):
     )
     delivery_days = models.PositiveSmallIntegerField(
         default=0,
-        verbose_name='Срок доставки (дней)',
+        verbose_name='Срок доставки от (дней)',
         help_text='0 = сегодня / на складе. Можно переопределить в предложении.',
+    )
+    delivery_days_to = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        verbose_name='Срок доставки до (дней)',
+        help_text='Необязательно. Если больше «от» — на сайте «4 - 6 дней».',
     )
     color = models.CharField(
         max_length=7,
@@ -637,8 +643,14 @@ class ProductOffer(models.Model):
     delivery_days = models.PositiveSmallIntegerField(
         blank=True,
         null=True,
-        verbose_name='Срок доставки (дней)',
+        verbose_name='Срок доставки от (дней)',
         help_text='Пусто — берётся срок склада.',
+    )
+    delivery_days_to = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        verbose_name='Срок доставки до (дней)',
+        help_text='Пусто — берётся верхняя граница со склада.',
     )
     is_active = models.BooleanField(default=True, verbose_name='Активно')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
@@ -666,6 +678,14 @@ class ProductOffer(models.Model):
         if self.delivery_days is not None:
             return self.delivery_days
         return self.warehouse.delivery_days
+
+    @property
+    def effective_delivery_days_to(self):
+        if self.delivery_days_to is not None:
+            return self.delivery_days_to
+        if self.delivery_days is not None:
+            return None
+        return self.warehouse.delivery_days_to
 
 
 class WarehousePriceImport(models.Model):

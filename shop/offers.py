@@ -26,10 +26,25 @@ class OfferDisplay:
     warehouse_color: str = ''
 
 
-def format_delivery_days(days: int, *, in_stock: bool = True) -> str:
+def _days_word(days: int) -> str:
+    if days == 1:
+        return 'день'
+    if days in (2, 3, 4):
+        return 'дня'
+    return 'дней'
+
+
+def format_delivery_days(
+    days: int,
+    *,
+    days_to: Optional[int] = None,
+    in_stock: bool = True,
+) -> str:
     """Подпись срока доставки для витрины."""
     if days is None:
         return 'Под заказ' if not in_stock else 'На складе'
+    if days_to is not None and days_to > days:
+        return f'{days} - {days_to} {_days_word(days_to)}'
     if days <= 0:
         return 'На складе' if in_stock else 'Сегодня'
     if days == 1:
@@ -54,12 +69,16 @@ def _legacy_offer(product) -> OfferDisplay:
     public = warehouse.name_public if warehouse else 'Склад'
     internal = warehouse.name_internal if warehouse else 'Основной'
     days = warehouse.delivery_days if warehouse else 0
+    days_to = warehouse.delivery_days_to if warehouse else None
     if not product.in_stock and (warehouse is None or warehouse.delivery_days == 0):
-        # Сохраняем прежний смысл «Под заказ»
         delivery_label = 'Под заказ'
         days = days or 0
     else:
-        delivery_label = format_delivery_days(days, in_stock=product.in_stock)
+        delivery_label = format_delivery_days(
+            days,
+            days_to=days_to,
+            in_stock=product.in_stock,
+        )
 
     qty = product.stock_quantity or 0
     price = product.price if product.price is not None else None
@@ -79,13 +98,14 @@ def _legacy_offer(product) -> OfferDisplay:
 
 def offer_to_display(offer) -> OfferDisplay:
     days = offer.effective_delivery_days
+    days_to = offer.effective_delivery_days_to
     qty = offer.stock_quantity or 0
     available = qty > 0 or offer.price is not None
     return OfferDisplay(
         warehouse_public=offer.warehouse.name_public,
         warehouse_internal=offer.warehouse.name_internal,
         delivery_days=days,
-        delivery_label=format_delivery_days(days, in_stock=qty > 0),
+        delivery_label=format_delivery_days(days, days_to=days_to, in_stock=qty > 0),
         stock_quantity=qty,
         quantity_label=format_quantity(qty, available=available),
         price=offer.price,
