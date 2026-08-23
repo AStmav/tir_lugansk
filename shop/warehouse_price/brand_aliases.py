@@ -95,3 +95,26 @@ def brand_from_normalized_index(
     if not key:
         return None
     return index.get(key)
+
+
+def is_brand_section_header(matcher, article: str, brand_text: str) -> bool:
+    """
+    Строка-подзаголовок в прайсе: в колонке артикула только название производителя,
+    колонка бренда пустая (CUMMINS / MAN / SCANIA …).
+    """
+    if (brand_text or '').strip():
+        return False
+    text = (article or '').strip()
+    if not text:
+        return False
+    brands = matcher.resolve_brands(text)
+    if len(brands) != 1:
+        return False
+    brand = brands[0]
+    key = normalize_brand_key(text)
+    if not key:
+        return False
+    for raw in (brand.name, brand.code):
+        if key == normalize_brand_key(raw or ''):
+            return True
+    return False

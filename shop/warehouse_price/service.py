@@ -3,6 +3,7 @@ from django.db.models import Min, Sum
 from django.utils import timezone
 
 from shop.models import Product, ProductOffer, Warehouse, WarehousePriceImport
+from shop.warehouse_price.brand_aliases import is_brand_section_header
 from shop.warehouse_price.markup import try_apply_markup
 from shop.warehouse_price.matcher import ProductMatcher
 from shop.warehouse_price.parser import iter_price_rows
@@ -83,17 +84,31 @@ def run_warehouse_price_import(
 
     stats = ImportStats()
     matcher = ProductMatcher(fixed_brand_id=fixed_brand_id)
+    header_matcher = ProductMatcher()
     touched_product_ids = set()
+    active_brand_text = ''
 
     # Prefetch ranges once for markup_mode=ranges
     if warehouse.markup_mode == Warehouse.MARKUP_RANGES:
         list(warehouse.markup_ranges.all())
 
     for row in iter_price_rows(file_path, header_row, data_start_row, column_map):
+        brand_text = (row.brand or '').strip()
+        article = (row.article or '').strip()
+
+        if is_brand_section_header(header_matcher, article, brand_text):
+            active_brand_text = brand_text or article
+            continue
+
+        if brand_text:
+            active_brand_text = brand_text
+
+        effective_brand = brand_text or active_brand_text
+
         stats.total += 1
         product, reason = matcher.match(
-            article=row.article,
-            brand_text=row.brand,
+            article=article,
+            brand_text=effective_brand,
             external_id=row.external_id,
         )
         if not product:
