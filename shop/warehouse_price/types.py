@@ -16,7 +16,7 @@ class ParsedPriceRow:
     row_number: int
     article: str
     brand: str
-    price: Decimal
+    price: Optional[Decimal]
     quantity: int
     external_id: str
 

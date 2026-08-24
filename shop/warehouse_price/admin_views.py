@@ -1,6 +1,7 @@
 import os
 import tempfile
 import traceback
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import admin, messages
@@ -8,14 +9,17 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 
 from shop.forms.warehouse_price_form import WarehousePriceUploadForm
 from shop.models import Warehouse, WarehousePriceImport
 from shop.warehouse_price.error_report import (
+    format_missing_brands_summary,
     format_reasons_summary,
     preview_error_log,
     read_price_import_error_log,
+    summarize_missing_brands,
 )
 from shop.warehouse_price.parser import preview_headers
 from shop.warehouse_price.presets import match_preset_key, presets_for_js, settings_to_form_initial
@@ -225,6 +229,7 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         'skipped_rows',
         'error_count',
         'summary',
+        'missing_brands_report',
         'skip_reasons_summary',
         'error_log_actions',
         'error_log_preview',
@@ -260,14 +265,15 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         }),
         ('Отчёт о пропущенных строках', {
             'fields': (
+                'missing_brands_report',
                 'skip_reasons_summary',
                 'error_log_actions',
                 'error_log_preview',
                 'error_log',
             ),
             'description': (
-                'Строки прайса, которые не удалось сопоставить с товаром на сайте '
-                '(номер строки, артикул, бренд, причина).'
+                'Строки прайса, которые не удалось сопоставить с товаром на сайте. '
+                'Блок «Производители не найдены» — короткий список для настройки синонимов.'
             ),
         }),
     )
@@ -321,6 +327,56 @@ class WarehousePriceImportAdmin(admin.ModelAdmin):
         log = read_price_import_error_log(obj.pk, obj.error_log or '')
         text = format_reasons_summary(log)
         return format_html('<pre style="margin:0; white-space:pre-wrap;">{}</pre>', text)
+
+    @admin.display(description='Производители не найдены (для синонимов)')
+    def missing_brands_report(self, obj: WarehousePriceImport):
+        if not obj.pk:
+            return '—'
+        log = read_price_import_error_log(obj.pk, obj.error_log or '')
+        rows = summarize_missing_brands(log, limit=25)
+        if not rows:
+            return format_html(
+                '<p style="margin:0;">Нет ошибок «производитель не найден».</p>'
+            )
+        add_base = reverse('admin:shop_brandalias_add')
+        row_parts = []
+        for brand_text, count in rows:
+            if brand_text == '— (пусто)':
+                add_link = '—'
+            else:
+                add_url = f'{add_base}?{urlencode({"alias": brand_text})}'
+                add_link = format_html('<a href="{}">+ синоним</a>', add_url)
+            row_parts.append(format_html(
+                '<tr>'
+                '<td style="padding:6px 10px; border-bottom:1px solid #eee;">{}</td>'
+                '<td style="padding:6px 10px; border-bottom:1px solid #eee; text-align:right;">{}</td>'
+                '<td style="padding:6px 10px; border-bottom:1px solid #eee;">{}</td>'
+                '</tr>',
+                brand_text,
+                count,
+                add_link,
+            ))
+        footer = ''
+        total = len(summarize_missing_brands(log, limit=10_000))
+        if total > len(rows):
+            footer = format_html(
+                '<p style="margin:8px 0 0; color:#666;">'
+                'Показано {} из {} уникальных написаний. Полный список — в CSV.</p>',
+                len(rows),
+                total,
+            )
+        return format_html(
+            '<table style="border-collapse:collapse; min-width:480px;">'
+            '<thead><tr>'
+            '<th style="text-align:left; padding:6px 10px; border-bottom:1px solid #ddd;">'
+            'Как в прайсе</th>'
+            '<th style="text-align:right; padding:6px 10px; border-bottom:1px solid #ddd;">'
+            'Строк</th>'
+            '<th style="padding:6px 10px; border-bottom:1px solid #ddd;"></th>'
+            '</tr></thead><tbody>{}</tbody></table>{}',
+            mark_safe(''.join(row_parts)),
+            footer,
+        )
 
     @admin.display(description='Действия')
     def error_log_actions(self, obj: WarehousePriceImport):

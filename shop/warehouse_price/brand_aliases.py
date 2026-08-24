@@ -97,14 +97,11 @@ def brand_from_normalized_index(
     return index.get(key)
 
 
-def is_brand_section_header(matcher, article: str, brand_text: str) -> bool:
+def _cell_text_is_brand_label(matcher, text: str) -> bool:
     """
-    Строка-подзаголовок в прайсе: в колонке артикула только название производителя,
-    колонка бренда пустая (CUMMINS / MAN / SCANIA …).
+    Текст ячейки — название производителя (имя/код в каталоге или синоним из BrandAlias).
     """
-    if (brand_text or '').strip():
-        return False
-    text = (article or '').strip()
+    text = (text or '').strip()
     if not text:
         return False
     brands = matcher.resolve_brands(text)
@@ -117,4 +114,17 @@ def is_brand_section_header(matcher, article: str, brand_text: str) -> bool:
     for raw in (brand.name, brand.code):
         if key == normalize_brand_key(raw or ''):
             return True
+    for alias_brand in brands_from_aliases(text):
+        if alias_brand.id == brand.id:
+            return True
     return False
+
+
+def is_brand_section_header(matcher, article: str, brand_text: str) -> bool:
+    """
+    Строка-подзаголовок в прайсе: в колонке артикула только название производителя,
+    колонка бренда пустая (CUMMINS / MAN / КамАЗ / KS …).
+    """
+    if (brand_text or '').strip():
+        return False
+    return _cell_text_is_brand_label(matcher, article)

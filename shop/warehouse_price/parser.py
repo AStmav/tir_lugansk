@@ -123,8 +123,6 @@ def iter_price_rows(
             continue
 
         price = parse_price(get_raw(price_idx))
-        if price is None:
-            continue
 
         yield ParsedPriceRow(
             row_number=row_number,

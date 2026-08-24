@@ -105,6 +105,9 @@ def run_warehouse_price_import(
 
         effective_brand = brand_text or active_brand_text
 
+        if row.price is None:
+            continue
+
         stats.total += 1
         product, reason = matcher.match(
             article=article,
@@ -118,7 +121,7 @@ def run_warehouse_price_import(
                     row_number=row.row_number,
                     reason=reason or 'не найдено',
                     article=row.article,
-                    brand=row.brand,
+                    brand=row.brand or effective_brand,
                 )
             )
             continue
@@ -131,7 +134,7 @@ def run_warehouse_price_import(
                     row_number=row.row_number,
                     reason=markup_error or 'ошибка наценки',
                     article=row.article,
-                    brand=row.brand,
+                    brand=row.brand or effective_brand,
                 )
             )
             continue

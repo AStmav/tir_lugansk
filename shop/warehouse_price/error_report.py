@@ -40,6 +40,32 @@ def summarize_skip_reasons(error_log: str) -> Dict[str, int]:
     return dict(counter.most_common())
 
 
+def summarize_missing_brands(error_log: str, *, limit: int = 30) -> List[Tuple[str, int]]:
+    """
+    Уникальные написания производителя из ошибок «производитель не найден».
+    Возвращает [(brand_text, count), ...] по убыванию count.
+    """
+    counter: Counter = Counter()
+    for _row, _article, brand, reason in parse_error_log(error_log):
+        reason_l = (reason or '').lower()
+        if 'производитель не найден' not in reason_l:
+            continue
+        label = (brand or '').strip() or '— (пусто)'
+        counter[label] += 1
+    return counter.most_common(limit)
+
+
+def format_missing_brands_summary(error_log: str, *, limit: int = 30) -> str:
+    rows = summarize_missing_brands(error_log, limit=limit)
+    if not rows:
+        return 'Ошибок «производитель не найден» нет.'
+    lines = [f'{brand}: {count}' for brand, count in rows]
+    total_unique = len(summarize_missing_brands(error_log, limit=10_000))
+    if total_unique > limit:
+        lines.append(f'… и ещё {total_unique - limit} написаний (полный CSV ниже)')
+    return '\n'.join(lines)
+
+
 def format_reasons_summary(error_log: str, *, limit: int = 20) -> str:
     summary = summarize_skip_reasons(error_log)
     if not summary:
