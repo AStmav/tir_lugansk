@@ -68,6 +68,32 @@ class ProductMatcher:
         brands = self.resolve_brands(brand_text)
         return brands[0] if brands else None
 
+    def find_by_unique_article(self, article: str) -> Tuple[Optional[Product], str]:
+        """
+        Поиск без производителя: артикул однозначно находит товар в каталоге.
+        Без вариантов с приставками — иначе ложные совпадения между брендами.
+        """
+        clean = Product.clean_number(article)
+        if not clean:
+            return None, 'пустой артикул'
+
+        candidates: List[Product] = []
+        seen: set = set()
+        for product in Product.objects.filter(catalog_number_clean=clean)[:5]:
+            if product.id not in seen:
+                seen.add(product.id)
+                candidates.append(product)
+        for product in Product.objects.filter(artikyl_number_clean=clean)[:5]:
+            if product.id not in seen:
+                seen.add(product.id)
+                candidates.append(product)
+
+        if len(candidates) == 1:
+            return candidates[0], ''
+        if len(candidates) > 1:
+            return None, 'неоднозначный артикул (без производителя)'
+        return None, ''
+
     def find_by_external_id(self, external_id: str) -> Tuple[Optional[Product], str]:
         code = (external_id or '').strip()
         if not code:
@@ -150,7 +176,23 @@ class ProductMatcher:
 
         brands = self.resolve_brands(brand_text)
         if not brands:
-            return None, 'производитель не найден (укажите колонку производителя или фиксированный производитель)'
+            # Прайс без колонки производителя: код 1С или уникальный артикул.
+            product, reason = self.find_by_external_id(article)
+            if product:
+                return product, ''
+            if reason and reason.startswith('неоднознач'):
+                return None, reason
+
+            product, reason = self.find_by_unique_article(article)
+            if product:
+                return product, ''
+            if reason and reason.startswith('неоднознач'):
+                return None, reason
+
+            return None, (
+                'производитель не найден (укажите колонку производителя, '
+                'фиксированный производитель или код 1С/уникальный артикул)'
+            )
 
         last_reason = ''
         last_oe_reason = ''
